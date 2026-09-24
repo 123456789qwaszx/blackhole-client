@@ -22,16 +22,17 @@ namespace BlackHole.Core
             TimeLimitDefinition timeLimit = Guard("TimeLimit", diagnostics,
                 () => new TimeLimitDefinition(data.TimeLimit));
             TargetRulesDefinition targetRules = LoadTargetRules(data.TargetRules, diagnostics);
+            BlackHoleDefinition blackHole = LoadBlackHole(data.BlackHole, diagnostics);
             List<TargetDefinition> targets = LoadTargets(data.Targets, diagnostics);
             List<SkillDefinition> skills = LoadSkills(data.Skills, diagnostics);
-            GrowthDefinition growth = LoadGrowth(data.Growth, diagnostics);
+            List<UpgradeDefinition> upgrades = LoadUpgrades(data.Upgrades, diagnostics);
             SpawnDefinition spawn = LoadSpawn(data.Spawn, diagnostics);
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            ContentInvariants.Collect(targets, skills, spawn, diagnostics, out _);
+            ContentInvariants.Collect(targets, skills, upgrades, spawn, diagnostics, out _);
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            var catalog = new ContentCatalog(timeLimit, targetRules, targets, skills, growth, spawn);
+            var catalog = new ContentCatalog(timeLimit, targetRules, blackHole, targets, skills, upgrades, spawn);
             return new ContentLoadResult(catalog, diagnostics);
         }
 
@@ -62,11 +63,13 @@ namespace BlackHole.Core
                     continue;
                 }
 
+                int errors = into.Count;
                 MovementDefinition movement = LoadMovement(item.Movement, at + ".Movement", into);
-                if (movement == null) continue;
+                RewardDefinition reward = LoadReward(item.Reward, at + ".Reward", into);
+                if (into.Count > errors) continue;
 
                 TargetDefinition target = Guard(at, into, () => new TargetDefinition(
-                    item.Id, item.MaxHealth, movement, item.Reward));
+                    item.Id, item.MaxHealth, movement, reward));
                 if (target != null) targets.Add(target);
             }
             return targets;
@@ -191,18 +194,69 @@ namespace BlackHole.Core
             return effects;
         }
 
-        // ── 성장·출현 ───────────────────────────────────────────────────────
+        // ── 블랙홀·보상·강화 ─────────────────────────────────────────────────
 
-        private static GrowthDefinition LoadGrowth(GrowthData item, List<ContentDiagnostic> into)
+        private static BlackHoleDefinition LoadBlackHole(BlackHoleData item, List<ContentDiagnostic> into)
         {
             if (item == null)
             {
-                into.Add(new ContentDiagnostic("Growth", "성장 데이터가 없다."));
+                into.Add(new ContentDiagnostic("BlackHole", "블랙홀 데이터가 없다."));
                 return null;
             }
-            return Guard("Growth", into, () =>
-                new GrowthDefinition(item.UpgradeCost, item.MaxPowerLevel, item.PowerPerLevel));
+            return Guard("BlackHole", into, () =>
+                new BlackHoleDefinition(item.BaseAbsorptionRadius, item.RadiusPerMass, item.MassRadiusCap));
         }
+
+        private static RewardDefinition LoadReward(RewardData item, string at, List<ContentDiagnostic> into)
+        {
+            if (item == null)
+            {
+                into.Add(new ContentDiagnostic(at, "보상 데이터가 없다."));
+                return null;
+            }
+            return Guard(at, into, () => new RewardDefinition(item.Mass, item.Credits));
+        }
+
+        private static List<UpgradeDefinition> LoadUpgrades(List<UpgradeData> items, List<ContentDiagnostic> into)
+        {
+            var upgrades = new List<UpgradeDefinition>();
+            if (items == null) return upgrades;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                UpgradeData item = items[i];
+                string at = At("Upgrades", i, item?.Id);
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "강화 데이터가 null이다."));
+                    continue;
+                }
+                if (!TryParseUpgradeStat(item.Stat, out UpgradeStat stat))
+                {
+                    into.Add(new ContentDiagnostic(at + ".Stat",
+                        $"알 수 없는 강화 대상 '{item.Stat}'. 가능한 값: DamageMultiplier, AbsorptionRadius."));
+                    continue;
+                }
+
+                UpgradeDefinition upgrade = Guard(at, into, () =>
+                    new UpgradeDefinition(item.Id, item.BaseCost, item.MaxLevel, stat, item.PerLevel));
+                if (upgrade != null) upgrades.Add(upgrade);
+            }
+            return upgrades;
+        }
+
+        // Enum.TryParse는 숫자 문자열("0")도 통과시킨다. 명시 목록이면 가능한 값을 진단에 그대로 싣는다.
+        private static bool TryParseUpgradeStat(string name, out UpgradeStat stat)
+        {
+            switch (name)
+            {
+                case "DamageMultiplier": stat = UpgradeStat.DamageMultiplier; return true;
+                case "AbsorptionRadius": stat = UpgradeStat.AbsorptionRadius; return true;
+                default: stat = default; return false;
+            }
+        }
+
+        // ── 출현 ────────────────────────────────────────────────────────────
 
         private static SpawnDefinition LoadSpawn(SpawnData item, List<ContentDiagnostic> into)
         {

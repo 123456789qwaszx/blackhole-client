@@ -44,7 +44,7 @@ namespace BlackHole.Unity
 
         public void Synchronize(Playfield field, float deltaTime)
         {
-            float diameter = field.Growth.AbsorptionRadius * 2;
+            float diameter = field.BlackHole.AbsorptionRadius * 2;
             _hole.transform.localScale = Vector3.one * diameter;
             _halo.transform.localScale = Vector3.one * (diameter + 0.22f);
             _castRemaining = Mathf.Max(0, _castRemaining - deltaTime);

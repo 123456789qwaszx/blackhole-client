@@ -65,16 +65,16 @@ namespace BlackHole.Unity
             session.Advance(Time.deltaTime);
 
             foreach (int slot in _input.CastSlots) Cast(slot, _input.Aim);
-            if (_input.Upgrade) Upgrade();
+            foreach (int slot in _input.UpgradeSlots) Upgrade(slot);
 
             _view.Synchronize(session.Field, Time.deltaTime);
         }
 
         private void OnGUI()
         {
-            switch (_hud.Draw(_launcher.Current))
+            switch (_hud.Draw(_launcher.Current, ReferenceInput.UpgradeKeyNames, out int slot))
             {
-                case HudRequest.Upgrade: Upgrade(); break;
+                case HudRequest.Upgrade: Upgrade(slot); break;
                 case HudRequest.TogglePause: _launcher.Current.TogglePause(); break;
                 case HudRequest.Stop: _launcher.Stop(); break;
                 case HudRequest.Restart: Restart(); break;
@@ -104,7 +104,15 @@ namespace BlackHole.Unity
             if (result == CastResult.Cast) _view.ShowCast(report.Aim, report.AreaRadius);
         }
 
-        private void Upgrade() => _hud.Show("Upgrade: " + _launcher.Current.TryUpgrade());
+        private void Upgrade(int slot)
+        {
+            GameSession session = _launcher.Current;
+            IReadOnlyList<UpgradeDefinition> upgrades = session.Field.Upgrades.Definitions;
+            if (slot >= upgrades.Count) return;
+
+            string id = upgrades[slot].Id;
+            _hud.Show(id + ": " + session.TryPurchaseUpgrade(id));
+        }
 
         #endregion
 

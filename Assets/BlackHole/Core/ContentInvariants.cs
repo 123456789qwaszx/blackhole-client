@@ -11,12 +11,14 @@ namespace BlackHole.Core
         public static void Collect(
             IReadOnlyList<TargetDefinition> targets,
             IReadOnlyList<SkillDefinition> skills,
+            IReadOnlyList<UpgradeDefinition> upgrades,
             SpawnDefinition spawn,
             ICollection<ContentDiagnostic> into,
             out Dictionary<string, TargetDefinition> targetsById)
         {
             targetsById = IndexTargets(targets, into);
             VerifySkills(skills, into);
+            VerifyUpgrades(upgrades, into);
             VerifySpawn(spawn, targetsById, into);
         }
 
@@ -73,6 +75,21 @@ namespace BlackHole.Core
                     if (!SkillRuleFactory.TryCreateEffect(skill.Effects[e], out _))
                         into.Add(new ContentDiagnostic($"Skills[{skill.Id}].Effects[{e}]",
                             SkillRuleFactory.Describe(skill.Effects[e])));
+            }
+        }
+
+        // 강화는 없어도 된다. 있으면 ID가 유일해야 한다.
+        private static void VerifyUpgrades(
+            IReadOnlyList<UpgradeDefinition> upgrades, ICollection<ContentDiagnostic> into)
+        {
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < upgrades.Count; i++)
+            {
+                UpgradeDefinition upgrade = upgrades[i];
+                if (upgrade == null)
+                    into.Add(new ContentDiagnostic($"Upgrades[{i}]", "강화 정의가 null이다."));
+                else if (!ids.Add(upgrade.Id))
+                    into.Add(new ContentDiagnostic($"Upgrades[{i}]", $"강화 ID '{upgrade.Id}'가 중복됐다."));
             }
         }
 

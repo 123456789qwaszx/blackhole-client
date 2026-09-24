@@ -39,6 +39,79 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(CastReportCarriesAppliedArea), CastReportCarriesAppliedArea);
             yield return Case(nameof(AreaSkipsDefeatedAndPullsWhatItKills), AreaSkipsDefeatedAndPullsWhatItKills);
             yield return Case(nameof(LoaderReportsSkillCompositionErrors), LoaderReportsSkillCompositionErrors);
+            yield return Case(nameof(RewardMassAndCreditsAreIndependent), RewardMassAndCreditsAreIndependent);
+            yield return Case(nameof(RejectedPurchaseChangesNothing), RejectedPurchaseChangesNothing);
+            yield return Case(nameof(LoaderReportsGrowthAndUpgradeErrors), LoaderReportsGrowthAndUpgradeErrors);
+        }
+
+        // 질량 증가와 재화 지급은 서로 다른 수치다. 흡수가 확정될 때 한 번만 받는다.
+        public static void RewardMassAndCreditsAreIndependent()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.Targets[0].Reward = Reward(3, 7);
+            GameSession game = Assemble(data);
+            TargetState shard = game.Field.Targets[0];
+
+            game.TryCast(ReferenceGame.StrikeId, shard.Position);
+            game.Advance(2);
+            Equal(TargetPhase.Absorbed, shard.Phase);
+            Equal(3, game.Field.BlackHole.Mass);
+            Equal(7, game.Field.Wallet.Credits);
+            Equal(1, game.Field.BlackHole.AbsorbedCount);
+            // 흡수 반경은 질량에서 계산한다(재화는 반경에 영향이 없다).
+            Near(0.65f + 3 * 0.012f, game.Field.BlackHole.AbsorptionRadius);
+
+            game.Advance(0.5f);
+            Equal(3, game.Field.BlackHole.Mass);
+            Equal(7, game.Field.Wallet.Credits);
+        }
+
+        // 거절 조건(참조·자격·비용)은 상태 변경 전에 모두 판정된다.
+        public static void RejectedPurchaseChangesNothing()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.Targets[0].Reward = Reward(0, 7);
+            GameSession game = Assemble(data);
+            game.TryCast(ReferenceGame.StrikeId, game.Field.Targets[0].Position);
+            game.Advance(2);
+            Equal(7, game.Field.Wallet.Credits);
+
+            Equal(UpgradeResult.UnknownUpgrade, game.TryPurchaseUpgrade("missing"));
+            Equal(UpgradeResult.UnknownUpgrade, game.TryPurchaseUpgrade(null));
+            Equal(7, game.Field.Wallet.Credits);
+            Equal(0, game.Field.Upgrades.Level(ReferenceGame.PowerUpgradeId));
+
+            // 1단계 비용 6 → 성공. 2단계 비용 12 → 잔액 1로 거절.
+            Equal(UpgradeResult.Purchased, game.TryPurchaseUpgrade(ReferenceGame.PowerUpgradeId));
+            Equal(1, game.Field.Wallet.Credits);
+            Equal(12, game.Field.Upgrades.NextCost(ReferenceGame.PowerUpgradeId));
+            Equal(UpgradeResult.InsufficientCredits, game.TryPurchaseUpgrade(ReferenceGame.PowerUpgradeId));
+            Equal(1, game.Field.Wallet.Credits);
+            Equal(1, game.Field.Upgrades.Level(ReferenceGame.PowerUpgradeId));
+            Near(1.35f, game.Field.DamageMultiplier);
+        }
+
+        public static void LoaderReportsGrowthAndUpgradeErrors()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.BlackHole = null;
+            data.Targets[0].Reward = Reward(-1, 2);
+            data.Targets[1].Reward = null;
+            data.Upgrades.Add(new UpgradeData { Id = "luck", BaseCost = 1, MaxLevel = 1, Stat = "Luck", PerLevel = 1 });
+            data.Upgrades.Add(new UpgradeData { Id = "free", BaseCost = 0, MaxLevel = 1, Stat = "DamageMultiplier", PerLevel = 1 });
+
+            ContentLoadResult result = ContentLoader.Load(data);
+            Check(!result.Succeeded, "성장·강화 정의 오류가 있으면 로드에 실패해야 한다.");
+            Equal(5, result.Diagnostics.Count);
+            HasDiagnostic(result, "BlackHole", string.Empty);
+            HasDiagnostic(result, "Targets[shard].Reward", "mass");
+            HasDiagnostic(result, "Targets[heavy].Reward", string.Empty);
+            HasDiagnostic(result, "Upgrades[luck].Stat", "Luck");
+            HasDiagnostic(result, "Upgrades[free]", "baseCost");
+
+            ContentData duplicate = ReferenceGame.CreateContent();
+            duplicate.Upgrades.Add(Power(1, 1, 1));
+            Fails(duplicate, "Upgrades[1]");
         }
 
         // 피해 없는 범위 당김은 새 코드 없이 기존 선택(AllInRadius)과 효과(Pull)의 조합이다.
@@ -47,7 +120,7 @@ namespace BlackHole.Core.Tests
             GameSession game = Assemble(Content(
                 new[] { Target("test", 100, 0, 0.01f, 10) },
                 new[] { Skill("tractor", 1, "AllInRadius", 10, Effect("Pull", 1)) },
-                Growth(6, 1, 0.5f),
+                Power(6, 1, 0.5f),
                 Spawn(0.1f, 2, 3, "test")));
             game.Advance(0.3f);
             Equal(3, game.Field.Targets.Count);
@@ -91,7 +164,7 @@ namespace BlackHole.Core.Tests
             GameSession game = Assemble(Content(
                 new[] { Target("weak", 5, 0, 0.01f, 1) },
                 new[] { Strike("strike", 0.1f, 10, 10), Pulse("pulse", 0.1f, 9, 10, 0.8f) },
-                Growth(6, 1, 0.5f),
+                Power(6, 1, 0.5f),
                 Spawn(0.1f, 2, 2, "weak")));
             game.Advance(0.1f);
             Equal(2, game.Field.Targets.Count);
@@ -134,7 +207,7 @@ namespace BlackHole.Core.Tests
             GameSession game = Assemble(Content(
                 new[] { Diver("diver", 20, 1, 2, 4) },
                 new[] { Strike("strike", 0.1f, 30, 1) },
-                Growth(6, 1, 0.5f),
+                Power(6, 1, 0.5f),
                 Spawn(10, 5, 4, "diver")));
             TargetState diver = game.Field.Targets[0];
             float angle = diver.Angle;
@@ -159,7 +232,7 @@ namespace BlackHole.Core.Tests
             game.Advance(0.5f);
             Equal(TargetPhase.Absorbed, diver.Phase);
             Near(angle, diver.Angle);
-            Equal(4, game.Field.Growth.Mass);
+            Equal(4, game.Field.BlackHole.Mass);
             Equal(0, game.Field.Targets.Count);
         }
 
@@ -169,7 +242,7 @@ namespace BlackHole.Core.Tests
             data.Targets[0].Movement.Acceleration = 1;
             data.Targets.Add(new TargetData
             {
-                Id = "diver", MaxHealth = 1, Reward = 1,
+                Id = "diver", MaxHealth = 1, Reward = Reward(1, 1),
                 Movement = new MovementData { Kind = "Dive", InitialSpeed = 1, AngularSpeed = 0.5f }
             });
 
@@ -210,7 +283,7 @@ namespace BlackHole.Core.Tests
             data.Targets[1].Movement.Kind = "Teleport";
             data.Targets.Add(new TargetData
             {
-                Id = "still", MaxHealth = 1, Reward = 1,
+                Id = "still", MaxHealth = 1, Reward = Reward(1, 1),
                 Movement = new MovementData { Kind = "Orbit", AngularSpeed = 0, InwardSpeed = 0 }
             });
 
@@ -245,9 +318,9 @@ namespace BlackHole.Core.Tests
             TargetState target = game.Field.Targets[0];
             Equal(CastResult.Cast, game.TryCast(ReferenceGame.StrikeId, target.Position));
             Equal(TargetPhase.Defeated, target.Phase);
-            Equal(0, game.Field.Growth.Mass);
+            Equal(0, game.Field.BlackHole.Mass);
             game.Advance(0.1f);
-            Equal(0, game.Field.Growth.Mass);
+            Equal(0, game.Field.BlackHole.Mass);
         }
 
         public static void AbsorptionRewardsExactlyOnce()
@@ -257,11 +330,11 @@ namespace BlackHole.Core.Tests
             game.TryCast(ReferenceGame.StrikeId, target.Position);
             game.Advance(2);
             Equal(TargetPhase.Absorbed, target.Phase);
-            Equal(2, game.Field.Growth.Mass);
-            Equal(2, game.Field.Growth.Credits);
-            Equal(1, game.Field.Growth.AbsorbedCount);
+            Equal(2, game.Field.BlackHole.Mass);
+            Equal(2, game.Field.Wallet.Credits);
+            Equal(1, game.Field.BlackHole.AbsorbedCount);
             game.Advance(4);
-            Equal(2, game.Field.Growth.Mass);
+            Equal(2, game.Field.BlackHole.Mass);
             foreach (TargetState current in game.Field.Targets)
                 Check(current.Id != target.Id, "흡수한 대상은 목록에서 제거되어야 한다.");
         }
@@ -290,7 +363,7 @@ namespace BlackHole.Core.Tests
             Near(radius - 0.8f, target.Radius);
             Near(3, target.Health);
             Equal(TargetPhase.Alive, target.Phase);
-            Equal(0, game.Field.Growth.Mass);
+            Equal(0, game.Field.BlackHole.Mass);
         }
 
         public static void CooldownAndNoTargetHaveDistinctResults()
@@ -310,20 +383,20 @@ namespace BlackHole.Core.Tests
             GameSession game = Assemble(Content(
                 new[] { Target("reward", 1, 0, 0.01f, 10), Target("durable", 100, 0, 0.01f, 10) },
                 new[] { Strike("strike", 0.1f, 10, 0.5f) },
-                Growth(6, 1, 0.5f),
+                Power(6, 1, 0.5f),
                 Spawn(0.8f, 2, 3, "reward", "durable")));
-            Equal(UpgradeResult.InsufficientCredits, game.TryUpgrade());
-            Equal(0, game.Field.Growth.PowerLevel);
-            Equal(0, game.Field.Growth.Credits);
+            Equal(UpgradeResult.InsufficientCredits, game.TryPurchaseUpgrade(ReferenceGame.PowerUpgradeId));
+            Equal(0, game.Field.Upgrades.Level(ReferenceGame.PowerUpgradeId));
+            Equal(0, game.Field.Wallet.Credits);
             game.TryCast("strike", game.Field.Targets[0].Position);
             game.Advance(1);
-            Equal(10, game.Field.Growth.Credits);
-            Equal(UpgradeResult.Purchased, game.TryUpgrade());
-            Equal(4, game.Field.Growth.Credits);
-            Equal(1, game.Field.Growth.PowerLevel);
-            Near(1.5f, game.Field.Growth.DamageMultiplier);
-            Equal(UpgradeResult.MaxLevel, game.TryUpgrade());
-            Equal(4, game.Field.Growth.Credits);
+            Equal(10, game.Field.Wallet.Credits);
+            Equal(UpgradeResult.Purchased, game.TryPurchaseUpgrade(ReferenceGame.PowerUpgradeId));
+            Equal(4, game.Field.Wallet.Credits);
+            Equal(1, game.Field.Upgrades.Level(ReferenceGame.PowerUpgradeId));
+            Near(1.5f, game.Field.DamageMultiplier);
+            Equal(UpgradeResult.MaxLevel, game.TryPurchaseUpgrade(ReferenceGame.PowerUpgradeId));
+            Equal(4, game.Field.Wallet.Credits);
 
             TargetState durable = game.Field.Targets[0];
             Equal("durable", durable.Definition.Id);
@@ -345,7 +418,7 @@ namespace BlackHole.Core.Tests
             Near(cooldown, game.Field.Skills[1].RemainingCooldown);
             Equal(1, game.Field.Targets.Count);
             Equal(CastResult.SessionInactive, game.TryCast(ReferenceGame.StrikeId, target.Position));
-            Equal(UpgradeResult.SessionInactive, game.TryUpgrade());
+            Equal(UpgradeResult.SessionInactive, game.TryPurchaseUpgrade(ReferenceGame.PowerUpgradeId));
             game.TogglePause();
             game.Advance(1);
             Check(game.Elapsed > 0, "재개 후 진행되어야 한다.");
@@ -367,7 +440,7 @@ namespace BlackHole.Core.Tests
             Check(ReferenceEquals(result, game.Result), "종료 결과를 다시 만들면 안 된다.");
             Near(angle, game.Field.Targets[0].Angle);
             Equal(CastResult.SessionInactive, game.TryCast(ReferenceGame.StrikeId, new Point2(0, 0)));
-            Equal(UpgradeResult.SessionInactive, game.TryUpgrade());
+            Equal(UpgradeResult.SessionInactive, game.TryPurchaseUpgrade(ReferenceGame.PowerUpgradeId));
         }
 
         public static void RestartHasFreshState()
@@ -377,7 +450,7 @@ namespace BlackHole.Core.Tests
             old.Advance(2);
             old.Stop();
             GameSession next = Reference();
-            Equal(0, next.Field.Growth.Mass);
+            Equal(0, next.Field.BlackHole.Mass);
             Near(0, next.Elapsed);
             Near(0, next.Field.Skills[0].RemainingCooldown);
             Near(12, next.Field.Targets[0].Health);
@@ -387,8 +460,8 @@ namespace BlackHole.Core.Tests
 
         public static void DefinitionsRejectInvalidData()
         {
-            Throws<ArgumentException>(() => new TargetDefinition("", 1, new OrbitMovementDefinition(1, 1), 1));
-            Throws<ArgumentOutOfRangeException>(() => new TargetDefinition("a", float.NaN, new OrbitMovementDefinition(1, 1), 1));
+            Throws<ArgumentException>(() => new TargetDefinition("", 1, new OrbitMovementDefinition(1, 1), new RewardDefinition(1, 1)));
+            Throws<ArgumentOutOfRangeException>(() => new TargetDefinition("a", float.NaN, new OrbitMovementDefinition(1, 1), new RewardDefinition(1, 1)));
             Throws<ArgumentOutOfRangeException>(() => new AllInRadiusDefinition(-1));
             Throws<ArgumentException>(() => new SkillDefinition("a", 1, new AllInRadiusDefinition(1), new SkillEffectDefinition[0]));
             Throws<ArgumentOutOfRangeException>(() => new Point2(float.PositiveInfinity, 0));
@@ -414,7 +487,7 @@ namespace BlackHole.Core.Tests
             GameSession game = Assemble(Content(
                 new[] { Target("new-target", 50, 0, 1, 3) },
                 new[] { Strike("new-skill", 1, 7, 10) },
-                Growth(1, 1, 1),
+                Power(1, 1, 1),
                 Spawn(1, 5, 4, "new-target"),
                 duration: 5));
             Equal(CastResult.Cast, game.TryCast("new-skill", new Point2(0, 0)));
@@ -430,7 +503,7 @@ namespace BlackHole.Core.Tests
             var types = new HashSet<string>();
             foreach (TargetState target in game.Field.Targets) types.Add(target.Definition.Id);
             Equal(2, types.Count);
-            Equal(0, game.Field.Growth.Mass);
+            Equal(0, game.Field.BlackHole.Mass);
         }
 
         public static void ReferenceLoopReachesGrowthUpgradeAndEnd()
@@ -506,10 +579,10 @@ namespace BlackHole.Core.Tests
             game.Advance(1.2f);
             Equal(TargetPhase.Defeated, target.Phase);
             Near(0.7f, target.Radius);
-            Equal(0, game.Field.Growth.Mass);
+            Equal(0, game.Field.BlackHole.Mass);
             game.Advance(0.05f);
             Equal(TargetPhase.Absorbed, target.Phase);
-            Equal(2, game.Field.Growth.Mass);
+            Equal(2, game.Field.BlackHole.Mass);
             foreach (TargetState current in game.Field.Targets)
                 Check(current.Id != target.Id, "흡수한 단계에서 목록 제거까지 끝나야 한다.");
         }
@@ -522,16 +595,16 @@ namespace BlackHole.Core.Tests
             GameSession second = SessionAssembler.Create(catalog);
 
             RunScriptedLoop(first, 0.1f, 60);
-            Check(first.Field.Growth.PowerLevel > 0, "첫 판은 강화까지 진행해야 한다.");
+            Check(first.Field.Upgrades.Level(ReferenceGame.PowerUpgradeId) > 0, "첫 판은 강화까지 진행해야 한다.");
             // 로드 뒤 저작 데이터를 바꿔도 이미 만든 카탈로그와 판에는 영향이 없다.
             data.Targets[0].MaxHealth = 999;
 
             foreach (GameSession fresh in new[] { second, SessionAssembler.Create(catalog) })
             {
                 Near(0, fresh.Elapsed);
-                Equal(0, fresh.Field.Growth.Mass);
-                Equal(0, fresh.Field.Growth.Credits);
-                Equal(0, fresh.Field.Growth.PowerLevel);
+                Equal(0, fresh.Field.BlackHole.Mass);
+                Equal(0, fresh.Field.Wallet.Credits);
+                Equal(0, fresh.Field.Upgrades.Level(ReferenceGame.PowerUpgradeId));
                 Near(0, fresh.Field.Skills[0].RemainingCooldown);
                 Equal(1, fresh.Field.Targets.Count);
                 Near(12, fresh.Field.Targets[0].Health);
@@ -577,19 +650,23 @@ namespace BlackHole.Core.Tests
 
         public static void CatalogConstructorEnforcesSameInvariants()
         {
-            var target = new TargetDefinition("shard", 12, new OrbitMovementDefinition(0, 1), 2);
+            var target = new TargetDefinition("shard", 12, new OrbitMovementDefinition(0, 1), new RewardDefinition(2, 2));
             var skill = new SkillDefinition("strike", 1, new NearestInRadiusDefinition(1),
                 new SkillEffectDefinition[] { new DamageEffectDefinition(1) });
-            var growth = new GrowthDefinition(1, 1, 1);
+            var blackHole = new BlackHoleDefinition(0.65f, 0.012f, 50);
+            var upgrades = new[] { new UpgradeDefinition("power", 1, 1, UpgradeStat.DamageMultiplier, 1) };
             var spawn = new SpawnDefinition(new[] { "shard" }, 1, 5, 0, 4);
             var limit = new TimeLimitDefinition(10);
             var rules = new TargetRulesDefinition(0.8f, 4);
-            new ContentCatalog(limit, rules, new[] { target }, new[] { skill }, growth, spawn);
+            new ContentCatalog(limit, rules, blackHole, new[] { target }, new[] { skill }, upgrades, spawn);
 
             Throws<ArgumentException>(() => new ContentCatalog(
-                limit, rules, new[] { target }, new[] { skill, skill }, growth, spawn));
+                limit, rules, blackHole, new[] { target }, new[] { skill, skill }, upgrades, spawn));
             Throws<ArgumentException>(() => new ContentCatalog(
-                limit, rules, new[] { target }, new[] { skill }, growth, new SpawnDefinition(new[] { "ghost" }, 1, 5, 0, 4)));
+                limit, rules, blackHole, new[] { target }, new[] { skill }, upgrades,
+                new SpawnDefinition(new[] { "ghost" }, 1, 5, 0, 4)));
+            Throws<ArgumentException>(() => new ContentCatalog(
+                limit, rules, blackHole, new[] { target }, new[] { skill }, new[] { upgrades[0], upgrades[0] }, spawn));
         }
 
         // ── 공통 준비 ───────────────────────────────────────────────────────
@@ -611,18 +688,19 @@ namespace BlackHole.Core.Tests
         }
 
         private static ContentData Content(TargetData[] targets, SkillData[] skills,
-            GrowthData growth, SpawnData spawn, float duration = 60) => new ContentData
+            UpgradeData power, SpawnData spawn, float duration = 60) => new ContentData
         {
             TimeLimit = duration,
             TargetRules = new TargetRulesData { AliveMargin = 0.8f, FallSpeed = 4 },
             Targets = new List<TargetData>(targets),
             Skills = new List<SkillData>(skills),
-            Growth = growth,
+            BlackHole = new BlackHoleData { BaseAbsorptionRadius = 0.65f, RadiusPerMass = 0.012f, MassRadiusCap = 50 },
+            Upgrades = new List<UpgradeData> { power },
             Spawn = spawn
         };
 
         private static TargetData Target(string id, float health, float angular, float inward, int reward) =>
-            new TargetData { Id = id, MaxHealth = health, Reward = reward, Movement = Orbit(angular, inward) };
+            new TargetData { Id = id, MaxHealth = health, Reward = Reward(reward, reward), Movement = Orbit(angular, inward) };
 
         private static MovementData Orbit(float angular, float inward) =>
             new MovementData { Kind = "Orbit", AngularSpeed = angular, InwardSpeed = inward };
@@ -630,7 +708,7 @@ namespace BlackHole.Core.Tests
         private static TargetData Diver(string id, float health, float initialSpeed, float acceleration, int reward) =>
             new TargetData
             {
-                Id = id, MaxHealth = health, Reward = reward,
+                Id = id, MaxHealth = health, Reward = Reward(reward, reward),
                 Movement = new MovementData { Kind = "Dive", InitialSpeed = initialSpeed, Acceleration = acceleration }
             };
 
@@ -653,8 +731,15 @@ namespace BlackHole.Core.Tests
 
         private static EffectData Effect(string kind, float amount) => new EffectData { Kind = kind, Amount = amount };
 
-        private static GrowthData Growth(int cost, int maxLevel, float perLevel) =>
-            new GrowthData { UpgradeCost = cost, MaxPowerLevel = maxLevel, PowerPerLevel = perLevel };
+        // 공격 배율 강화(샘플과 같은 ID).
+        private static UpgradeData Power(int cost, int maxLevel, float perLevel) =>
+            new UpgradeData
+            {
+                Id = ReferenceGame.PowerUpgradeId, BaseCost = cost, MaxLevel = maxLevel,
+                Stat = "DamageMultiplier", PerLevel = perLevel
+            };
+
+        private static RewardData Reward(int mass, int credits) => new RewardData { Mass = mass, Credits = credits };
 
         private static SpawnData Spawn(float interval, float radius, int capacity, params string[] order) =>
             new SpawnData
@@ -692,7 +777,7 @@ namespace BlackHole.Core.Tests
                     game.TryCast(ReferenceGame.PulseId, target.Position);
                     break;
                 }
-                if (game.TryUpgrade() == UpgradeResult.Purchased) upgraded = true;
+                if (game.TryPurchaseUpgrade(ReferenceGame.PowerUpgradeId) == UpgradeResult.Purchased) upgraded = true;
                 game.Advance(step);
             }
             return upgraded;
@@ -718,10 +803,10 @@ namespace BlackHole.Core.Tests
         private static void ExpectSnapshot(GameSession game, Snapshot expected)
         {
             Near(6, game.Elapsed);
-            Equal(expected.Mass, game.Field.Growth.Mass);
-            Equal(expected.Credits, game.Field.Growth.Credits);
-            Equal(expected.Absorbed, game.Field.Growth.AbsorbedCount);
-            Equal(expected.PowerLevel, game.Field.Growth.PowerLevel);
+            Equal(expected.Mass, game.Field.BlackHole.Mass);
+            Equal(expected.Credits, game.Field.Wallet.Credits);
+            Equal(expected.Absorbed, game.Field.BlackHole.AbsorbedCount);
+            Equal(expected.PowerLevel, game.Field.Upgrades.Level(ReferenceGame.PowerUpgradeId));
             Equal(expected.Targets, game.Field.Targets.Count);
             float health = 0;
             foreach (TargetState target in game.Field.Targets) health += target.Health;
@@ -734,15 +819,15 @@ namespace BlackHole.Core.Tests
             Near(60, game.Result.PlayedSeconds);
             Equal(expected.Mass, game.Result.Mass);
             Equal(expected.Absorbed, game.Result.AbsorbedCount);
-            Equal(expected.Credits, game.Field.Growth.Credits);
-            Equal(expected.PowerLevel, game.Field.Growth.PowerLevel);
+            Equal(expected.Credits, game.Field.Wallet.Credits);
+            Equal(expected.PowerLevel, game.Field.Upgrades.Level(ReferenceGame.PowerUpgradeId));
             Equal(expected.Targets, game.Field.Targets.Count);
         }
 
         private static GameSession CreateCrowdedSession(float health = 100) => Assemble(Content(
             new[] { Target("test", health, 0, 0.01f, 10) },
             new[] { Strike("strike", 0.1f, 10, 10), Pulse("pulse", 0.1f, 5, 10, 0.5f) },
-            Growth(6, 1, 0.5f),
+            Power(6, 1, 0.5f),
             Spawn(0.1f, 2, 3, "test")));
 
         private static KeyValuePair<string, Action> Case(string name, Action action) =>

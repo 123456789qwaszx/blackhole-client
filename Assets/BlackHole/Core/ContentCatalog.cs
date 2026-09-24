@@ -6,7 +6,7 @@ namespace BlackHole.Core
     // 한 판을 조립하는 데 필요한 검증된 공유 정의 묶음. 읽기 전용이며 여러 판이 함께 쓴다.
     //
     // 생성자 보장(구현 = ContentInvariants):
-    // [1] 대상·스킬 ID가 유일하다.
+    // [1] 대상·스킬·강화 ID가 유일하다.
     // [2] 출현 순서의 대상 ID가 실재한다.
     // [3] 모든 스킬과 대상 이동이 실행 규칙으로 해석된다.
     // 오류가 있는 콘텐츠의 위치별 보고는 ContentLoader가 맡는다.
@@ -16,10 +16,11 @@ namespace BlackHole.Core
 
         public TimeLimitDefinition TimeLimit { get; }
         public TargetRulesDefinition TargetRules { get; }
+        public BlackHoleDefinition BlackHole { get; }
         public IReadOnlyList<TargetDefinition> Targets { get; }
         // 현재 스킬 사용자 한 명이 보유하는 스킬. 사용자가 여럿이 되면 사용자별 보유 목록으로 나눈다.
         public IReadOnlyList<SkillDefinition> Skills { get; }
-        public GrowthDefinition Growth { get; }
+        public IReadOnlyList<UpgradeDefinition> Upgrades { get; }
         public SpawnDefinition Spawn { get; }
         // Spawn.TargetOrder를 해석한 정의 목록.
         internal IReadOnlyList<TargetDefinition> SpawnOrder { get; }
@@ -27,20 +28,22 @@ namespace BlackHole.Core
         public ContentCatalog(
             TimeLimitDefinition timeLimit,
             TargetRulesDefinition targetRules,
+            BlackHoleDefinition blackHole,
             IReadOnlyList<TargetDefinition> targets,
             IReadOnlyList<SkillDefinition> skills,
-            GrowthDefinition growth,
+            IReadOnlyList<UpgradeDefinition> upgrades,
             SpawnDefinition spawn)
         {
             TimeLimit = timeLimit ?? throw new ArgumentNullException(nameof(timeLimit));
             TargetRules = targetRules ?? throw new ArgumentNullException(nameof(targetRules));
+            BlackHole = blackHole ?? throw new ArgumentNullException(nameof(blackHole));
             Targets = Copy(targets);
             Skills = Copy(skills);
-            Growth = growth ?? throw new ArgumentNullException(nameof(growth));
+            Upgrades = Copy(upgrades);
             Spawn = spawn;
 
             var diagnostics = new List<ContentDiagnostic>();
-            ContentInvariants.Collect(Targets, Skills, Spawn, diagnostics, out _targetsById);
+            ContentInvariants.Collect(Targets, Skills, Upgrades, Spawn, diagnostics, out _targetsById);
             if (diagnostics.Count > 0)
                 throw new ArgumentException(diagnostics[0].ToString());
 

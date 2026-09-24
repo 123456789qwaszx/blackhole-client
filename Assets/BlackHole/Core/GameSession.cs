@@ -12,12 +12,12 @@ namespace BlackHole.Core
         public int Mass { get; }
         public int AbsorbedCount { get; }
 
-        internal SessionResult(SessionEndReason reason, float elapsed, GrowthState growth)
+        internal SessionResult(SessionEndReason reason, float elapsed, BlackHoleState blackHole)
         {
             Reason = reason;
             PlayedSeconds = elapsed;
-            Mass = growth.Mass;
-            AbsorbedCount = growth.AbsorbedCount;
+            Mass = blackHole.Mass;
+            AbsorbedCount = blackHole.AbsorbedCount;
         }
     }
 
@@ -61,9 +61,9 @@ namespace BlackHole.Core
                 : CastResult.SessionInactive;
         }
 
-        public UpgradeResult TryUpgrade() =>
+        public UpgradeResult TryPurchaseUpgrade(string upgradeId) =>
             Phase == SessionPhase.Running
-                ? Field.Growth.TryUpgrade()
+                ? Field.TryPurchaseUpgrade(upgradeId)
                 : UpgradeResult.SessionInactive;
 
         public void TogglePause()
@@ -77,7 +77,7 @@ namespace BlackHole.Core
         private void End(SessionEndReason reason)
         {
             if (Phase == SessionPhase.Ended) return;
-            Result = new SessionResult(reason, Elapsed, Field.Growth);
+            Result = new SessionResult(reason, Elapsed, Field.BlackHole);
             Phase = SessionPhase.Ended;
         }
     }

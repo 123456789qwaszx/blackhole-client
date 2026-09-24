@@ -8,17 +8,19 @@ namespace BlackHole.Core
     {
         public const string StrikeId = "focused-strike";
         public const string PulseId = "gravity-pulse";
+        public const string PowerUpgradeId = "power";
 
         // 호출마다 새 데이터를 만든다. 호출자가 고쳐도 다른 호출에 영향이 없다.
         public static ContentData CreateContent() => new ContentData
         {
             TimeLimit = 60,
             TargetRules = new TargetRulesData { AliveMargin = 0.8f, FallSpeed = 4 },
+            BlackHole = new BlackHoleData { BaseAbsorptionRadius = 0.65f, RadiusPerMass = 0.012f, MassRadiusCap = 50 },
             // 두 대상은 같은 궤도 규칙의 수치 변형이다.
             Targets = new List<TargetData>
             {
-                new TargetData { Id = "shard", MaxHealth = 12, Reward = 2, Movement = Orbit(0.6f, 0.25f) },
-                new TargetData { Id = "heavy", MaxHealth = 30, Reward = 5, Movement = Orbit(-0.28f, 0.13f) }
+                new TargetData { Id = "shard", MaxHealth = 12, Reward = Reward(2, 2), Movement = Orbit(0.6f, 0.25f) },
+                new TargetData { Id = "heavy", MaxHealth = 30, Reward = Reward(5, 5), Movement = Orbit(-0.28f, 0.13f) }
             },
             // 집중 공격 = 단일 대상 선택 + 피해. 중력파 = 범위 선택 + 피해 + 당김.
             Skills = new List<SkillData>
@@ -36,7 +38,10 @@ namespace BlackHole.Core
                     Effects = { Effect("Damage", 9), Effect("Pull", 0.8f) }
                 }
             },
-            Growth = new GrowthData { UpgradeCost = 6, MaxPowerLevel = 5, PowerPerLevel = 0.35f },
+            Upgrades = new List<UpgradeData>
+            {
+                new UpgradeData { Id = PowerUpgradeId, BaseCost = 6, MaxLevel = 5, Stat = "DamageMultiplier", PerLevel = 0.35f }
+            },
             Spawn = new SpawnData
             {
                 TargetOrder = new List<string> { "shard", "heavy" },
@@ -46,6 +51,8 @@ namespace BlackHole.Core
                 Capacity = 32
             }
         };
+
+        private static RewardData Reward(int mass, int credits) => new RewardData { Mass = mass, Credits = credits };
 
         private static MovementData Orbit(float angularSpeed, float inwardSpeed) =>
             new MovementData { Kind = "Orbit", AngularSpeed = angularSpeed, InwardSpeed = inwardSpeed };
