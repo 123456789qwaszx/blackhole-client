@@ -20,7 +20,7 @@ namespace BlackHole.Core
         }
     }
 
-    // Enemy 종류 하나의 공유 정의: 기본 수치, 행동, 사망 시 보상.
+    // Enemy 종류 하나의 공유 정의: 기본 수치, 행동, 사망 시 보상, 사망 효과.
     public sealed class EnemyDefinition
     {
         public string Id { get; }
@@ -29,13 +29,16 @@ namespace BlackHole.Core
         public int Gold { get; }
         public int HqExp { get; }
         public EnemyReward BaseReward => new EnemyReward(Gold, HqExp);
+        // 죽을 때 일어나는 효과. null이면 없다.
+        public DeathEffectDefinition DeathEffect { get; }
 
         public EnemyDefinition(
             string id, 
             EnemyStats baseStats,
             EnemyBehaviorDefinition behavior,
             int gold = 0,
-            int hqExp = 0)
+            int hqExp = 0,
+            DeathEffectDefinition deathEffect = null)
         {
             if (string.IsNullOrWhiteSpace(id)) 
                 throw new ArgumentException("ID가 비어 있다.", nameof(id));
@@ -51,6 +54,7 @@ namespace BlackHole.Core
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
             Gold = gold;
             HqExp = hqExp;
+            DeathEffect = deathEffect;
         }
     }
 

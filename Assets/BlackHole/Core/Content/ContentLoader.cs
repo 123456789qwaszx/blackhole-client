@@ -102,11 +102,12 @@ namespace BlackHole.Core
 
                 int errors = into.Count;
                 EnemyBehaviorDefinition behavior = LoadBehavior(item.Behavior, at + ".Behavior", into);
+                DeathEffectDefinition deathEffect = LoadDeathEffect(item.DeathEffect, at + ".DeathEffect", into);
                 EnemyStats? stats = GuardValue(at, into, () => new EnemyStats(item.MaxHealth, item.MoveSpeed, item.Size));
                 if (into.Count > errors) continue;
 
                 EnemyDefinition enemy = Guard(at, into, () =>
-                    new EnemyDefinition(item.Id, stats.Value, behavior, item.Gold, item.HqExp));
+                    new EnemyDefinition(item.Id, stats.Value, behavior, item.Gold, item.HqExp, deathEffect));
                 if (enemy != null) enemies.Add(enemy);
             }
             return enemies;
@@ -122,6 +123,22 @@ namespace BlackHole.Core
                     return new OrbitHqBehaviorDefinition(item.Clockwise);
                 default:
                     into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 행동 종류 '{item.Kind}'. 가능한 값: OrbitHq."));
+                    return null;
+            }
+        }
+
+        // 비어 있으면 사망 효과가 없다(null을 돌려준다). 수치 규칙은 효과 정의 생성자가 가진다.
+        private static DeathEffectDefinition LoadDeathEffect(DeathEffectData item, string at, List<ContentDiagnostic> into)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(item.Kind))
+                return null;
+
+            switch (item.Kind)
+            {
+                case "ChainLightning":
+                    return Guard(at, into, () => new ChainLightningDefinition(item.Damage, item.Range, item.Chains));
+                default:
+                    into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 사망 효과 종류 '{item.Kind}'. 가능한 값: ChainLightning."));
                     return null;
             }
         }

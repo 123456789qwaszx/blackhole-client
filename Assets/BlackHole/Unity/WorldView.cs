@@ -13,19 +13,24 @@ namespace BlackHole.Unity
     {
         private const int DiscPixels = 64;
         private const int RingPixels = 128;
+        private const int LinePixels = 4;
 
         private readonly SamplePresentation _presentation;
         private readonly Camera _camera;
         private readonly Transform _root;
         private readonly Texture2D _discTexture;
         private readonly Texture2D _ringTexture;
+        private readonly Texture2D _lineTexture;
         private readonly Sprite _disc;
         private readonly Sprite _ring;
+        private readonly Sprite _line;
         private readonly SpriteRenderer _hq;
         private readonly SpriteRenderer _hqGlow;
         private readonly Dictionary<EnemyId, EnemyView> _enemies = new Dictionary<EnemyId, EnemyView>();
         private readonly List<AbsorbingView> _absorbing = new List<AbsorbingView>();
         private long _lastDeathSequence;
+        private readonly List<LightningView> _lightning = new List<LightningView>();
+        private long _lastDeathEffectHitSequence;
         private readonly HashSet<EnemyId> _seen = new HashSet<EnemyId>();
         private readonly List<EnemyId> _gone = new List<EnemyId>();
         // Skill은 판 안에서 사라지지 않는다. 판이 바뀌면 Reset이 지운다.
@@ -39,8 +44,10 @@ namespace BlackHole.Unity
             _root.SetParent(parent, false);
             _discTexture = CreateTexture("Disc", DiscPixels, radius => Mathf.Clamp01(DiscPixels / 2f - 0.5f - radius));
             _ringTexture = CreateTexture("Ring", RingPixels, radius => Mathf.Clamp01(1.5f - Mathf.Abs(RingPixels / 2f - 2f - radius)));
+            _lineTexture = CreateTexture("Line", LinePixels, radius => 1);
             _disc = CreateSprite(_discTexture, DiscPixels);
             _ring = CreateSprite(_ringTexture, RingPixels);
+            _line = CreateSprite(_lineTexture, LinePixels);
             _hqGlow = CreateRenderer("HQ Glow", _disc, presentation.HqGlowColor, 0);
             _hq = CreateRenderer("HQ", _disc, presentation.HqColor, 1);
         }
@@ -49,6 +56,7 @@ namespace BlackHole.Unity
         {
             SynchronizeHq(world.Hq);
             SynchronizeEnemies(world.Enemies, world.Deaths, world.Hq.Position);
+            SynchronizeDeathEffects(world.DeathEffectHits);
             SynchronizeSkills(world.Players);
         }
 
@@ -60,6 +68,9 @@ namespace BlackHole.Unity
             foreach (AbsorbingView view in _absorbing) Destroy(view.Renderer);
             _absorbing.Clear();
             _lastDeathSequence = 0;
+            foreach (LightningView view in _lightning) Destroy(view.Renderer);
+            _lightning.Clear();
+            _lastDeathEffectHitSequence = 0;
             foreach (SkillView view in _skills.Values)
             {
                 Destroy(view.Fill);
@@ -73,8 +84,10 @@ namespace BlackHole.Unity
             Object.Destroy(_root.gameObject);
             Object.Destroy(_disc);
             Object.Destroy(_ring);
+            Object.Destroy(_line);
             Object.Destroy(_discTexture);
             Object.Destroy(_ringTexture);
+            Object.Destroy(_lineTexture);
         }
 
         private void SynchronizeHq(Hq hq)
@@ -160,6 +173,42 @@ namespace BlackHole.Unity
             {
                 Destroy(_enemies[id].Renderer);
                 _enemies.Remove(id);
+            }
+        }
+
+        // 사망 효과의 적중 기록을 연출로 바꾼다. 피해는 이미 처리됐고, 연출이 끝나는지와 무관하다.
+        // 사망 기록처럼 같은 Advance의 모든 하위 단계가 쌓이므로 Sequence로 한 번만 만든다.
+        private void SynchronizeDeathEffects(IReadOnlyList<DeathEffectHit> hits)
+        {
+            float now = Time.unscaledTime;
+
+            for (int i = 0; i < hits.Count; i++)
+            {
+                DeathEffectHit hit = hits[i];
+                if (hit.Sequence <= _lastDeathEffectHitSequence) continue;
+                _lastDeathEffectHitSequence = hit.Sequence;
+                if (!(hit.Effect is ChainLightningDefinition)) continue;
+
+                Vector3 from = SceneSpace.ToScene(hit.From);
+                Vector3 to = SceneSpace.ToScene(hit.To);
+                Vector3 span = to - from;
+                SpriteRenderer renderer = CreateRenderer("Lightning #" + hit.Sequence, _line, _presentation.LightningColor, 5);
+                renderer.transform.position = (from + to) / 2;
+                renderer.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(span.y, span.x) * Mathf.Rad2Deg);
+                renderer.transform.localScale = new Vector3(span.magnitude, _presentation.LightningWidth, 1);
+                _lightning.Add(new LightningView(renderer, now));
+            }
+
+            // 일시정지 중에도 실제 시간으로 옅어진다(흡수 연출과 같은 [임시]).
+            for (int i = _lightning.Count - 1; i >= 0; i--)
+            {
+                LightningView view = _lightning[i];
+                float alpha = Fade(now - view.StartedAt, _presentation.LightningSeconds);
+                Color color = _presentation.LightningColor;
+                view.Renderer.color = new Color(color.r, color.g, color.b, color.a * alpha);
+                if (alpha > 0) continue;
+                Destroy(view.Renderer);
+                _lightning.RemoveAt(i);
             }
         }
 
@@ -273,6 +322,18 @@ namespace BlackHole.Unity
                 Start = start;
                 StartedAt = startedAt;
                 InitialScale = renderer.transform.localScale;
+            }
+        }
+
+        private sealed class LightningView
+        {
+            public readonly SpriteRenderer Renderer;
+            public readonly float StartedAt;
+
+            public LightningView(SpriteRenderer renderer, float startedAt)
+            {
+                Renderer = renderer;
+                StartedAt = startedAt;
             }
         }
 

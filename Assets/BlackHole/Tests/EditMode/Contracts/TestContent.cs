@@ -47,6 +47,9 @@ namespace BlackHole.Core.Tests
                 Behavior = new EnemyBehaviorData { Kind = "OrbitHq", Clockwise = clockwise }
             };
 
+        public static DeathEffectData ChainLightning(float damage, float range, int chains) =>
+            new DeathEffectData { Kind = "ChainLightning", Damage = damage, Range = range, Chains = chains };
+
         public static SupplyData Supply(string enemyId, int count) =>
             new SupplyData { Enemy = enemyId, Count = count };
 

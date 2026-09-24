@@ -15,7 +15,8 @@ namespace BlackHole.Unity
         private readonly Dictionary<string, Color> _enemyColors = new Dictionary<string, Color>(StringComparer.Ordinal)
         {
             { SampleContent.LightEnemyId, new Color(0.2f, 0.9f, 0.95f) },
-            { SampleContent.HeavyEnemyId, new Color(1, 0.55f, 0.23f) }
+            { SampleContent.HeavyEnemyId, new Color(1, 0.55f, 0.23f) },
+            { SampleContent.ElectricEnemyId, new Color(1, 0.92f, 0.25f) }
         };
 
         public float CameraSize { get; } = 7.5f;
@@ -40,6 +41,11 @@ namespace BlackHole.Unity
         public Color SkillTickColor { get; } = new Color(0.55f, 0.75f, 1, 0.24f);
         public Color SkillRingColor { get; } = new Color(0.6f, 0.8f, 1, 0.8f);
         public float SkillTickSeconds { get; } = 0.15f;
+
+        // 연쇄 번개: 적중 기록마다 출발점에서 도착점까지 선을 긋고 옅어지게 한다. 피해는 이미 처리된 뒤다.
+        public Color LightningColor { get; } = new Color(1, 0.97f, 0.7f);
+        public float LightningWidth { get; } = 0.06f;
+        public float LightningSeconds { get; } = 0.25f;
 
         // HQ 원판의 지름: 시작 Level에서 기본 지름, Level마다 일정하게 커진다.
         public float HqDiameter(int level) =>

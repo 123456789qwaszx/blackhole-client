@@ -68,6 +68,20 @@ namespace BlackHole.Core
         public int Gold;
         public int HqExp;
         public EnemyBehaviorData Behavior;
+        // 비어 있으면 사망 효과가 없다.
+        public DeathEffectData DeathEffect;
+    }
+
+    // 사망 효과 종류마다 쓰는 칸이 다르다. 지금은 ChainLightning 하나다.
+    [Serializable]
+    public sealed class DeathEffectData
+    {
+        // 이름 문자열. 가능한 값은 ContentLoader의 해석 목록에 있다.
+        public string Kind;
+        // ChainLightning
+        public float Damage;
+        public float Range;
+        public int Chains;
     }
 
     // 행동 종류마다 쓰는 칸이 다르다. 지금은 OrbitHq 하나다.

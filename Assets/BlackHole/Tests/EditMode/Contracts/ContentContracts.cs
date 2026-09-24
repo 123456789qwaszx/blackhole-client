@@ -16,6 +16,37 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsSkillErrorsWithPath", ReportsSkillErrorsWithPath);
             yield return new Contract("Content.ReportsSupplyAndGrowthErrorsWithPath", ReportsSupplyAndGrowthErrorsWithPath);
             yield return new Contract("Content.ReportsUpgradeErrorsWithPath", ReportsUpgradeErrorsWithPath);
+            yield return new Contract("Content.ReportsDeathEffectErrorsWithPath", ReportsDeathEffectErrorsWithPath);
+        }
+
+        // 사망 효과의 오류. 종류 이름은 로더가, 수치는 효과 정의 생성자가 경로와 함께 보고한다.
+        // 종류 이름이 비어 있으면 사망 효과가 없는 적이다.
+        private static void ReportsDeathEffectErrorsWithPath()
+        {
+            ContentData values = TestContent.Data();
+            values.Enemies.Add(WithEffect("bad-kind", new DeathEffectData { Kind = "Explode" }));
+            values.Enemies.Add(WithEffect("no-chains", TestContent.ChainLightning(5, 2, 0)));
+            values.Enemies.Add(WithEffect("no-damage", TestContent.ChainLightning(0, 2, 1)));
+            values.Enemies.Add(WithEffect("no-range", TestContent.ChainLightning(5, -1, 1)));
+            ContentLoadResult result = ContentLoader.Load(values);
+            Expect.Equal(4, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Enemies[bad-kind].DeathEffect.Kind", "Explode");
+            TestContent.HasDiagnostic(result, "Enemies[no-chains].DeathEffect", "chains");
+            TestContent.HasDiagnostic(result, "Enemies[no-damage].DeathEffect", "damage");
+            TestContent.HasDiagnostic(result, "Enemies[no-range].DeathEffect", "range");
+
+            ContentData empty = TestContent.Data();
+            empty.Enemies[0].DeathEffect = new DeathEffectData();
+            GameContent content = TestContent.Load(empty);
+            content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition enemy);
+            Expect.True(enemy.DeathEffect == null, "종류 이름이 비어 있으면 사망 효과가 없어야 한다.");
+        }
+
+        private static EnemyData WithEffect(string id, DeathEffectData effect)
+        {
+            EnemyData enemy = TestContent.Enemy(id, 10, 1, 0.3f);
+            enemy.DeathEffect = effect;
+            return enemy;
         }
 
         // 업그레이드 노드의 오류. 노드와 효과의 값·종류·대상은 경로와 함께 모두 보고한다.
