@@ -94,15 +94,22 @@ namespace BlackHole.Core
         public bool Clockwise;
     }
 
+    // Skill 종류마다 쓰는 칸이 다르다. 지금은 Breaker와 PiercingLaser 둘이다. 쓰지 않는 칸은 읽지 않는다.
     [Serializable]
     public sealed class SkillData
     {
         public string Id;
-        // 이름 문자열. 가능한 값은 ContentLoader의 해석 목록에 있다.
-        public string Origin;
+        // 종류 이름. 가능한 값은 ContentLoader의 해석 목록에 있다.
+        public string Kind;
+        // Breaker
         public float Radius;
+        // Breaker, PiercingLaser
         public float Interval;
         public float Damage;
+        // PiercingLaser
+        public float Width;
+        public float TelegraphDuration;
+        public float BoundaryRadius;
     }
 
     // 출현 위치 규칙. 무엇을·얼마나는 공급(StartSupply, 성장 노드)이 정한다.

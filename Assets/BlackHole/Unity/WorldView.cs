@@ -34,7 +34,7 @@ namespace BlackHole.Unity
         private readonly HashSet<EnemyId> _seen = new HashSet<EnemyId>();
         private readonly List<EnemyId> _gone = new List<EnemyId>();
         // Skill은 판 안에서 사라지지 않는다. 판이 바뀌면 Reset이 지운다.
-        private readonly Dictionary<PassiveSkill, SkillView> _skills = new Dictionary<PassiveSkill, SkillView>();
+        private readonly Dictionary<BreakerSkill, SkillView> _skills = new Dictionary<BreakerSkill, SkillView>();
 
         public WorldView(Transform parent, Camera camera, SamplePresentation presentation)
         {
@@ -214,6 +214,7 @@ namespace BlackHole.Unity
 
         // 범위 원 = Skill의 기준점과 실행 반경. 화면이 따로 정한 크기가 없다.
         // 기준점이 없으면(조준점 없음) 원을 감춘다. 틱마다 안쪽이 잠깐 밝아진다 — 맞은 적이 없어도.
+        // Breaker만 그린다. 관통 레이저의 예고·발사 표현은 아직 없다(CA-005).
         private void SynchronizeSkills(IReadOnlyList<Player> players)
         {
             float now = Time.unscaledTime;
@@ -222,7 +223,7 @@ namespace BlackHole.Unity
                 IReadOnlyList<PassiveSkill> skills = players[p].Skills;
                 for (int s = 0; s < skills.Count; s++)
                 {
-                    PassiveSkill skill = skills[s];
+                    if (!(skills[s] is BreakerSkill skill)) continue;
                     if (!_skills.TryGetValue(skill, out SkillView view))
                     {
                         string name = players[p].Id + " " + skill.Definition.Id;

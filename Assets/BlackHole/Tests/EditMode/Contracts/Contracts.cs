@@ -28,6 +28,7 @@ namespace BlackHole.Core.Tests
             foreach (Contract contract in WorldContracts.Cases()) yield return contract;
             foreach (Contract contract in EnemyContracts.Cases()) yield return contract;
             foreach (Contract contract in SkillContracts.Cases()) yield return contract;
+            foreach (Contract contract in LaserContracts.Cases()) yield return contract;
             foreach (Contract contract in DeathContracts.Cases()) yield return contract;
             foreach (Contract contract in DeathEffectContracts.Cases()) yield return contract;
             foreach (Contract contract in GrowthContracts.Cases()) yield return contract;

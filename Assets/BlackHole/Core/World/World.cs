@@ -24,17 +24,21 @@ namespace BlackHole.Core
         public IReadOnlyList<DeathRecord> Deaths { get; }
         // 마지막 Advance 동안의 모든 사망 효과 적중 기록. Deaths와 같은 때 비운다.
         public IReadOnlyList<DeathEffectHit> DeathEffectHits { get; }
+        // 이 판의 난수. 판 조립 때 seed로 만든다.
+        internal BattleRandom Random { get; }
 
         internal World(
             Hq hq,
             List<Player> players,
             EnemySupply supply,
-            GrowthProgression growth)
+            GrowthProgression growth,
+            BattleRandom random)
         {
             Hq = hq;
             _players = players;
             _supply = supply;
             _growth = growth;
+            Random = random;
             Players = players.AsReadOnly();
             Enemies = _enemies.AsReadOnly();
             Deaths = _deaths.AsReadOnly();

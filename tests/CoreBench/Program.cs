@@ -89,7 +89,7 @@ internal static class Program
             Spawn = new SpawnData { Distance = 4.5f, AngleStep = 2.399963f },
             Skills = new List<SkillData>
             {
-                new SkillData { Id = "aura", Origin = "OwnerAimPoint", Radius = 1.2f, Interval = 0.5f, Damage = 3 }
+                new SkillData { Id = "aura", Kind = "Breaker", Radius = 1.2f, Interval = 0.5f, Damage = 3 }
             },
             StartingSkills = new List<string> { "aura" }
         };

@@ -16,6 +16,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Upgrade.NextBattleKeepsProgressAndRenewsBattle", NextBattleKeepsProgressAndRenewsBattle);
             yield return new Contract("Upgrade.PurchasedEffectsChangeNextBattle", PurchasedEffectsChangeNextBattle);
             yield return new Contract("Upgrade.SkillEffectsTargetTheirSkill", SkillEffectsTargetTheirSkill);
+            yield return new Contract("Upgrade.SkillStatEffectsTargetOnlyBreaker", SkillStatEffectsTargetOnlyBreaker);
             yield return new Contract("Upgrade.NewProgressionStartsEmpty", NewProgressionStartsEmpty);
             yield return new Contract("Upgrade.PlayerStatesAreIndependent", PlayerStatesAreIndependent);
             yield return new Contract("Upgrade.SharedWorldPurchasesInMultiplayerHaveNoPolicy", SharedWorldPurchasesInMultiplayerHaveNoPolicy);
@@ -93,7 +94,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(0, next.World.Hq.Exp);
             Expect.Equal(2, next.World.Enemies.Count);
             Expect.True(player.AimPoint == null, "조준점은 새 전투에서 비어 있어야 한다.");
-            Expect.Equal(0, player.Skills[0].TickCount);
+            Expect.Equal(0, TestContent.Breaker(player).TickCount);
             Expect.Near(0, next.Elapsed);
 
             next.SetAimPoint(TestContent.First, East);
@@ -128,7 +129,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(31, state.Gold);
 
             GameSession game = SessionAssembler.CreateBattle(content, new[] { state });
-            PassiveSkillStats skill = game.World.Players[0].Skills[0].Stats;
+            BreakerStats skill = TestContent.Breaker(game.World.Players[0]).Stats;
             Expect.Near(3, skill.Damage);
             Expect.Near(1.5f, skill.Radius);
             Expect.Near(0.25f, skill.Interval);
@@ -147,7 +148,7 @@ namespace BlackHole.Core.Tests
 
             content.TryGetSkill(TestContent.SkillId, out PassiveSkillDefinition skillDefinition);
             content.TryGetEnemy("coin", out EnemyDefinition coinDefinition);
-            Expect.Near(1, skillDefinition.BaseStats.Damage);
+            Expect.Near(1, ((BreakerSkillDefinition)skillDefinition).BaseStats.Damage);
             Expect.Near(1, coinDefinition.BaseStats.MaxHealth);
             Expect.Equal(101, coinDefinition.Gold);
         }
@@ -168,9 +169,23 @@ namespace BlackHole.Core.Tests
             Buy(content, state, "second-damage");
 
             GameSession game = SessionAssembler.CreateBattle(content, new[] { state });
-            IReadOnlyList<PassiveSkill> skills = game.World.Players[0].Skills;
-            Expect.Near(1, skills[0].Stats.Damage);
-            Expect.Near(6, skills[1].Stats.Damage);
+            Player player = game.World.Players[0];
+            Expect.Near(1, TestContent.Breaker(player, 0).Stats.Damage);
+            Expect.Near(6, TestContent.Breaker(player, 1).Stats.Damage);
+        }
+
+        // 지금 있는 Skill 수치 효과는 Breaker의 반경·주기·피해만 바꾼다. 레이저를 대상으로 하면
+        // 사도 아무 일이 없는 노드가 되므로 콘텐츠 오류로 보고한다(CA-002 W2 흉내가 더는 통과하지 않는다).
+        private static void SkillStatEffectsTargetOnlyBreaker()
+        {
+            ContentData data = Market(coins: 1, gold: 10);
+            data.Skills.Add(TestContent.Laser(TestContent.LaserId, interval: 1, damage: 1, width: 0.2f, telegraph: 0.5f));
+            data.Upgrades.Add(TestContent.Upgrade("laser-width", 10, null, TestContent.Effect("SkillRadiusAdd", 0.2f, TestContent.LaserId)));
+            data.Upgrades.Add(TestContent.Upgrade("laser-damage", 10, null, TestContent.Effect("SkillDamageAdd", 1, TestContent.LaserId)));
+            ContentLoadResult result = ContentLoader.Load(data);
+            Expect.Equal(2, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Upgrades[laser-width].Effects[0]", "Breaker");
+            TestContent.HasDiagnostic(result, "Upgrades[laser-damage].Effects[0]", "Breaker");
         }
 
         // 새 진행은 빈 PlayerState로 시작한다. 이어 받는 다음 전투와 구분된다.
@@ -206,8 +221,8 @@ namespace BlackHole.Core.Tests
             GameSession pair = SessionAssembler.CreateBattle(TestContent.Load(unrewarded), new[] { first, second });
             pair.World.TryGetPlayer(TestContent.First, out Player a);
             pair.World.TryGetPlayer(TestContent.Second, out Player b);
-            Expect.Near(2, a.Skills[0].Stats.Damage);
-            Expect.Near(1, b.Skills[0].Stats.Damage);
+            Expect.Near(2, TestContent.Breaker(a).Stats.Damage);
+            Expect.Near(1, TestContent.Breaker(b).Stats.Damage);
         }
 
         // 적·보상·공급은 모든 Player가 공유한다. 그런 구매가 있는 다인 전투는 합성 정책이 없어 조립되지 않는다.

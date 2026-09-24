@@ -38,7 +38,31 @@ namespace BlackHole.Core.Tests
         }
 
         public static SkillData Skill(string id, float radius, float interval, float damage) =>
-            new SkillData { Id = id, Origin = "OwnerAimPoint", Radius = radius, Interval = interval, Damage = damage };
+            new SkillData { Id = id, Kind = "Breaker", Radius = radius, Interval = interval, Damage = damage };
+
+        public static SkillData Laser(string id, float interval, float damage, float width, float telegraph, float boundaryRadius = 10) =>
+            new SkillData
+            {
+                Id = id, Kind = "PiercingLaser", Interval = interval, Damage = damage,
+                Width = width, TelegraphDuration = telegraph, BoundaryRadius = boundaryRadius
+            };
+
+        // 레이저 계약용: 거의 움직이지 않는 Enemy(HP 100)가 판 시작에 HQ(0, 0)에서 거리 3에 enemies마리.
+        // n번째는 각도 n × angleStep에 있다. 시작 Skill은 레이저 하나이고 전투 영역 반지름은 10이다.
+        public static ContentData LaserArena(int enemies, float angleStep, float interval, float damage, float width, float telegraph)
+        {
+            ContentData data = SkillArena(enemies, radius: 1, interval: 1, damage: 1);
+            data.Spawn = new SpawnData { Distance = 3, AngleStep = angleStep };
+            data.Skills = new List<SkillData> { Laser(LaserId, interval, damage, width, telegraph) };
+            data.StartingSkills = new List<string> { LaserId };
+            return data;
+        }
+
+        public const string LaserId = "test-laser";
+
+        public static BreakerSkill Breaker(Player player, int index = 0) => (BreakerSkill)player.Skills[index];
+
+        public static PiercingLaserSkill LaserSkill(Player player, int index = 0) => (PiercingLaserSkill)player.Skills[index];
 
         public static EnemyData Enemy(string id, float health, float speed, float size, bool clockwise = false) =>
             new EnemyData
@@ -74,6 +98,10 @@ namespace BlackHole.Core.Tests
         // 참가자를 따로 주지 않으면 Player 1명.
         public static GameSession Session(ContentData data, params PlayerId[] participants) =>
             SessionAssembler.Create(Load(data), participants.Length == 0 ? new[] { First } : participants);
+
+        // Player 1명, seed를 정한 전투.
+        public static GameSession Session(ContentData data, int seed) =>
+            SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, seed);
 
         public static void HasDiagnostic(ContentLoadResult result, string path, string reason)
         {

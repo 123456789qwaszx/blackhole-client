@@ -10,8 +10,13 @@ namespace BlackHole.Core
     // 두 가지 진입:
     // - Create: 새 진행. 참가자마다 빈 PlayerState(Gold 0, 구매 없음)로 시작한다.
     // - CreateBattle: 다음 전투. 기존 PlayerState(Gold, 구매)를 이어 받고, 구매 효과를 새 전투에 반영한다.
+    //
+    // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·seed·입력·진행 시간이면 같은 결과가 나온다.
+    // seed를 받지 않는 진입은 DefaultSeed를 쓴다. 게임 호스트는 전투마다 seed를 정해 넘긴다.
     public static class SessionAssembler
     {
+        public const int DefaultSeed = 0;
+
         public static GameSession Create(
             GameContent content,
             IReadOnlyList<PlayerId> participants) =>
@@ -33,7 +38,20 @@ namespace BlackHole.Core
         public static GameSession CreateBattle(
             GameContent content,
             IReadOnlyList<PlayerState> states,
-            EnemyBehaviorResolver behaviors)
+            EnemyBehaviorResolver behaviors) =>
+            CreateBattle(content, states, behaviors, DefaultSeed);
+
+        public static GameSession CreateBattle(
+            GameContent content,
+            IReadOnlyList<PlayerState> states,
+            int seed) =>
+            CreateBattle(content, states, EnemyBehaviors.Standard, seed);
+
+        public static GameSession CreateBattle(
+            GameContent content,
+            IReadOnlyList<PlayerState> states,
+            EnemyBehaviorResolver behaviors,
+            int seed)
         {
             if (content == null) throw new ArgumentNullException(nameof(content));
             if (behaviors == null) throw new ArgumentNullException(nameof(behaviors));
@@ -74,7 +92,7 @@ namespace BlackHole.Core
             var supply = new EnemySupply(new EnemySpawner(content.Spawn, behaviors, shared), shared);
             var growth = new GrowthProgression(content.Growth, timeLimit);
             var hq = new Hq(content.Hq, content.Growth);
-            var world = new World(hq, players, supply, growth);
+            var world = new World(hq, players, supply, growth, new BattleRandom(seed));
 
             world.PlaceStartingEnemies(content.StartSupply);
 
@@ -89,17 +107,15 @@ namespace BlackHole.Core
 
         // 모든 Player가 같은 시작 구성을 받는다(Character 1종, 고정 구성). Skill 획득 구조가 아니다.
         // 실행 수치는 여기서 한 번 계산한다: 기본 수치 + 그 Player가 산, 이 Skill을 대상으로 한 보정.
+        // Skill 순서는 시작 구성의 순서다. Step 안에서 이 순서로 실행된다.
         private static void GiveStartingSkills(
             Player player,
             IReadOnlyList<PassiveSkillDefinition> startingSkills,
             UpgradeModifiers modifiers)
         {
-            var skillModifiers = new IPassiveSkillModifier[] { modifiers };
-
             foreach (PassiveSkillDefinition definition in startingSkills)
             {
-                PassiveSkillStats stats = PassiveSkillStatCalculator.Compute(definition, skillModifiers);
-                player.AddSkill(new PassiveSkill(definition, stats, player));
+                player.AddSkill(PassiveSkills.Create(definition, player, modifiers));
             }
         }
 

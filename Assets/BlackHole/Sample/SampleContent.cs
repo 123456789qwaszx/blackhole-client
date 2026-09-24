@@ -12,6 +12,7 @@ namespace BlackHole.Sample
         public const string HeavyEnemyId = "sample-heavy";
         public const string ElectricEnemyId = "sample-electric";
         public const string AuraSkillId = "sample-aura";
+        public const string LaserSkillId = "sample-laser";
 
         // [임시] 성장 노드의 임계값(누적 EXP). Lv2부터 Lv10까지.
         private static readonly int[] LevelExp = { 6, 14, 24, 36, 50, 66, 84, 104, 126 };
@@ -57,10 +58,18 @@ namespace BlackHole.Sample
             },
             // [임시] 성장할 때마다 light 6, heavy 1, electric 1이 추가되고 시간이 5초 늘어난다.
             Growth = new GrowthData { Levels = GrowthLevels() },
-            // [임시] 첫 Passive Skill: 소유 Player의 조준점 주변 반경 1.2, 0.5초마다 피해 3.
+            // [임시] Breaker: 소유 Player의 조준점 주변 반경 1.2, 0.5초마다 피해 3.
+            // [임시] 관통 레이저: 1.5초마다 한 발, 예고 0.6초, 굵기 0.4, 피해 5. 시작점은 HQ에서 16
+            // (카메라 크기 7.5인 16:9 화면의 반대각선 약 15.3보다 멀다). 해금 노드(CA-004)와 표현(CA-005)이
+            // 생기기 전이라 시작 구성에 넣지 않는다.
             Skills = new List<SkillData>
             {
-                new SkillData { Id = AuraSkillId, Origin = "OwnerAimPoint", Radius = 1.2f, Interval = 0.5f, Damage = 3 }
+                new SkillData { Id = AuraSkillId, Kind = "Breaker", Radius = 1.2f, Interval = 0.5f, Damage = 3 },
+                new SkillData
+                {
+                    Id = LaserSkillId, Kind = "PiercingLaser", Interval = 1.5f, Damage = 5,
+                    Width = 0.4f, TelegraphDuration = 0.6f, BoundaryRadius = 16
+                }
             },
             StartingSkills = new List<string> { AuraSkillId },
             // [임시] 업그레이드 샘플 트리. 원래는 노드 저작 툴이 만들 데이터다(M6).

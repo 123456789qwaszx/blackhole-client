@@ -170,3 +170,32 @@ CA-006의 기록 형식이다: 작업 → 반복 횟수 → 실수 가능성 →
 | 기존 계약 63개 | 유지되어야 할 기존 동작 |
 | CA-003·CA-004의 새 계약 | "불가능" 항목을 하나씩 "가능"으로 바꾸며, 새로 보장할 동작만 더한다 |
 | Loader 진단 개선을 정할 때 | 그때 `ContentContracts`에 진단 회귀 계약을 더한다 (예: T2의 거짓 순환) |
+
+## 7. CA-003 뒤 재측정
+
+같은 시험 프로그램을 CA-003 코드에 다시 돌렸다. 입력은 `SkillData.Origin` 대신 `Kind`를 쓰도록만 바꿨다. 2~6절은 CA-002 시점의 기록으로 그대로 둔다.
+
+| 항목 | CA-002 | CA-003 뒤 | 근거 |
+|---|---|---|---|
+| 관통 레이저 정의 | 불가능 | **가능하지만 불편** | L1: 종류 `PiercingLaser`로 로드되고, 시작 구성에 넣으면 `PiercingLaserSkill`로 실행되어 0초에 예고 1발을 만든다. 저작은 여전히 C#이다(AP1). 종류에 맞지 않는 칸은 검사하지 않는다(AP8) |
+| laser-unlock | 불가능 | 불가능 (CA-004) | U1은 그대로 알 수 없는 효과 종류다. U2(시작 구성에 넣기)는 여전히 통과하며, 이제 진짜 레이저가 구매 없이 생긴다. U3(더미 수치 효과)는 이제 거부된다 |
+| laser-width | 불가능 | 불가능 (CA-004) | W1은 그대로다. W2(`SkillRadiusAdd` 흉내)는 이제 거부된다 |
+| 레이저 예고·발사 표현 | 불가능 | 불가능 (CA-005) | 표현은 아직 없다. 예고 중인 발사는 읽기 전용 `PiercingLaserSkill.PendingShots`(시작점·끝점·남은 예고 시간)로 읽을 수 있다. 발사한 순간 목록에서 빠지므로 발사 표현에 필요한 기록은 아직 없다 |
+| Loader 진단 T1~T10 | — | 같음 | 출력이 CA-002와 같다 |
+
+U3·W2가 받는 진단:
+
+```text
+Upgrades[laser-unlock].Effects[0]: SkillDamageAdd는 Breaker 종류의 Skill만 대상으로 한다. 'laser'는 PiercingLaserDefinition이다. (Parameter 'skill')
+Upgrades[laser-width].Effects[0]: SkillRadiusAdd는 Breaker 종류의 Skill만 대상으로 한다. 'laser'는 PiercingLaserDefinition이다. (Parameter 'skill')
+```
+
+L2(종류 `Breaker`에 반경 0.2)는 여전히 로드된다. 이제는 종류가 데이터에 드러나므로 레이저를 흉내 낸 것이 아니라 "이름이 laser인 Breaker"다.
+
+### 추가된 불편과 관찰
+
+| # | 작업 | 반복 횟수 | 실수 가능성 | 확인 비용 | 자동화하면 줄어드는 비용 |
+|---|---|---|---|---|---|
+| AP8 | Skill 종류에 맞는 칸만 채우기 | `SkillData` 칸 8개 중 Breaker는 5개, 레이저는 7개를 읽는다 | Breaker에 `Width`를 적거나 레이저에 `Radius`를 적어도 진단 없이 무시된다 (코드 읽기로 확인) | 플레이로 발견해야 한다 | 종류를 고르면 그 종류의 칸만 보이는 편집 |
+
+AP1 보강 관찰: CA-003 작업 중 Unity Editor가 열린 채로 편집 뒤 재컴파일이 한 번 기록됐다. 여러 파일을 한꺼번에 바꾼 뒤였고, Core·Sample·Tests·Unity 네 어셈블리가 다시 컴파일됐다. `Tundra build success (3.32 seconds)`, `Domain Reload Profiling: 3942ms`. 한 번의 관찰이므로 대표값으로 쓰지 않는다.

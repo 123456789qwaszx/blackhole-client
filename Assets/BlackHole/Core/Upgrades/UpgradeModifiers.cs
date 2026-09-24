@@ -6,7 +6,7 @@ namespace BlackHole.Core
     // 한 전투에 적용할 구매 효과. 효과 종류마다 적용하는 자리가 여기에 하나씩 있다.
     // 효과는 콘텐츠의 노드 순서대로 쌓는다. 산 순서와 무관하게 같은 결과가 나온다.
     // 기본 정의는 바꾸지 않는다. 계산된 값은 각 시스템이 적용 시점에 스냅샷으로 가진다.
-    internal sealed class UpgradeModifiers : IPassiveSkillModifier, IEnemyStatModifier
+    internal sealed class UpgradeModifiers : IBreakerStatModifier, IEnemyStatModifier
     {
         public static readonly UpgradeModifiers None = new UpgradeModifiers(Array.Empty<UpgradeEffect>());
 
@@ -52,8 +52,8 @@ namespace BlackHole.Core
             }
         }
 
-        // Skill 실행 수치(전투 조립 때).
-        public PassiveSkillStats Apply(PassiveSkillDefinition definition, PassiveSkillStats current)
+        // Breaker 실행 수치(전투 조립 때).
+        public BreakerStats Apply(BreakerSkillDefinition definition, BreakerStats current)
         {
             foreach (UpgradeEffect effect in _effects)
             {
@@ -63,15 +63,15 @@ namespace BlackHole.Core
                 switch (effect.Kind)
                 {
                     case UpgradeEffectKind.SkillDamageAdd:
-                        current = new PassiveSkillStats(current.Radius, current.Interval, current.Damage + effect.Value);
+                        current = new BreakerStats(current.Radius, current.Interval, current.Damage + effect.Value);
                         break;
 
                     case UpgradeEffectKind.SkillRadiusAdd:
-                        current = new PassiveSkillStats(current.Radius + effect.Value, current.Interval, current.Damage);
+                        current = new BreakerStats(current.Radius + effect.Value, current.Interval, current.Damage);
                         break;
 
                     case UpgradeEffectKind.SkillIntervalMultiply:
-                        current = new PassiveSkillStats(current.Radius, current.Interval * effect.Value, current.Damage);
+                        current = new BreakerStats(current.Radius, current.Interval * effect.Value, current.Damage);
                         break;
                 }
             }

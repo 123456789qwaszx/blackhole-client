@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BlackHole.Core;
 
@@ -72,11 +73,12 @@ namespace BlackHole.Unity
             UpgradePurchase.TryPurchase(state, node);
 
         // 교체 순서: 화면 정리 → 새 전투 조립 → 첫 화면 동기화.
+        // 전투마다 seed를 새로 정한다. 같은 전투를 재현할 방법(seed 기록·지정)은 아직 없다.
         private void StartBattle()
         {
             _view.Reset();
 
-            Current = SessionAssembler.CreateBattle(_content, _progress);
+            Current = SessionAssembler.CreateBattle(_content, _progress, Environment.TickCount);
             InShop = false;
 
             _view.Synchronize(Current.World);

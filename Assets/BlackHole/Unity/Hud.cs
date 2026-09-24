@@ -175,7 +175,8 @@ namespace BlackHole.Unity
         private static int Ticks(Player player)
         {
             int ticks = 0;
-            foreach (PassiveSkill skill in player.Skills) ticks += skill.TickCount;
+            foreach (PassiveSkill skill in player.Skills)
+                if (skill is BreakerSkill breaker) ticks += breaker.TickCount;
             return ticks;
         }
     }

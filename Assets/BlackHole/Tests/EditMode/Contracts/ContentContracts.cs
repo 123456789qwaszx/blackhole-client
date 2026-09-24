@@ -14,6 +14,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsEnemyAndSpawnErrorsWithPath", ReportsEnemyAndSpawnErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.ReportsSkillErrorsWithPath", ReportsSkillErrorsWithPath);
+            yield return new Contract("Content.ReportsLaserErrorsWithPath", ReportsLaserErrorsWithPath);
             yield return new Contract("Content.ReportsSupplyAndGrowthErrorsWithPath", ReportsSupplyAndGrowthErrorsWithPath);
             yield return new Contract("Content.ReportsUpgradeErrorsWithPath", ReportsUpgradeErrorsWithPath);
             yield return new Contract("Content.ReportsDeathEffectErrorsWithPath", ReportsDeathEffectErrorsWithPath);
@@ -112,11 +113,11 @@ namespace BlackHole.Core.Tests
             ContentData shape = TestContent.Data();
             shape.Skills[0].Radius = 0;
             shape.Skills.Add(TestContent.Skill("character-aura", 1, 1, 1));
-            shape.Skills[1].Origin = "CharacterCenter";
+            shape.Skills[1].Kind = "CharacterCenter";
             ContentLoadResult result = ContentLoader.Load(shape);
             Expect.Equal(2, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Skills[test-skill]", "radius");
-            TestContent.HasDiagnostic(result, "Skills[character-aura].Origin", "CharacterCenter");
+            TestContent.HasDiagnostic(result, "Skills[character-aura].Kind", "CharacterCenter");
 
             ContentData references = TestContent.Data();
             references.Skills.Add(TestContent.Skill(TestContent.SkillId, 1, 1, 1));
@@ -127,6 +128,29 @@ namespace BlackHole.Core.Tests
             TestContent.HasDiagnostic(result, "Skills[1]", TestContent.SkillId);
             TestContent.HasDiagnostic(result, "StartingSkills[1]", "ghost");
             TestContent.HasDiagnostic(result, "StartingSkills[2]", "중복");
+        }
+
+        // 관통 레이저의 수치와 공간 값도 경로와 함께 보고한다. 올바른 레이저는 Breaker와 함께 로드된다.
+        private static void ReportsLaserErrorsWithPath()
+        {
+            ContentData data = TestContent.Data();
+            data.Skills.Add(TestContent.Laser("thin", interval: 1, damage: 1, width: 0, telegraph: 0.5f));
+            data.Skills.Add(TestContent.Laser("instant", interval: 1, damage: 1, width: 0.2f, telegraph: 0));
+            data.Skills.Add(TestContent.Laser("nowhere", interval: 1, damage: 1, width: 0.2f, telegraph: 0.5f, boundaryRadius: 0));
+            ContentLoadResult result = ContentLoader.Load(data);
+            Expect.Equal(3, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Skills[thin]", "width");
+            TestContent.HasDiagnostic(result, "Skills[instant]", "telegraphDuration");
+            TestContent.HasDiagnostic(result, "Skills[nowhere]", "boundaryRadius");
+
+            ContentData valid = TestContent.Data();
+            valid.Skills.Add(TestContent.Laser(TestContent.LaserId, interval: 1, damage: 1, width: 0.2f, telegraph: 0.5f));
+            valid.StartingSkills.Add(TestContent.LaserId);
+            GameSession game = TestContent.Session(valid);
+            Player player = game.World.Players[0];
+            Expect.Equal(2, player.Skills.Count);
+            Expect.True(player.Skills[0] is BreakerSkill && player.Skills[1] is PiercingLaserSkill,
+                "Skill은 시작 구성의 순서로 종류에 맞는 실행 상태가 되어야 한다.");
         }
 
         private static void ReportsEnemyAndSpawnErrorsWithPath()

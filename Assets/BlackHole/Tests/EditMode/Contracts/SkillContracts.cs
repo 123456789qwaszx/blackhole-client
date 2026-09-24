@@ -29,7 +29,7 @@ namespace BlackHole.Core.Tests
         {
             GameSession game = TestContent.Session(TestContent.SkillArena(enemies: 1, radius: 1, interval: 0.5f, damage: 1));
             game.World.TryGetPlayer(TestContent.First, out Player player);
-            PassiveSkill skill = player.Skills[0];
+            BreakerSkill skill = TestContent.Breaker(player);
             Expect.Equal(0, skill.TickCount);
 
             game.SetAimPoint(TestContent.First, East);
@@ -81,7 +81,7 @@ namespace BlackHole.Core.Tests
             Enemy enemy = game.World.Enemies[0];
             Expect.Near(100, enemy.Health);
             game.World.TryGetPlayer(TestContent.First, out Player player);
-            Expect.Equal(2, player.Skills[0].TickCount);
+            Expect.Equal(2, TestContent.Breaker(player).TickCount);
 
             game.SetAimPoint(TestContent.First, East);
             game.Advance(0.5f);
@@ -139,9 +139,10 @@ namespace BlackHole.Core.Tests
         private static void RuntimeStatsLeaveBaseDefinitionUnchanged()
         {
             GameContent content = TestContent.Load(TestContent.Data());
-            content.TryGetSkill(TestContent.SkillId, out PassiveSkillDefinition definition);
+            content.TryGetSkill(TestContent.SkillId, out PassiveSkillDefinition skill);
+            var definition = (BreakerSkillDefinition)skill;
 
-            PassiveSkillStats boosted = PassiveSkillStatCalculator.Compute(definition, new IPassiveSkillModifier[] { new Overdrive() });
+            BreakerStats boosted = BreakerStatCalculator.Compute(definition, new IBreakerStatModifier[] { new Overdrive() });
             Expect.Near(2, boosted.Radius);
             Expect.Near(0.25f, boosted.Interval);
             Expect.Near(4, boosted.Damage);
@@ -151,7 +152,7 @@ namespace BlackHole.Core.Tests
 
             GameSession game = TestContent.Session(TestContent.Data());
             game.World.TryGetPlayer(TestContent.First, out Player player);
-            Expect.Near(definition.BaseStats.Radius, player.Skills[0].Stats.Radius);
+            Expect.Near(definition.BaseStats.Radius, TestContent.Breaker(player).Stats.Radius);
         }
 
         private static void EachPlayerHasOwnSkills()
@@ -173,10 +174,10 @@ namespace BlackHole.Core.Tests
         }
 
         // 테스트 전용 보정: 반경 2배, 주기 절반, 피해 +3.
-        private sealed class Overdrive : IPassiveSkillModifier
+        private sealed class Overdrive : IBreakerStatModifier
         {
-            public PassiveSkillStats Apply(PassiveSkillDefinition definition, PassiveSkillStats current) =>
-                new PassiveSkillStats(current.Radius * 2, current.Interval / 2, current.Damage + 3);
+            public BreakerStats Apply(BreakerSkillDefinition definition, BreakerStats current) =>
+                new BreakerStats(current.Radius * 2, current.Interval / 2, current.Damage + 3);
         }
     }
 }

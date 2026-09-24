@@ -364,25 +364,32 @@ namespace BlackHole.Core
                     continue;
                 }
 
-                int errors = into.Count;
-                SkillOrigin? origin = ParseOrigin(item.Origin, at + ".Origin", into);
-                PassiveSkillStats? stats = GuardValue(at, into, () => new PassiveSkillStats(item.Radius, item.Interval, item.Damage));
-                if (into.Count > errors) continue;
-
-                PassiveSkillDefinition skill = Guard(at, into, () => new PassiveSkillDefinition(item.Id, origin.Value, stats.Value));
+                PassiveSkillDefinition skill = LoadSkill(item, at, into);
                 if (skill != null) skills.Add(skill);
             }
             return skills;
         }
 
-        // Enum.TryParse는 숫자 문자열도 통과시킨다. 명시 목록이면 가능한 값을 진단에 그대로 싣는다.
-        private static SkillOrigin? ParseOrigin(string name, string at, List<ContentDiagnostic> into)
+        // 종류 이름을 하위 정의로 바꾼다. 가능한 값을 진단에 그대로 싣는다. 수치 규칙은 정의 생성자가 가진다.
+        private static PassiveSkillDefinition LoadSkill(SkillData item, string at, List<ContentDiagnostic> into)
         {
-            switch (name)
+            switch (item.Kind)
             {
-                case "OwnerAimPoint": return SkillOrigin.OwnerAimPoint;
+                case "Breaker":
+                {
+                    BreakerStats? stats = GuardValue(at, into, () => new BreakerStats(item.Radius, item.Interval, item.Damage));
+                    if (stats == null) return null;
+                    return Guard(at, into, () => new BreakerSkillDefinition(item.Id, stats.Value));
+                }
+                case "PiercingLaser":
+                {
+                    PiercingLaserStats? stats = GuardValue(at, into, () =>
+                        new PiercingLaserStats(item.Interval, item.Damage, item.Width, item.TelegraphDuration));
+                    if (stats == null) return null;
+                    return Guard(at, into, () => new PiercingLaserDefinition(item.Id, stats.Value, item.BoundaryRadius));
+                }
                 default:
-                    into.Add(new ContentDiagnostic(at, $"알 수 없는 기준점 종류 '{name}'. 가능한 값: OwnerAimPoint."));
+                    into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 Skill 종류 '{item.Kind}'. 가능한 값: Breaker, PiercingLaser."));
                     return null;
             }
         }
