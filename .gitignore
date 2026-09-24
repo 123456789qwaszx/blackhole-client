@@ -35,6 +35,9 @@
 ExportedObj/
 .consulo/
 *.csproj
+!tests/CoreSmoke/CoreSmoke.csproj
+/tests/**/bin/
+/tests/**/obj/
 *.unityproj
 *.sln
 *.suo
