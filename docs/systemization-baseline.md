@@ -38,3 +38,10 @@
 | 최대 진행 단계 `1/30초` | `GameSession` | 실행 설정 | 실행 흐름 | S2 |
 | 시전 연출 반경 `0.9`, `2.4` / 연출 시간 `0.18` | `ReferenceGameController` | 표현(규칙 값 복제 포함) | 스킬 정의 참조 → 발동 결과 | S2 → S4 |
 | 대상 크기·색, 카메라 크기·배경 | `ReferenceWorldView`, `ReferenceGameController` | 표현 | 표현 정의 | S7 |
+
+## 단계별 반영
+
+| 단계 | 옮긴 것 | 남은 것 |
+|---|---|---|
+| S1 | 시전 연출 반경을 호스트 상수 대신 스킬 정의(`SkillDefinition.Radius`)에서 읽음 | 실제 적용 범위를 발동 결과로 전달(S4) |
+| S2 | 최대 진행 단계와 경과 시간을 `SessionRunner`로, 제한 시간을 `TimeLimitDefinition`/`TimeLimitMode`로 이동 | — |

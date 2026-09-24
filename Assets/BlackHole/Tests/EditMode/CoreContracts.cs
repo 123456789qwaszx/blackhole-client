@@ -30,6 +30,23 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(LoaderReportsEveryDefinitionErrorWithPath), LoaderReportsEveryDefinitionErrorWithPath);
             yield return Case(nameof(LoaderReportsReferenceAndKindErrorsWithPath), LoaderReportsReferenceAndKindErrorsWithPath);
             yield return Case(nameof(CatalogConstructorEnforcesSameInvariants), CatalogConstructorEnforcesSameInvariants);
+            yield return Case(nameof(EndingFrameRejectsSameFrameRequests), EndingFrameRejectsSameFrameRequests);
+        }
+
+        // 호스트는 Advance 뒤에 요청을 적용한다. 그 Advance에서 판이 끝났으면 요청은 판을 바꾸지 않는다.
+        public static void EndingFrameRejectsSameFrameRequests()
+        {
+            GameSession game = Reference(0.5f);
+            TargetState target = game.Field.Targets[0];
+            game.Advance(0.6f);
+            Equal(SessionPhase.Ended, game.Phase);
+            Equal(TargetPhase.Orbiting, target.Phase);
+            Near(0, game.Remaining);
+
+            Equal(CastResult.SessionInactive, game.TryCast(ReferenceGame.StrikeId, target.Position));
+            Equal(CastResult.SessionInactive, game.TryCast(ReferenceGame.PulseId, target.Position));
+            Near(12, target.Health);
+            Near(0, game.Field.Skills[0].RemainingCooldown);
         }
 
         public static void DeathDoesNotRewardUntilAbsorption()
@@ -195,8 +212,8 @@ namespace BlackHole.Core.Tests
 
             Throws<ArgumentOutOfRangeException>(() => Reference().Advance(float.NaN));
             ContentData negativeDuration = ReferenceGame.CreateContent();
-            negativeDuration.SessionDuration = -1;
-            Fails(negativeDuration, "SessionDuration");
+            negativeDuration.TimeLimit = -1;
+            Fails(negativeDuration, "TimeLimit");
         }
 
         // 수치만 다른 새 스킬은 정의 추가만으로 동작한다. Session·Loadout·호스트를 고치지 않는다.
@@ -340,7 +357,7 @@ namespace BlackHole.Core.Tests
             data.Skills[0].Cooldown = 0;
             data.Skills[1].Kind = "Laser";
             data.Spawn.Interval = -1;
-            data.SessionDuration = 0;
+            data.TimeLimit = 0;
 
             ContentLoadResult result = ContentLoader.Load(data);
             Check(!result.Succeeded && result.Catalog == null, "오류가 있으면 카탈로그를 만들지 않는다.");
@@ -349,7 +366,7 @@ namespace BlackHole.Core.Tests
             HasDiagnostic(result, "Skills[focused-strike]", "cooldown");
             HasDiagnostic(result, "Skills[gravity-pulse].Kind", "Laser");
             HasDiagnostic(result, "Spawn", "interval");
-            HasDiagnostic(result, "SessionDuration", "SessionDuration");
+            HasDiagnostic(result, "TimeLimit", "duration");
         }
 
         public static void LoaderReportsReferenceAndKindErrorsWithPath()
@@ -373,14 +390,15 @@ namespace BlackHole.Core.Tests
             var skill = new SkillDefinition("strike", SkillKind.FocusedStrike, 1, 1, 1, 0);
             var growth = new GrowthDefinition(1, 1, 1);
             var spawn = new SpawnDefinition(new[] { "shard" }, 1, 5, 4);
-            new ContentCatalog(10, new[] { target }, new[] { skill }, growth, spawn);
+            var limit = new TimeLimitDefinition(10);
+            new ContentCatalog(limit, new[] { target }, new[] { skill }, growth, spawn);
 
             Throws<ArgumentException>(() => new ContentCatalog(
-                10, new[] { target }, new[] { skill, skill }, growth, spawn));
+                limit, new[] { target }, new[] { skill, skill }, growth, spawn));
             Throws<ArgumentException>(() => new ContentCatalog(
-                10, new[] { target }, new[] { skill }, growth, new SpawnDefinition(new[] { "ghost" }, 1, 5, 4)));
+                limit, new[] { target }, new[] { skill }, growth, new SpawnDefinition(new[] { "ghost" }, 1, 5, 4)));
             Throws<ArgumentException>(() => new ContentCatalog(
-                10, new[] { target }, new[] { new SkillDefinition("pulse", SkillKind.GravityPulse, 1, 1, 1, 0) },
+                limit, new[] { target }, new[] { new SkillDefinition("pulse", SkillKind.GravityPulse, 1, 1, 1, 0) },
                 growth, spawn));
         }
 
@@ -389,7 +407,7 @@ namespace BlackHole.Core.Tests
         private static GameSession Reference(float duration = 60)
         {
             ContentData data = ReferenceGame.CreateContent();
-            data.SessionDuration = duration;
+            data.TimeLimit = duration;
             return Assemble(data);
         }
 
@@ -405,7 +423,7 @@ namespace BlackHole.Core.Tests
         private static ContentData Content(TargetData[] targets, SkillData[] skills,
             GrowthData growth, SpawnData spawn, float duration = 60) => new ContentData
         {
-            SessionDuration = duration,
+            TimeLimit = duration,
             Targets = new List<TargetData>(targets),
             Skills = new List<SkillData>(skills),
             Growth = growth,

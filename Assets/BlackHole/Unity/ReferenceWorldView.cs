@@ -6,9 +6,12 @@ using Object = UnityEngine.Object;
 
 namespace BlackHole.Unity
 {
-    // 화면 객체만 소유한다. Destroy와 보상/사망 판정은 연결하지 않는다.
+    // 화면 객체와 연출 상태(시전 표시)만 소유한다. Destroy와 보상/사망 판정은 연결하지 않는다.
+    // 매 프레임 판 상태를 읽어 맞춘다. 판이 바뀌면 SessionLauncher가 Reset을 먼저 부른다.
     internal sealed class ReferenceWorldView : IDisposable
     {
+        private const float CastFlashSeconds = 0.18f;
+
         private readonly Transform _root;
         private readonly Sprite _disc;
         private readonly Texture2D _texture;
@@ -18,6 +21,7 @@ namespace BlackHole.Unity
         private readonly Dictionary<int, SpriteRenderer> _targets = new Dictionary<int, SpriteRenderer>();
         private readonly HashSet<int> _seen = new HashSet<int>();
         private readonly List<int> _removed = new List<int>();
+        private float _castRemaining;
 
         public ReferenceWorldView(Transform parent)
         {
@@ -30,14 +34,21 @@ namespace BlackHole.Unity
             _cast = CreateDisc("Cast Area", new Color(0.4f, 0.7f, 1, 0.2f), 3);
         }
 
-        public void Synchronize(Playfield field, Vector2 aim, float castRadius, bool showCast)
+        // 성공한 시전의 조준점과 범위를 잠시 표시한다.
+        public void ShowCast(Point2 aim, float radius)
+        {
+            _cast.transform.position = new Vector3(aim.X, aim.Y, 0);
+            _cast.transform.localScale = Vector3.one * radius * 2;
+            _castRemaining = CastFlashSeconds;
+        }
+
+        public void Synchronize(Playfield field, float deltaTime)
         {
             float diameter = field.Growth.AbsorptionRadius * 2;
             _hole.transform.localScale = Vector3.one * diameter;
             _halo.transform.localScale = Vector3.one * (diameter + 0.22f);
-            _cast.enabled = showCast;
-            _cast.transform.position = new Vector3(aim.x, aim.y, 0);
-            _cast.transform.localScale = Vector3.one * castRadius * 2;
+            _castRemaining = Mathf.Max(0, _castRemaining - deltaTime);
+            _cast.enabled = _castRemaining > 0;
             _seen.Clear();
 
             foreach (TargetState target in field.Targets)
@@ -70,7 +81,8 @@ namespace BlackHole.Unity
             }
         }
 
-        public void ClearTargets()
+        // 이전 판의 대상 뷰와 연출을 모두 지운다. 블랙홀 원판처럼 판과 무관한 객체는 유지한다.
+        public void Reset()
         {
             foreach (SpriteRenderer view in _targets.Values)
             {
@@ -78,6 +90,8 @@ namespace BlackHole.Unity
                 Object.Destroy(view.gameObject);
             }
             _targets.Clear();
+            _castRemaining = 0;
+            _cast.enabled = false;
         }
 
         public void Dispose()

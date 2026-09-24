@@ -12,7 +12,7 @@ namespace BlackHole.Core
         // 호출마다 새 데이터를 만든다. 호출자가 고쳐도 다른 호출에 영향이 없다.
         public static ContentData CreateContent() => new ContentData
         {
-            SessionDuration = 60,
+            TimeLimit = 60,
             Targets = new List<TargetData>
             {
                 new TargetData { Id = "shard", MaxHealth = 12, AngularSpeed = 0.6f, InwardSpeed = 0.25f, Reward = 2 },

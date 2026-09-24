@@ -9,7 +9,7 @@ namespace BlackHole.Core
     [Serializable]
     public sealed class ContentData
     {
-        public float SessionDuration;
+        public float TimeLimit;
         public List<TargetData> Targets = new List<TargetData>();
         public List<SkillData> Skills = new List<SkillData>();
         public GrowthData Growth;

@@ -16,7 +16,8 @@ namespace BlackHole.Core
             var loadout = new SkillLoadout(catalog.Skills);
             var growth = new GrowthState(catalog.Growth);
             var field = new Playfield(world, spawn, loadout, growth);
-            return new GameSession(field, catalog.SessionDuration);
+            var mode = new TimeLimitMode(catalog.TimeLimit);
+            return new GameSession(field, mode);
         }
     }
 }

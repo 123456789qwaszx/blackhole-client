@@ -14,7 +14,7 @@ namespace BlackHole.Core
     {
         private readonly Dictionary<string, TargetDefinition> _targetsById;
 
-        public float SessionDuration { get; }
+        public TimeLimitDefinition TimeLimit { get; }
         public IReadOnlyList<TargetDefinition> Targets { get; }
         // 현재 스킬 사용자 한 명이 보유하는 스킬. 사용자가 여럿이 되면 사용자별 보유 목록으로 나눈다.
         public IReadOnlyList<SkillDefinition> Skills { get; }
@@ -24,13 +24,13 @@ namespace BlackHole.Core
         internal IReadOnlyList<TargetDefinition> SpawnOrder { get; }
 
         public ContentCatalog(
-            float sessionDuration,
+            TimeLimitDefinition timeLimit,
             IReadOnlyList<TargetDefinition> targets,
             IReadOnlyList<SkillDefinition> skills,
             GrowthDefinition growth,
             SpawnDefinition spawn)
         {
-            SessionDuration = DefinitionGuard.Positive(sessionDuration, nameof(sessionDuration));
+            TimeLimit = timeLimit ?? throw new ArgumentNullException(nameof(timeLimit));
             Targets = Copy(targets);
             Skills = Copy(skills);
             Growth = growth ?? throw new ArgumentNullException(nameof(growth));

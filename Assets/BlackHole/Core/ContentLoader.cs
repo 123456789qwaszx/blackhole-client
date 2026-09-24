@@ -19,18 +19,18 @@ namespace BlackHole.Core
                 return Fail(diagnostics);
             }
 
+            TimeLimitDefinition timeLimit = Guard("TimeLimit", diagnostics,
+                () => new TimeLimitDefinition(data.TimeLimit));
             List<TargetDefinition> targets = LoadTargets(data.Targets, diagnostics);
             List<SkillDefinition> skills = LoadSkills(data.Skills, diagnostics);
             GrowthDefinition growth = LoadGrowth(data.Growth, diagnostics);
             SpawnDefinition spawn = LoadSpawn(data.Spawn, diagnostics);
-            Check("SessionDuration", diagnostics,
-                () => DefinitionGuard.Positive(data.SessionDuration, nameof(data.SessionDuration)));
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
             ContentInvariants.Collect(targets, skills, spawn, diagnostics, out _);
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            var catalog = new ContentCatalog(data.SessionDuration, targets, skills, growth, spawn);
+            var catalog = new ContentCatalog(timeLimit, targets, skills, growth, spawn);
             return new ContentLoadResult(catalog, diagnostics);
         }
 
@@ -134,12 +134,6 @@ namespace BlackHole.Core
                 into.Add(new ContentDiagnostic(at, error.Message));
                 return null;
             }
-        }
-
-        private static void Check(string at, List<ContentDiagnostic> into, Action check)
-        {
-            try { check(); }
-            catch (ArgumentException error) { into.Add(new ContentDiagnostic(at, error.Message)); }
         }
 
         private static string At(string section, int index, string id) =>

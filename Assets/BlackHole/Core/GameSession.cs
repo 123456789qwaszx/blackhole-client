@@ -21,22 +21,24 @@ namespace BlackHole.Core
         }
     }
 
-    // 한 판의 수명과 외부 요청의 허용 여부만 소유한다.
-    // 재시작은 같은 객체의 부분 초기화가 아니라 새 Session 조립이다.
+    // 한 판의 상태(실행/정지/종료), 종료 결과, 외부 요청의 허용 여부만 소유한다.
+    // 경과 시간과 시간 분할은 SessionRunner, 종료 판정은 모드가 맡는다.
+    // 재시작은 같은 객체의 부분 초기화가 아니라 새 Session 조립이다(SessionAssembler).
     public sealed class GameSession
     {
-        private const float MaxStep = 1f / 30f;
-        private readonly float _duration;
+        private readonly SessionRunner _runner;
         public Playfield Field { get; }
+        public TimeLimitMode Mode { get; }
         public SessionPhase Phase { get; private set; }
-        public float Elapsed { get; private set; }
-        public float Remaining => Math.Max(0, _duration - Elapsed);
+        public float Elapsed => _runner.Elapsed;
+        public float Remaining => Mode.Remaining(Elapsed);
         public SessionResult Result { get; private set; }
 
-        internal GameSession(Playfield field, float duration)
+        internal GameSession(Playfield field, TimeLimitMode mode)
         {
-            Field = field ?? throw new ArgumentNullException(nameof(field));
-            _duration = DefinitionGuard.Positive(duration, nameof(duration));
+            Field = field;
+            Mode = mode;
+            _runner = new SessionRunner(field, mode);
         }
 
         public void Advance(float delta)
@@ -44,16 +46,8 @@ namespace BlackHole.Core
             DefinitionGuard.Delta(delta);
             if (Phase != SessionPhase.Running || delta == 0) return;
 
-            float remaining = Math.Min(delta, Remaining);
-            // 긴 프레임에도 이동/흡수/생성 순서가 한 번에 건너뛰지 않게 제한한다.
-            while (remaining > 0)
-            {
-                float step = Math.Min(remaining, MaxStep);
-                Field.Advance(step);
-                remaining -= step;
-            }
-            Elapsed = Math.Min(_duration, Elapsed + delta);
-            if (Elapsed >= _duration) End(SessionEndReason.TimeExpired);
+            if (_runner.Advance(delta, out SessionEndReason reason))
+                End(reason);
         }
 
         public CastResult TryCast(string skillId, Point2 aim) =>
