@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 검증된 콘텐츠와 참가 Player 목록으로 한 판을 새로 조립하는 유일한 진입점.
-    // 정의는 공유하고, 실행 상태(시간, Player, Enemy, 출현 진행)는 판마다 새로 만든다.
+    // 정의는 공유하고, 실행 상태(시간, Player, Enemy, 공급·출현, HQ 성장)는 판마다 새로 만든다.
     // 누가 참가하는지는 콘텐츠가 아니라 판 설정이다 — 호스트가 넘긴다(지금은 로컬 1명).
     public static class SessionAssembler
     {
@@ -35,10 +35,14 @@ namespace BlackHole.Core
             foreach (Player player in players)
                 GiveStartingSkills(player, content.StartingSkills);
 
-            var spawner = new EnemySpawner(content.Spawn, content.SpawnOrder, behaviors);
-            var world = new World(new Hq(content.Hq), players, spawner);
             var timeLimit = new TimeLimitRule(content.TimeLimit);
-            
+            var supply = new EnemySupply(new EnemySpawner(content.Spawn, behaviors));
+            var growth = new GrowthProgression(content.Growth, timeLimit);
+            var hq = new Hq(content.Hq, content.Growth);
+            var world = new World(hq, players, supply, growth);
+
+            world.PlaceStartingEnemies(content.StartSupply);
+
             return new GameSession(world, timeLimit);
         }
 

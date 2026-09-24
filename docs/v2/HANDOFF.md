@@ -1,10 +1,10 @@
-# 작업 인계 — M4 완료 후
+# 작업 인계 — M5 완료 후
 
-갱신: 2026-09-24 · M0~M4 완료. M5는 착수 조건 확인 전이다.
+갱신: 2026-09-24 · M0~M5 완료. M6은 착수 조건 확인 전이다.
 
 ## 읽는 순서
 
-[GAME_RULES](../GAME_RULES.md) → [PLAN](PLAN.md) → [RULES_ALIGNMENT](RULES_ALIGNMENT.md) → [M5](M5-growth-supply.md). M4 결과는 [M4](M4-death-reward.md)의 "결과" 절에 있다.
+[GAME_RULES](../GAME_RULES.md) → [레퍼런스 분석](../REFERENCE_ANALYSIS.md) → [PLAN](PLAN.md) → [RULES_ALIGNMENT](RULES_ALIGNMENT.md) → [M6](M6-upgrade-loop.md). M5 결과는 [M5](M5-growth-supply.md)의 "결과" 절에 있다.
 
 ## 기존 인계에서 바뀐 점
 
@@ -20,19 +20,20 @@
 ## 현재 코드
 
 Core/Sample/Unity/Tests 경계, Player별 조준점·스킬, HQ 기준점, Orbit 교체 경계가 있다.
-PlayerState는 Gold를, HQ는 위치와 누적 EXP를 가진다. 사망은 즉시 확정되고 Gold·HQ EXP·사망 기록을 한 번 남긴 뒤 목록에서 빠진다. 화면은 사망 기록으로 흡수 연출을 한다. HQ Level·성장 구간·구매는 없다.
-World.Step은 이동 → Skill(피해·사망·보상) → 출현이고, 출현은 아직 타이머 기반이다. SessionLauncher는 Stop → View.Reset → 새 조립이다.
+PlayerState는 Gold를, HQ는 위치·누적 EXP·Level을 가진다. 사망은 즉시 확정되고 Gold·HQ EXP·사망 기록을 한 번 남긴 뒤 목록에서 빠진다. 화면은 사망 기록으로 흡수 연출을 한다.
+적은 판 시작 배치와 성장 공급으로만 나온다. 성장하면 Level마다 적이 추가되고 판 시간이 늘어난다. 구매는 없다.
+World.Step은 이동 → Skill(피해·사망·보상·Level) → 성장 진행 → 공급된 적 생성이고, 종료 판정은 그 뒤다. SessionLauncher는 Stop → View.Reset → 새 조립이다.
 이 상태를 완료된 최신 게임으로 해석하지 않는다.
 
 ## 다음 작업
 
-M5의 범위와 "착수 전에 정할 것"을 사용자와 먼저 검토한다. 결정 전에는 구현하지 않는다.
+M6의 범위와 "착수 전에 정할 것"을 먼저 검토한다. 정할 것은 레퍼런스 분석을 먼저 보고 제안하며, 레퍼런스로 답할 수 없는 것만 사용자에게 묻는다. 결정 전에는 구현하지 않는다.
 M5~M7의 세부 기획은 각 마일스톤 착수 조건을 따른다.
 
 ## 작업 방식과 검증
 
 - 계획 검토 → 구현 → CoreSmoke/가능한 분리 빌드·핵심 변이 검사 → 사용자 Unity 플레이 확인 → 결과/PLAN 갱신 → 의미 있는 커밋 1개.
 - 다음 마일스톤은 사용자 확인 후 진행한다.
-- 검증 기록: M4 기준 CoreSmoke 37개 통과, 분리 빌드 경고 0·오류 0, 사용자 플레이 확인 완료.
+- 검증 기록: M5 기준 CoreSmoke 45개 통과, 분리 빌드 경고 0·오류 0, Unity 재컴파일 오류 0, 사용자 플레이 확인 완료.
 - Windows 로컬 경로와 열려 있는 Unity 상태는 과거 환경이다. 현재 실행 환경을 확인한다.
 - 커밋의 기여자는 실제 작성자로 표기한다. 이전 에이전트 이름을 관례적으로 복사하지 않는다.

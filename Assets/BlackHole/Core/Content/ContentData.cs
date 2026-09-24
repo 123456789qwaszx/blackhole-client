@@ -12,6 +12,10 @@ namespace BlackHole.Core
         public HqData Hq;
         public List<EnemyData> Enemies = new List<EnemyData>();
         public SpawnData Spawn;
+        // 전투 시작 배치. 판 조립 때(0초) 한 번 공급한다.
+        public List<SupplyData> StartSupply = new List<SupplyData>();
+        // HQ 성장 노드. 노드가 없으면 HQ는 시작 Level에 머문다.
+        public GrowthData Growth = new GrowthData();
         public List<SkillData> Skills = new List<SkillData>();
         // 모든 Player가 판 시작 때 가지는 Skill ID(Character 1종, 고정 구성). 획득 구조가 아니다.
         public List<string> StartingSkills = new List<string>();
@@ -64,13 +68,38 @@ namespace BlackHole.Core
         public float Damage;
     }
 
+    // 출현 위치 규칙. 무엇을·얼마나는 공급(StartSupply, 성장 노드)이 정한다.
     [Serializable]
     public sealed class SpawnData
     {
-        public float Interval;
-        public int MaxAlive;
         public float Distance;
         public float AngleStep;
-        public List<string> Order = new List<string>();
+    }
+
+    // Enemy 공급 한 건: 어떤 종류를 몇 마리.
+    [Serializable]
+    public sealed class SupplyData
+    {
+        public string Enemy;
+        public int Count;
+    }
+
+    // HQ 성장 노드 목록. 시작 Level은 1이고 Levels[i]는 Level (i + 2)다.
+    [Serializable]
+    public sealed class GrowthData
+    {
+        public List<GrowthLevelData> Levels = new List<GrowthLevelData>();
+    }
+
+    // 성장 노드 하나: 도달 임계값과, 처음 도달했을 때의 성장 효과.
+    [Serializable]
+    public sealed class GrowthLevelData
+    {
+        // 이 Level에 도달하는 누적 EXP. 앞 노드보다 커야 한다.
+        public int Exp;
+        // 판 시간 연장(초).
+        public float ExtraTime;
+        // 추가 공급.
+        public List<SupplyData> Supply = new List<SupplyData>();
     }
 }

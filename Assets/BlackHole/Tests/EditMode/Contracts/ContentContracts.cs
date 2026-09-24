@@ -14,6 +14,32 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsEnemyAndSpawnErrorsWithPath", ReportsEnemyAndSpawnErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.ReportsSkillErrorsWithPath", ReportsSkillErrorsWithPath);
+            yield return new Contract("Content.ReportsSupplyAndGrowthErrorsWithPath", ReportsSupplyAndGrowthErrorsWithPath);
+        }
+
+        // 전투 시작 배치와 성장 노드의 오류. 개별 값은 정의 생성자가, Enemy 참조는 로더가 경로와 함께 보고한다.
+        private static void ReportsSupplyAndGrowthErrorsWithPath()
+        {
+            ContentData values = TestContent.Data();
+            values.StartSupply[0].Count = 0;
+            values.Growth.Levels.Add(TestContent.Level(0));
+            values.Growth.Levels.Add(TestContent.Level(5, -1));
+            values.Growth.Levels.Add(TestContent.Level(8, 0, TestContent.Supply("ghost", 1), TestContent.Supply(TestContent.EnemyId, 0)));
+            ContentLoadResult result = ContentLoader.Load(values);
+            Expect.Equal(5, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "StartSupply[0]", "count");
+            TestContent.HasDiagnostic(result, "Growth.Levels[0]", "exp");
+            TestContent.HasDiagnostic(result, "Growth.Levels[1]", "extraTime");
+            TestContent.HasDiagnostic(result, "Growth.Levels[2].Supply[0].Enemy", "ghost");
+            TestContent.HasDiagnostic(result, "Growth.Levels[2].Supply[1]", "count");
+
+            // 노드 사이의 규칙은 노드가 모두 올바를 때 성장 정의 전체에 보고된다.
+            ContentData order = TestContent.Data();
+            order.Growth.Levels.Add(TestContent.Level(5));
+            order.Growth.Levels.Add(TestContent.Level(5));
+            result = ContentLoader.Load(order);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Growth", "Levels[1]");
         }
 
         private static void ReportsSkillErrorsWithPath()
@@ -44,27 +70,27 @@ namespace BlackHole.Core.Tests
             data.Enemies[0].MaxHealth = 0;
             data.Enemies.Add(TestContent.Enemy("chaser", 5, 1, 0.3f));
             data.Enemies[1].Behavior.Kind = "Chase";
-            data.Spawn.Interval = 0;
+            data.Spawn.Distance = 0;
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(!result.Succeeded, "Enemy·출현 정의 오류가 있으면 로드에 실패해야 한다.");
             Expect.Equal(3, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Enemies[test-enemy]", "maxHealth");
             TestContent.HasDiagnostic(result, "Enemies[chaser].Behavior.Kind", "Chase");
-            TestContent.HasDiagnostic(result, "Spawn", "interval");
+            TestContent.HasDiagnostic(result, "Spawn", "distance");
         }
 
-        // 참조 규칙(ID 유일, 출현 순서의 실재)은 개별 정의가 모두 올바를 때 검사된다.
+        // 참조 규칙(ID 유일, 공급 대상의 실재)은 개별 정의가 모두 올바를 때 검사된다.
         private static void ReportsEnemyReferenceErrorsWithPath()
         {
             ContentData data = TestContent.Data();
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, 5, 1, 0.3f));
-            data.Spawn.Order.Add("ghost");
+            data.StartSupply.Add(TestContent.Supply("ghost", 1));
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.Equal(2, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Enemies[1]", TestContent.EnemyId);
-            TestContent.HasDiagnostic(result, "Spawn.Order[1]", "ghost");
+            TestContent.HasDiagnostic(result, "StartSupply[1].Enemy", "ghost");
         }
 
         // 샘플 값 자체는 [임시]라서 검사하지 않는다. 샘플이 로드된다는 것만 본다.

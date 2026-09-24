@@ -4,8 +4,8 @@
 
 ## 현재 상태
 
-dev의 M0~M4가 완료됐습니다. 다음은 M5(HQ 성장·구간 진행·적 공급)이며, 착수 전에 정할 것을 확인하는 단계입니다.
-현재 실행에는 주기적 적 생성, HQ 공전, 마우스 조준 패시브 공격, 사망 즉시 Gold(Player)와 HQ EXP 지급, 블랙홀로 빨려드는 흡수 연출이 있습니다. HQ 성장 구간·구매는 후속 구현입니다.
+dev의 M0~M5가 완료됐습니다. 다음은 M6(전투 밖 구매와 다음 전투)이며, 착수 전에 정할 것을 확인하는 단계입니다.
+현재 실행에는 판 시작 배치, HQ 공전, 마우스 조준 패시브 공격, 사망 즉시 Gold(Player)와 HQ EXP 지급, 흡수 연출, HQ 성장(Level마다 적 추가·시간 연장·HQ 크기 증가)이 있습니다. 구매는 후속 구현입니다.
 
 ## 실행
 
@@ -22,10 +22,11 @@ Unity 6000.6.2f1로 열고 `Assets/Scenes/SampleScene.unity`를 Play 합니다.
 ## 문서
 
 1. [게임 규칙](docs/GAME_RULES.md)
-2. [전체 PLAN](docs/v2/PLAN.md)
-3. [실제 코드와 규칙의 차이](docs/v2/RULES_ALIGNMENT.md)
-4. [현재 인계](docs/v2/HANDOFF.md)
-5. [다음 M4](docs/v2/M4-death-reward.md)
+2. [레퍼런스 분석](docs/REFERENCE_ANALYSIS.md)
+3. [전체 PLAN](docs/v2/PLAN.md)
+4. [실제 코드와 규칙의 차이](docs/v2/RULES_ALIGNMENT.md)
+5. [현재 인계](docs/v2/HANDOFF.md)
+6. [다음 M6](docs/v2/M6-upgrade-loop.md)
 
 v1 코드는 `reference-v1` 태그, 문서는 [docs/v1](docs/v1/SYSTEM_CATALOG.md)에 보존합니다.
 
@@ -34,7 +35,8 @@ v1 코드는 `reference-v1` 태그, 문서는 [docs/v1](docs/v1/SYSTEM_CATALOG.m
 - `Assets/BlackHole/Sample/SampleContent.cs`: 임시 콘텐츠.
 - `Assets/BlackHole/Core/Session/SessionAssembler.cs`: 전투 조립.
 - `Assets/BlackHole/Core/Session/GameSession.cs`, `SessionRunner.cs`: 수명과 시간.
-- `Assets/BlackHole/Core/World/World.cs`: 이동 → Skill → 출현.
+- `Assets/BlackHole/Core/World/World.cs`: 이동 → Skill → 성장 진행 → 공급된 적 생성.
+- `Assets/BlackHole/Core/Hq/`, `Progression/GrowthProgression.cs`, `Supply/EnemySupply.cs`: HQ 성장, 성장 효과, 공급.
 - `Assets/BlackHole/Core/Skills/PassiveSkill.cs`, `Enemies/Enemy.cs`: 피해와 상태.
 - `Assets/BlackHole/Unity/SessionLauncher.cs`, `WorldView.cs`: 전환과 화면.
 
@@ -46,4 +48,4 @@ Unity EditMode와 .NET 8 CoreSmoke가 같은 계약을 실행합니다.
 dotnet run --project tests/CoreSmoke/CoreSmoke.csproj -c Release
 ```
 
-M4 기준 계약 37개가 통과합니다. CoreSmoke는 Unity 호스트·입력·렌더링 검증을 대체하지 않습니다.
+M5 기준 계약 45개가 통과합니다. CoreSmoke는 Unity 호스트·입력·렌더링 검증을 대체하지 않습니다.

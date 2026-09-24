@@ -8,7 +8,8 @@ namespace BlackHole.Core
         private readonly List<Player> _players;
         private readonly List<Enemy> _enemies = new List<Enemy>();
         private readonly List<DeathRecord> _deaths = new List<DeathRecord>();
-        private readonly EnemySpawner _spawner;
+        private readonly EnemySupply _supply;
+        private readonly GrowthProgression _growth;
         private int _nextEnemyId = 1;
         private long _nextDeathSequence = 1;
 
@@ -19,11 +20,16 @@ namespace BlackHole.Core
         // 마지막 Advance 동안의 모든 하위 단계 사망 기록. 다음 Advance 시작 때 비운다.
         public IReadOnlyList<DeathRecord> Deaths { get; }
 
-        internal World(Hq hq, List<Player> players, EnemySpawner spawner)
+        internal World(
+            Hq hq,
+            List<Player> players,
+            EnemySupply supply,
+            GrowthProgression growth)
         {
             Hq = hq;
             _players = players;
-            _spawner = spawner;
+            _supply = supply;
+            _growth = growth;
             Players = players.AsReadOnly();
             Enemies = _enemies.AsReadOnly();
             Deaths = _deaths.AsReadOnly();
@@ -33,18 +39,31 @@ namespace BlackHole.Core
         {
             foreach (Player candidate in _players)
             {
-                if (!candidate.Id.Equals(id)) continue;
+                if (!candidate.Id.Equals(id))
+                    continue;
+
                 player = candidate;
                 return true;
             }
+
             player = null;
             return false;
+        }
+
+        // 전투 시작 배치. 판 조립 때(0초) 한 번 공급한다. 그래서 0초 첫 틱이 이 적을 맞힐 수 있다.
+        internal void PlaceStartingEnemies(IReadOnlyList<SupplyRequest> requests)
+        {
+            _supply.Request(requests);
+            _supply.Release(this);
         }
 
         // 한 단계. 순서가 중요한 처리는 여기에 문장 순서대로 쓴다.
         // 1. 이동: 이미 있는 Enemy가 행동에 따라 움직인다.
         // 2. Passive Skill: Player 목록 순서, 각 Player의 Skill 순서로 주기를 진행한다. 이동한 위치를 공격한다.
-        // 3. 출현: 새 Enemy가 나온다. 이번 단계에 나온 Enemy는 다음 단계부터 움직이고 맞는다.
+        //    죽은 적은 그 자리에서 보상·HQ EXP(Level 상승)·사망 기록을 남기고 목록에서 빠진다.
+        // 3. 성장 진행: 이번 단계에 새로 도달한 Level의 효과를 실행한다(공급 요청, 시간 연장).
+        // 4. 공급: 요청된 Enemy가 나온다. 이번 단계에 나온 Enemy는 다음 단계부터 움직이고 맞는다.
+        // 종료 판정은 이 단계가 끝난 뒤 SessionRunner가 한다. 그래서 늘어난 시간이 이번 단계의 판정에 들어간다.
         internal void Step(float delta)
         {
             Point2 hq = Hq.Position;
@@ -57,14 +76,16 @@ namespace BlackHole.Core
             for (int p = 0; p < _players.Count; p++)
             {
                 IReadOnlyList<PassiveSkill> skills = _players[p].Skills;
-                
+
                 for (int s = 0; s < skills.Count; s++)
                 {
                     skills[s].Advance(delta, this);
                 }
             }
 
-            _spawner.Advance(delta, this);
+            _growth.Advance(Hq, _supply);
+
+            _supply.Release(this);
         }
 
         internal void BeginAdvance() => _deaths.Clear();
@@ -76,13 +97,13 @@ namespace BlackHole.Core
                 return;
 
             // 현재 실제 보상 구성은 단일 Player다. 조립 때 그 전제를 검증한다.
-            if (_players.Count == 1) 
+            if (_players.Count == 1)
                 _players[0].State.EarnGold(enemy.Definition.Gold);
-            
+
             Hq.GainExp(enemy.Definition.HqExp);
-            
+
             _deaths.Add(new DeathRecord(_nextDeathSequence++, enemy));
-            
+
             _enemies.Remove(enemy);
         }
 
@@ -90,15 +111,15 @@ namespace BlackHole.Core
         internal void AddEnemy(
             EnemyDefinition definition,
             EnemyStats stats,
-            Point2 position, 
+            Point2 position,
             IEnemyBehavior behavior)
         {
             _enemies.Add(
                 new Enemy(
                     new EnemyId(_nextEnemyId++),
-                    definition, 
-                    stats, 
-                    position, 
+                    definition,
+                    stats,
+                    position,
                     behavior));
         }
     }

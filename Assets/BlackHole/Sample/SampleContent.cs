@@ -5,18 +5,21 @@ namespace BlackHole.Sample
 {
     // 샘플 콘텐츠. 여기의 값은 전부 [임시]다 — Reference를 돌리기 위해 채운 값이며 기획 결정이 아니다.
     // Core는 이 어셈블리를 참조하지 않는다(D2: 샘플과 Core 규칙의 분리).
-    // [임시] 값의 목록과 이유는 docs/v2/PLAN.md 7절에 있다.
+    // [임시] 값의 목록과 이유는 docs/v2/PLAN.md 7절과 M5 문서에 있다.
     public static class SampleContent
     {
         public const string LightEnemyId = "sample-light";
         public const string HeavyEnemyId = "sample-heavy";
         public const string AuraSkillId = "sample-aura";
 
+        // [임시] 성장 노드의 임계값(누적 EXP). Lv2부터 Lv10까지.
+        private static readonly int[] LevelExp = { 6, 14, 24, 36, 50, 66, 84, 104, 126 };
+
         // 호출마다 새 데이터를 만든다. 호출자가 고쳐도 다른 호출에 영향이 없다.
         public static ContentData Create() => new ContentData
         {
-            // [임시] 한 판 길이(시간제는 현재 후보).
-            Session = new SessionData { TimeLimit = 60 },
+            // [임시] 한 판의 시작 시간(시간제는 현재 후보). 성장할 때마다 늘어난다.
+            Session = new SessionData { TimeLimit = 30 },
             // [임시] HQ 위치: 월드 중앙.
             Hq = new HqData { X = 0, Y = 0 },
             // [임시] Enemy 2종. 같은 행동(OrbitHq)의 수치 변형이다.
@@ -35,12 +38,16 @@ namespace BlackHole.Sample
                     Behavior = new EnemyBehaviorData { Kind = "OrbitHq", Clockwise = true }
                 }
             },
-            // [임시] 1초마다, 최대 20마리, HQ에서 4.5 거리, 황금각 간격, 두 종류를 번갈아.
-            Spawn = new SpawnData
+            // [임시] HQ에서 4.5 거리, 황금각 간격으로 놓는다.
+            Spawn = new SpawnData { Distance = 4.5f, AngleStep = 2.399963f },
+            // [임시] 전투 시작 배치: light 8, heavy 2.
+            StartSupply = new List<SupplyData>
             {
-                Interval = 1, MaxAlive = 20, Distance = 4.5f, AngleStep = 2.399963f,
-                Order = new List<string> { LightEnemyId, HeavyEnemyId }
+                Supply(LightEnemyId, 8),
+                Supply(HeavyEnemyId, 2)
             },
+            // [임시] 성장할 때마다 light 6, heavy 1이 추가되고 시간이 5초 늘어난다.
+            Growth = new GrowthData { Levels = GrowthLevels() },
             // [임시] 첫 Passive Skill: 소유 Player의 조준점 주변 반경 1.2, 0.5초마다 피해 3.
             Skills = new List<SkillData>
             {
@@ -48,5 +55,29 @@ namespace BlackHole.Sample
             },
             StartingSkills = new List<string> { AuraSkillId }
         };
+
+        private static List<GrowthLevelData> GrowthLevels()
+        {
+            var levels = new List<GrowthLevelData>();
+
+            foreach (int exp in LevelExp)
+            {
+                levels.Add(new GrowthLevelData
+                {
+                    Exp = exp,
+                    ExtraTime = 5,
+                    Supply = new List<SupplyData>
+                    {
+                        Supply(LightEnemyId, 6),
+                        Supply(HeavyEnemyId, 1)
+                    }
+                });
+            }
+
+            return levels;
+        }
+
+        private static SupplyData Supply(string enemy, int count) =>
+            new SupplyData { Enemy = enemy, Count = count };
     }
 }

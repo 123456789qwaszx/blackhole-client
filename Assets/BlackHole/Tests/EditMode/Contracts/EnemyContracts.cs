@@ -9,22 +9,20 @@ namespace BlackHole.Core.Tests
     {
         public static IEnumerable<Contract> Cases()
         {
-            yield return new Contract("Enemy.SpawnsAroundHqAtDistance", SpawnsAroundHqAtDistance);
+            yield return new Contract("Enemy.StartPlacementAroundHqAtDistance", StartPlacementAroundHqAtDistance);
             yield return new Contract("Enemy.OrbitsAroundHq", OrbitsAroundHq);
             yield return new Contract("Enemy.FollowsWhereHqIs", FollowsWhereHqIs);
-            yield return new Contract("Enemy.LongFrameIsSteppedLikeShortFrames", LongFrameIsSteppedLikeShortFrames);
+            yield return new Contract("Enemy.LongFrameMovesLikeShortFrames", LongFrameMovesLikeShortFrames);
             yield return new Contract("Enemy.BehaviorIsSwappableWithoutTouchingEnemy", BehaviorIsSwappableWithoutTouchingEnemy);
             yield return new Contract("Enemy.RuntimeStatsLeaveBaseDefinitionUnchanged", RuntimeStatsLeaveBaseDefinitionUnchanged);
-            yield return new Contract("Enemy.SpawnRespectsMaxAliveAndOrder", SpawnRespectsMaxAliveAndOrder);
+            yield return new Contract("Enemy.SupplyCreatesKindsInRequestOrder", SupplyCreatesKindsInRequestOrder);
             yield return new Contract("Enemy.SessionsDoNotShareEnemies", SessionsDoNotShareEnemies);
         }
 
-        private static void SpawnsAroundHqAtDistance()
+        // 전투 시작 배치는 판 조립 때 HQ 기준 거리에 나온다.
+        private static void StartPlacementAroundHqAtDistance()
         {
             GameSession game = TestContent.Session(TestContent.Data(hqX: 2, hqY: 1));
-            game.Advance(0.9f);
-            Expect.Equal(0, game.World.Enemies.Count);
-            game.Advance(0.15f);
             Expect.Equal(1, game.World.Enemies.Count);
 
             Enemy enemy = game.World.Enemies[0];
@@ -37,7 +35,6 @@ namespace BlackHole.Core.Tests
         private static void OrbitsAroundHq()
         {
             GameSession game = TestContent.Session(TestContent.Data(hqX: -1, hqY: 4));
-            game.Advance(1.05f);
             Enemy enemy = game.World.Enemies[0];
             float before = AngleAroundHq(game, enemy);
 
@@ -55,6 +52,7 @@ namespace BlackHole.Core.Tests
             moved.Advance(2.5f);
 
             Expect.Equal(atOrigin.World.Enemies.Count, moved.World.Enemies.Count);
+
             for (int i = 0; i < atOrigin.World.Enemies.Count; i++)
             {
                 Point2 a = atOrigin.World.Enemies[i].Position;
@@ -64,20 +62,21 @@ namespace BlackHole.Core.Tests
             }
         }
 
-        // 3.5초짜리 프레임 한 번도 짧은 프레임을 여러 번 진행한 것처럼 단계로 나뉜다.
-        // 나뉘지 않으면 1초에 나온 Enemy가 그 프레임 안에서 전혀 움직이지 않는다.
-        // (출현 시각과 겹치지 않는 3.5초를 쓴다. 정확히 3초면 부동소수 누적 차이로 출현 수가 갈린다.)
-        private static void LongFrameIsSteppedLikeShortFrames()
+        // 3.5초짜리 프레임 한 번과 짧은 프레임 여러 번의 이동 결과가 같다.
+        // 공전은 각도 계산이라 단계 크기와 무관하다. 시간 분할 자체는 Growth.LongFrameMatchesShortFrames가 확인한다.
+        private static void LongFrameMovesLikeShortFrames()
         {
             GameSession longFrame = TestContent.Session(TestContent.Data());
             GameSession shortFrames = TestContent.Session(TestContent.Data());
             longFrame.Advance(3.5f);
-            for (int i = 0; i < 210; i++) shortFrames.Advance(1f / 60f);
 
-            Expect.Equal(shortFrames.World.Enemies.Count, longFrame.World.Enemies.Count);
+            for (int i = 0; i < 210; i++)
+            {
+                shortFrames.Advance(1f / 60f);
+            }
+
             float expected = AngleAroundHq(shortFrames, shortFrames.World.Enemies[0]);
-            Expect.True(expected > 0.5f, "짧은 프레임에서는 첫 Enemy가 약 2.5초 동안 돌았어야 한다: " + expected);
-            // 단계 크기(1/30초) 차이만큼의 오차: 속도 1 / 반지름 3 × 1/30초 ≈ 0.011 라디안.
+            Expect.True(expected > 1, "짧은 프레임에서는 Enemy가 약 3.5초 동안 돌았어야 한다: " + expected);
             Expect.Near(expected, AngleAroundHq(longFrame, longFrame.World.Enemies[0]), 0.02f);
         }
 
@@ -93,13 +92,13 @@ namespace BlackHole.Core.Tests
                 return new SlideRight();
             });
 
-            game.Advance(1.05f);
             Enemy enemy = game.World.Enemies[0];
             Point2 start = enemy.Position;
             game.Advance(1);
             Expect.Near(start.X + 1, enemy.Position.X, 0.01f);
             Expect.Near(start.Y, enemy.Position.Y);
             Expect.Equal(game.World.Enemies.Count, seen.Count);
+
             foreach (EnemyBehaviorDefinition definition in seen)
                 Expect.True(definition is OrbitHqBehaviorDefinition, "콘텐츠의 행동 정의는 그대로 Orbit이어야 한다.");
 
@@ -110,7 +109,7 @@ namespace BlackHole.Core.Tests
         }
 
         // 실행 수치 = 기본 수치 + 보정(순서대로). 기본 정의는 바뀌지 않는다.
-        // 게임에서는 보정의 출처가 미정이라 보정이 없다.
+        // 게임에서는 보정(구매)이 아직 연결되지 않아 보정이 없다(M6).
         private static void RuntimeStatsLeaveBaseDefinitionUnchanged()
         {
             GameContent content = TestContent.Load(TestContent.Data());
@@ -126,25 +125,33 @@ namespace BlackHole.Core.Tests
             Expect.Near(10, definition.BaseStats.MaxHealth);
 
             GameSession game = TestContent.Session(TestContent.Data());
-            game.Advance(1.05f);
             Enemy enemy = game.World.Enemies[0];
             Expect.Near(definition.BaseStats.MaxHealth, enemy.Stats.MaxHealth);
             Expect.Near(enemy.Stats.MaxHealth, enemy.Health);
         }
 
-        private static void SpawnRespectsMaxAliveAndOrder()
+        // 공급은 요청 순서대로 생성한다. n번째 Enemy는 각도 n × AngleStep에 놓인다.
+        private static void SupplyCreatesKindsInRequestOrder()
         {
             ContentData data = TestContent.Data();
             data.Enemies.Add(TestContent.Enemy("other", 20, 1, 0.5f));
-            data.Spawn.Order = new List<string> { TestContent.EnemyId, "other" };
-            data.Spawn.MaxAlive = 3;
+            data.StartSupply = new List<SupplyData>
+            {
+                TestContent.Supply(TestContent.EnemyId, 2),
+                TestContent.Supply("other", 1)
+            };
 
             GameSession game = TestContent.Session(data);
-            game.Advance(10.5f);
             Expect.Equal(3, game.World.Enemies.Count);
             Expect.Equal(TestContent.EnemyId, game.World.Enemies[0].Definition.Id);
-            Expect.Equal("other", game.World.Enemies[1].Definition.Id);
-            Expect.Equal(TestContent.EnemyId, game.World.Enemies[2].Definition.Id);
+            Expect.Equal(TestContent.EnemyId, game.World.Enemies[1].Definition.Id);
+            Expect.Equal("other", game.World.Enemies[2].Definition.Id);
+
+            for (int i = 0; i < 3; i++)
+            {
+                Expect.Near(i, AngleAroundHq(game, game.World.Enemies[i]));
+                Expect.Near(3, TestContent.DistanceToHq(game, game.World.Enemies[i]));
+            }
         }
 
         private static void SessionsDoNotShareEnemies()
@@ -152,13 +159,12 @@ namespace BlackHole.Core.Tests
             GameContent content = TestContent.Load(TestContent.Data());
             GameSession first = SessionAssembler.Create(content, new[] { TestContent.First });
             GameSession second = SessionAssembler.Create(content, new[] { TestContent.First });
-            first.Advance(3.5f);
-            Expect.Equal(3, first.World.Enemies.Count);
-            Expect.Equal(0, second.World.Enemies.Count);
+            Point2 before = second.World.Enemies[0].Position;
 
-            second.Advance(1.05f);
+            first.Advance(1);
             Expect.Equal(new EnemyId(1), second.World.Enemies[0].Id);
             Expect.True(!ReferenceEquals(first.World.Enemies[0], second.World.Enemies[0]), "Enemy를 공유하면 안 된다.");
+            Expect.Equal(before, second.World.Enemies[0].Position);
         }
 
         private static float AngleAroundHq(GameSession game, Enemy enemy)

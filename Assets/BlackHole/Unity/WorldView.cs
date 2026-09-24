@@ -83,8 +83,11 @@ namespace BlackHole.Unity
             _camera.transform.position = new Vector3(position.x, position.y, _camera.transform.position.z);
             _hq.transform.position = position;
             _hqGlow.transform.position = position;
-            _hq.transform.localScale = Vector3.one * _presentation.HqDisplayDiameter;
-            _hqGlow.transform.localScale = Vector3.one * (_presentation.HqDisplayDiameter + _presentation.HqGlowExtra);
+
+            // 크기는 성장 Level을 읽은 표현이다. 출현 거리 같은 규칙 좌표에는 영향이 없다.
+            float diameter = _presentation.HqDiameter(hq.Level);
+            _hq.transform.localScale = Vector3.one * diameter;
+            _hqGlow.transform.localScale = Vector3.one * (diameter + _presentation.HqGlowExtra);
         }
 
         private void SynchronizeEnemies(IReadOnlyList<Enemy> enemies, IReadOnlyList<DeathRecord> deaths, Point2 hq)

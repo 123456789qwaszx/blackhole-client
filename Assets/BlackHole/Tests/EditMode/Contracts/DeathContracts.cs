@@ -56,8 +56,14 @@ namespace BlackHole.Core.Tests
 
         private static void LongAdvanceKeepsAllDeathsUntilNextAdvance()
         {
+            // 서로 다른 단계에서 죽는 두 적을 조준점 (3, 0)에 함께 둔다(각도 간격 0).
+            // HP 3은 0초 틱에, HP 6은 0.5초 틱에 죽는다.
             ContentData data = Arena();
-            // 두 번째 적도 조준점 (3, 0)에 나오게 한다. 기본 각도 간격 π면 (-3, 0)에 나와 맞지 않는다.
+            EnemyData tough = TestContent.Enemy("tough", 6, 0.0001f, 0.3f);
+            tough.Gold = 7;
+            tough.HqExp = 11;
+            data.Enemies.Add(tough);
+            data.StartSupply.Add(TestContent.Supply("tough", 1));
             data.Spawn.AngleStep = 0;
             GameSession game = TestContent.Session(data);
             game.SetAimPoint(TestContent.First, new Point2(3, 0));

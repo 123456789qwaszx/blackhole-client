@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using BlackHole.Core;
 using BlackHole.Sample;
 using UnityEngine;
 
 namespace BlackHole.Unity
 {
     // 표현 샘플. 화면 전용 값이며 게임 규칙이 아니다(Core는 모른다).
-    // HQ 레벨/크기 연계는 M5에서 정한다. 지금 원판 크기는 표현 샘플이다.
+    // HQ는 Level이 오를 때마다 화면에서만 커진다. 규칙 좌표(출현 거리)는 바꾸지 않는다(M5).
     // Enemy 크기는 게임 수치(Stats.Size)를 그대로 쓰고, 색만 여기서 정한다.
     // Skill 범위 원의 크기는 Skill의 실행 반경이다. 여기서는 색과 연출 시간만 정한다.
     internal sealed class SamplePresentation
@@ -21,7 +22,8 @@ namespace BlackHole.Unity
         public Color Background { get; } = new Color(0.025f, 0.035f, 0.065f);
         public Color HqColor { get; } = new Color(0.005f, 0.005f, 0.012f);
         public Color HqGlowColor { get; } = new Color(0.38f, 0.18f, 0.8f);
-        public float HqDisplayDiameter { get; } = 1.3f;
+        public float HqBaseDiameter { get; } = 1.3f;
+        public float HqDiameterPerLevel { get; } = 0.15f;
         public float HqGlowExtra { get; } = 0.22f;
         // 외형이 정의되지 않은 Enemy 종류의 색. 플레이는 막지 않는다.
         public Color FallbackEnemyColor { get; } = Color.white;
@@ -38,6 +40,10 @@ namespace BlackHole.Unity
         public Color SkillTickColor { get; } = new Color(0.55f, 0.75f, 1, 0.24f);
         public Color SkillRingColor { get; } = new Color(0.6f, 0.8f, 1, 0.8f);
         public float SkillTickSeconds { get; } = 0.15f;
+
+        // HQ 원판의 지름: 시작 Level에서 기본 지름, Level마다 일정하게 커진다.
+        public float HqDiameter(int level) =>
+            HqBaseDiameter + HqDiameterPerLevel * (level - HqGrowthDefinition.StartLevel);
 
         public Color EnemyColor(string enemyId) =>
             enemyId != null && _enemyColors.TryGetValue(enemyId, out Color color) ? color : FallbackEnemyColor;

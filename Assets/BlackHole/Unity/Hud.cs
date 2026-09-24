@@ -18,7 +18,7 @@ namespace BlackHole.Unity
             GUILayout.Label("BLACK HOLE / Reference v2");
             GUILayout.Label($"{session.Phase}  |  {session.Remaining:F1}s remaining");
             GUILayout.Label($"Players {session.World.Players.Count}   Enemies {session.World.Enemies.Count}");
-            GUILayout.Label($"HQ EXP {session.World.Hq.Exp}");
+            GUILayout.Label(Growth(session.World.Hq));
             foreach (Player player in session.World.Players)
                 GUILayout.Label($"{player.Id}  Gold {player.State.Gold}  aim {(player.AimPoint.HasValue ? Format(player.AimPoint.Value) : "none")}  ticks {Ticks(player)}");
             GUILayout.Label("Mouse: aim   P: pause/resume   R: restart");
@@ -38,6 +38,11 @@ namespace BlackHole.Unity
             GUILayout.EndArea();
             return request;
         }
+
+        private static string Growth(Hq hq) =>
+            hq.NextLevelExp.HasValue
+                ? $"HQ Lv {hq.Level}   EXP {hq.Exp} / {hq.NextLevelExp.Value}"
+                : $"HQ Lv {hq.Level} (max)   EXP {hq.Exp}";
 
         private static string Format(Point2 point) => $"({point.X:F1}, {point.Y:F1})";
 

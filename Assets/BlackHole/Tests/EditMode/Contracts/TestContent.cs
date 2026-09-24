@@ -11,33 +11,28 @@ namespace BlackHole.Core.Tests
         public const string EnemyId = "test-enemy";
         public const string SkillId = "test-skill";
 
-        // 기본: Enemy 1종(HP 10, 속도 1, 크기 0.3, 반시계 공전), 1초마다 HQ에서 거리 3에 출현, 최대 10.
+        // 기본: Enemy 1종(HP 10, 속도 1, 크기 0.3, 반시계 공전)이 판 시작에 HQ에서 거리 3, 각도 0에 1마리. 성장 노드 없음.
         // 시작 Skill 1개(조준점 기준, 반경 1, 0.5초마다, 피해 1). 조준점을 넣지 않으면 아무도 맞지 않는다.
         public static ContentData Data(float timeLimit = 60, float hqX = 0, float hqY = 0) => new ContentData
         {
             Session = new SessionData { TimeLimit = timeLimit },
             Hq = new HqData { X = hqX, Y = hqY },
             Enemies = new List<EnemyData> { Enemy(EnemyId, 10, 1, 0.3f) },
-            Spawn = new SpawnData
-            {
-                Interval = 1, MaxAlive = 10, Distance = 3, AngleStep = 1,
-                Order = new List<string> { EnemyId }
-            },
+            Spawn = new SpawnData { Distance = 3, AngleStep = 1 },
+            StartSupply = new List<SupplyData> { Supply(EnemyId, 1) },
+            Growth = new GrowthData(),
             Skills = new List<SkillData> { Skill(SkillId, radius: 1, interval: 0.5f, damage: 1) },
             StartingSkills = new List<string> { SkillId }
         };
 
-        // Skill 계약용: 거의 움직이지 않는 Enemy(HP 100)가 0.1초 간격으로 HQ(0, 0)에서 거리 3에 나온다.
+        // Skill 계약용: 거의 움직이지 않는 Enemy(HP 100)가 판 시작에 HQ(0, 0)에서 거리 3에 enemies마리.
         // 각도 간격이 π라 첫째는 (3, 0), 둘째는 (-3, 0)이다.
         public static ContentData SkillArena(int enemies, float radius, float interval, float damage)
         {
             ContentData data = Data();
             data.Enemies = new List<EnemyData> { Enemy(EnemyId, 100, 0.0001f, 0.3f) };
-            data.Spawn = new SpawnData
-            {
-                Interval = 0.1f, MaxAlive = enemies, Distance = 3, AngleStep = (float)System.Math.PI,
-                Order = new List<string> { EnemyId }
-            };
+            data.Spawn = new SpawnData { Distance = 3, AngleStep = (float)System.Math.PI };
+            data.StartSupply = new List<SupplyData> { Supply(EnemyId, enemies) };
             data.Skills = new List<SkillData> { Skill(SkillId, radius, interval, damage) };
             return data;
         }
@@ -51,6 +46,13 @@ namespace BlackHole.Core.Tests
                 Id = id, MaxHealth = health, MoveSpeed = speed, Size = size,
                 Behavior = new EnemyBehaviorData { Kind = "OrbitHq", Clockwise = clockwise }
             };
+
+        public static SupplyData Supply(string enemyId, int count) =>
+            new SupplyData { Enemy = enemyId, Count = count };
+
+        // 성장 노드 하나: 임계값, 시간 연장, 추가 공급.
+        public static GrowthLevelData Level(int exp, float extraTime = 0, params SupplyData[] supply) =>
+            new GrowthLevelData { Exp = exp, ExtraTime = extraTime, Supply = new List<SupplyData>(supply) };
 
         public static GameContent Load(ContentData data)
         {

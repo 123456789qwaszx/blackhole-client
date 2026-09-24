@@ -6,8 +6,12 @@ namespace BlackHole.Core
     // ContentData(저작 형식) → GameContent(검증된 정의).
     //
     // 오류가 하나라도 있으면 Content 없이 모든 진단을 돌려준다(부분 통과 금지).
-    // 여기서 새로 두는 규칙은 데이터 모양에 관한 것뿐이다(빠진 칸, 알 수 없는 종류 이름).
+    // 여기서 새로 두는 규칙은 데이터 모양에 관한 것뿐이다(빠진 칸, 알 수 없는 종류 이름, 정의되지 않은 참조).
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
+    //
+    // 두 단계로 읽는다.
+    // 1. 독립 정의: 판 설정, HQ, Enemy, 출현 위치, Skill.
+    // 2. Enemy를 참조하는 정의: 전투 시작 배치, HQ 성장 노드. 1단계의 Enemy 색인으로 ID를 정의로 해석한다.
     public static class ContentLoader
     {
         public static ContentLoadResult Load(ContentData data)
@@ -25,12 +29,34 @@ namespace BlackHole.Core
             SpawnDefinition spawn = LoadSpawn(data.Spawn, diagnostics);
             List<PassiveSkillDefinition> skills = LoadSkills(data.Skills, diagnostics);
             IReadOnlyList<string> startingSkills = (IReadOnlyList<string>)data.StartingSkills ?? Array.Empty<string>();
-            if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            ContentInvariants.Collect(enemies, spawn, skills, startingSkills, diagnostics, out _, out _);
-            if (diagnostics.Count > 0) return Fail(diagnostics);
+            if (diagnostics.Count > 0)
+                return Fail(diagnostics);
 
-            var content = new GameContent(timeLimit, hq, enemies, spawn, skills, startingSkills);
+            ContentInvariants.Collect(
+                enemies,
+                skills,
+                startingSkills,
+                diagnostics,
+                out Dictionary<string, EnemyDefinition> enemiesById,
+                out _);
+
+            List<SupplyRequest> startSupply = LoadSupplyList(data.StartSupply, "StartSupply", enemiesById, diagnostics);
+            HqGrowthDefinition growth = LoadGrowth(data.Growth, enemiesById, diagnostics);
+
+            if (diagnostics.Count > 0)
+                return Fail(diagnostics);
+
+            var content = new GameContent(
+                timeLimit,
+                hq,
+                enemies,
+                spawn,
+                startSupply,
+                growth,
+                skills,
+                startingSkills);
+
             return new ContentLoadResult(content, diagnostics);
         }
 
@@ -91,13 +117,97 @@ namespace BlackHole.Core
             }
         }
 
-        // ── 출현 ────────────────────────────────────────────────────────────
+        // ── 출현·공급 ───────────────────────────────────────────────────────
 
         private static SpawnDefinition LoadSpawn(SpawnData item, List<ContentDiagnostic> into)
         {
-            if (item == null) return Missing<SpawnDefinition>("Spawn", into);
-            return Guard("Spawn", into, () =>
-                new SpawnDefinition(item.Interval, item.MaxAlive, item.Distance, item.AngleStep, item.Order));
+            if (item == null)
+                return Missing<SpawnDefinition>("Spawn", into);
+
+            return Guard("Spawn", into, () => new SpawnDefinition(item.Distance, item.AngleStep));
+        }
+
+        // 없으면 공급이 없다.
+        private static List<SupplyRequest> LoadSupplyList(
+            List<SupplyData> items,
+            string section,
+            IReadOnlyDictionary<string, EnemyDefinition> enemies,
+            List<ContentDiagnostic> into)
+        {
+            var requests = new List<SupplyRequest>();
+
+            if (items == null)
+                return requests;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                SupplyData item = items[i];
+                string at = $"{section}[{i}]";
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "공급 데이터가 null이다."));
+                    continue;
+                }
+
+                if (item.Enemy == null || !enemies.TryGetValue(item.Enemy, out EnemyDefinition enemy))
+                {
+                    into.Add(new ContentDiagnostic(at + ".Enemy", $"정의되지 않은 Enemy ID '{item.Enemy}'."));
+                    continue;
+                }
+
+                SupplyRequest? request = GuardValue(at, into, () => new SupplyRequest(enemy, item.Count));
+
+                if (request.HasValue)
+                    requests.Add(request.Value);
+            }
+
+            return requests;
+        }
+
+        // ── HQ 성장 ─────────────────────────────────────────────────────────
+
+        // 없으면 성장 노드가 없다(HQ는 시작 Level에 머문다).
+        private static HqGrowthDefinition LoadGrowth(
+            GrowthData item,
+            IReadOnlyDictionary<string, EnemyDefinition> enemies,
+            List<ContentDiagnostic> into)
+        {
+            if (item?.Levels == null)
+                return HqGrowthDefinition.None;
+
+            int errors = into.Count;
+            var levels = new List<HqLevelDefinition>();
+
+            for (int i = 0; i < item.Levels.Count; i++)
+            {
+                GrowthLevelData level = item.Levels[i];
+                string at = $"Growth.Levels[{i}]";
+
+                if (level == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "성장 노드 데이터가 null이다."));
+                    continue;
+                }
+
+                int levelErrors = into.Count;
+                List<SupplyRequest> supply = LoadSupplyList(level.Supply, at + ".Supply", enemies, into);
+
+                if (into.Count > levelErrors)
+                    continue;
+
+                HqLevelDefinition definition = Guard(at, into, () =>
+                    new HqLevelDefinition(level.Exp, level.ExtraTime, supply));
+
+                if (definition != null)
+                    levels.Add(definition);
+            }
+
+            if (into.Count > errors)
+                return null;
+
+            // 노드 사이의 규칙(임계값이 앞 노드보다 큼)은 성장 정의 생성자가 본다.
+            return Guard("Growth", into, () => new HqGrowthDefinition(levels));
         }
 
         // ── Passive Skill ───────────────────────────────────────────────────

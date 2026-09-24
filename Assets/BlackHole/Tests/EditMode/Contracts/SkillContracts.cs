@@ -23,7 +23,8 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Skill.EachPlayerHasOwnSkills", EachPlayerHasOwnSkills);
         }
 
-        // 첫 틱은 0초다. 조준점이 없어도, 맞을 적이 없어도 틱은 일어나고 세어진다.
+        // 첫 틱은 0초다. 전투 시작 배치가 판 조립 때 나오므로 0초 틱이 그 적을 맞힌다.
+        // 조준점이 없어도 틱은 일어나고 세어진다.
         private static void FirstTickAtSessionStart()
         {
             GameSession game = TestContent.Session(TestContent.SkillArena(enemies: 1, radius: 1, interval: 0.5f, damage: 1));
@@ -31,28 +32,34 @@ namespace BlackHole.Core.Tests
             PassiveSkill skill = player.Skills[0];
             Expect.Equal(0, skill.TickCount);
 
+            game.SetAimPoint(TestContent.First, East);
             game.Advance(0.01f);
             Expect.Equal(1, skill.TickCount);
+            Expect.Near(99, game.World.Enemies[0].Health);
+
+            game.SetAimPoint(TestContent.First, null);
             game.Advance(1);
             Expect.Equal(3, skill.TickCount);
+            Expect.Near(99, game.World.Enemies[0].Health);
         }
 
-        // 틱은 0초, 0.5초, 1.0초, …에 키 입력 없이 일어난다. Enemy는 0.1초에 나오므로 0초 틱에는 맞지 않는다.
-        // 2.25초까지 맞는 틱: 0.5, 1.0, 1.5, 2.0 → 피해 1씩 4번.
+        // 틱은 0초, 0.5초, 1.0초, …에 키 입력 없이 일어난다.
+        // 2.25초까지 맞는 틱: 0, 0.5, 1.0, 1.5, 2.0 → 피해 1씩 5번.
         private static void TicksOnScheduleWithoutInput()
         {
             GameSession game = TestContent.Session(TestContent.SkillArena(enemies: 1, radius: 1, interval: 0.5f, damage: 1));
             game.SetAimPoint(TestContent.First, East);
             game.Advance(2.25f);
-            Expect.Near(96, game.World.Enemies[0].Health);
+            Expect.Near(95, game.World.Enemies[0].Health);
         }
 
+        // 0초 틱 한 번만 보도록 0.25초만 진행한다.
         private static void HitsEveryEnemyInsideAndNoneOutside()
         {
             // 반경 1로 동쪽만 조준: 동쪽 Enemy만 맞는다.
             GameSession narrow = TestContent.Session(TestContent.SkillArena(enemies: 2, radius: 1, interval: 0.5f, damage: 5));
             narrow.SetAimPoint(TestContent.First, East);
-            narrow.Advance(0.75f);
+            narrow.Advance(0.25f);
             Expect.Equal(2, narrow.World.Enemies.Count);
             Expect.Near(95, EnemyNear(narrow, East).Health);
             Expect.Near(100, EnemyNear(narrow, West).Health);
@@ -60,7 +67,7 @@ namespace BlackHole.Core.Tests
             // 반경 5로 HQ를 조준: 둘 다 원 안이다.
             GameSession wide = TestContent.Session(TestContent.SkillArena(enemies: 2, radius: 5, interval: 0.5f, damage: 5));
             wide.SetAimPoint(TestContent.First, new Point2(0, 0));
-            wide.Advance(0.75f);
+            wide.Advance(0.25f);
             Expect.Near(95, EnemyNear(wide, East).Health);
             Expect.Near(95, EnemyNear(wide, West).Health);
         }
@@ -83,7 +90,7 @@ namespace BlackHole.Core.Tests
             Expect.Near(99, enemy.Health);
         }
 
-        // 긴 프레임 한 번과 짧은 프레임 여러 번의 틱 수가 같다(0.5 ~ 3.0초 틱 6번).
+        // 긴 프레임 한 번과 짧은 프레임 여러 번의 틱 수가 같다(0 ~ 3.0초 틱 7번).
         private static void LongFrameCountsEveryTick()
         {
             ContentData data = TestContent.SkillArena(enemies: 1, radius: 1, interval: 0.5f, damage: 1);
@@ -94,8 +101,8 @@ namespace BlackHole.Core.Tests
 
             longFrame.Advance(3.1f);
             for (int i = 0; i < 186; i++) shortFrames.Advance(1f / 60f);
-            Expect.Near(94, longFrame.World.Enemies[0].Health);
-            Expect.Near(94, shortFrames.World.Enemies[0].Health);
+            Expect.Near(93, longFrame.World.Enemies[0].Health);
+            Expect.Near(93, shortFrames.World.Enemies[0].Health);
         }
 
         // 조준점은 Player의 값이다. 각 Player의 Skill은 자기 Player의 조준점만 쓴다.
@@ -109,21 +116,23 @@ namespace BlackHole.Core.Tests
 
             game.SetAimPoint(TestContent.First, East);
             game.SetAimPoint(TestContent.Second, Nowhere);
+            // 0초와 0.5초 틱: 첫째 Player만 맞힌다.
             game.Advance(0.75f);
             Enemy enemy = game.World.Enemies[0];
-            Expect.Near(99, enemy.Health);
+            Expect.Near(98, enemy.Health);
             Expect.Equal(TestContent.First, enemy.LastDamageSource.Value);
 
+            // 1.0초 틱: 둘 다 맞힌다. 뒤 순서인 둘째 Player가 마지막 출처다.
             game.SetAimPoint(TestContent.Second, East);
             game.Advance(0.5f);
-            Expect.Near(97, enemy.Health);
+            Expect.Near(96, enemy.Health);
             Expect.Equal(TestContent.Second, enemy.LastDamageSource.Value);
 
             // 조준점이 없으면 그 Player의 Skill은 아무것도 공격하지 않는다.
             game.SetAimPoint(TestContent.First, null);
             game.SetAimPoint(TestContent.Second, null);
             game.Advance(1);
-            Expect.Near(97, enemy.Health);
+            Expect.Near(96, enemy.Health);
         }
 
         // 실행 수치 = 기본 수치 + 보정. 기본 정의는 바뀌지 않는다. 게임에서는 보정의 출처가 미정이라 보정이 없다.

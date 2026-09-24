@@ -20,6 +20,13 @@ namespace BlackHole.Core
             return value;
         }
 
+        public static float NonNegative(float value, string name)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0)
+                throw new ArgumentOutOfRangeException(name, "0 이상의 유한한 값이 필요하다.");
+            return value;
+        }
+
         // 실행 중 요청 값(진행 시간)의 검사. 정의가 아니라 호출 계약이다.
         public static void Delta(float value)
         {
