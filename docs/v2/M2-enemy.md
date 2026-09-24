@@ -1,6 +1,6 @@
 # M2 — Enemy: 정의, Runtime Stat, 출현, Orbit 행동
 
-상태: 계획 · 선행: M1 · 결정 D3 승인
+상태: 완료(2026-09-24) · 선행: M1 · 결정 D3 승인
 
 ## 목표
 
@@ -72,4 +72,38 @@ Enemy가 HQ 주변에 나타나 HQ 주위를 돈다. Enemy는 종류별로 다�
 
 ## 결과
 
-(완료 후 작성)
+완료: 2026-09-24
+
+**한 일**
+
+- `Enemies/`
+  - EnemyDefinition(기본 수치 + 행동 정의), EnemyStats(기본·실행 수치가 같은 모양)
+  - EnemyStatCalculator와 IEnemyStatModifier(실행 수치 = 기본 + 보정, 순서대로)
+  - Enemy(위치·HP·실행 수치의 원본. 행동 경계만 안다)
+  - IEnemyBehavior·EnemyBehaviorInput, OrbitHqBehavior, EnemyBehaviors.Standard(행동 해석의 유일한 자리), EnemyBehaviorResolver
+- `Spawn/`: SpawnDefinition, EnemySpawner(타이머·순번, 출현 때 실행 수치 계산).
+- World: Enemy 목록과 ID 발급. 단계 순서는 이동 → 출현.
+- Content: Enemy·출현 데이터, 로더 섹션, ContentInvariants(Enemy ID 유일, 출현 순서의 실재).
+- SessionAssembler: 행동 해석기를 받는 두 번째 조립 경로(D3). 게임은 Standard 경로를 쓴다.
+- Sample: Enemy 2종(`sample-light` 반시계, `sample-heavy` 시계), 출현 설정.
+- Unity: WorldView가 Enemy를 게임 수치 크기로 그리고, 종류별 색은 SamplePresentation에서 가져온다(없으면 기본 색). HUD에 Enemy 수.
+- 계약 10개 추가(Enemy 8, Content 2). 합계 22개.
+
+**검증**
+
+- CoreSmoke 22개 통과.
+- 시간 분할을 일부러 없애면 `Enemy.LongFrameIsSteppedLikeShortFrames`가 실패한다. M1에서 관찰할 수 없던 시간 분할을 이 계약으로 확인했다.
+- Unity와 같은 경계로 나눈 컴파일: 경고 0, 오류 0.
+- Enemy·World·출현 코드에 "Orbit"이 나오지 않는다. 원점 가정(`Point2(0, 0)` 등)이 코드에 없다.
+- 사용자 플레이 확인: 출현, 종류별 색·크기·방향, 최대 수, 일시정지, 재시작, 재활성화, EditMode 22개.
+
+**발견**
+
+- 행동 교체 자리(D3)는 판 조립 때 해석기(`EnemyBehaviorResolver`)를 넘기는 방식으로 정했다. 콘텐츠의 종류 이름에는 Fake가 없고, 테스트만 해석기를 바꾼다.
+- 보정 자리는 계산 한 곳(`EnemyStatCalculator`)에 두었다. 게임에서는 보정의 출처가 미정이라 빈 목록을 넘긴다. 보정을 실제로 연결하는 실험은 M5에서 한다.
+- 긴 프레임 계약을 처음에 정확히 3.0초로 잡았다가, 부동소수 누적 차이로 두 경로의 출현 수가 갈렸다. 출현 시각과 겹치지 않는 3.5초로 옮겼다. 시간 경계에 걸친 계약은 경계에서 떨어진 시각을 쓴다.
+
+**계획과 달라진 점**
+
+- 보상 Gold/EXP 필드는 M4로 미뤘다. 지금은 쓰이지 않아서 "없어도 돌아가면 채우지 않는다"(PLAN 5절 정책 1)를 따랐다.
+- 새 [임시] 규칙: Orbit은 "HQ로부터 거리 유지"로 해석했다. 이동 속도는 Enemy 수치로, 회전 방향은 행동 정의의 값으로 두었다. 출현은 판 시작 후 주기마다 한 번이고, 동시 최대 수에 걸린 출현은 미루지 않고 건너뛴다. PLAN 5절 표에 반영했다.

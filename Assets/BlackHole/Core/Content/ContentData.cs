@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
@@ -9,6 +10,8 @@ namespace BlackHole.Core
     {
         public SessionData Session;
         public HqData Hq;
+        public List<EnemyData> Enemies = new List<EnemyData>();
+        public SpawnData Spawn;
     }
 
     [Serializable]
@@ -23,5 +26,35 @@ namespace BlackHole.Core
     {
         public float X;
         public float Y;
+    }
+
+    [Serializable]
+    public sealed class EnemyData
+    {
+        public string Id;
+        public float MaxHealth;
+        public float MoveSpeed;
+        public float Size;
+        public EnemyBehaviorData Behavior;
+    }
+
+    // 행동 종류마다 쓰는 칸이 다르다. 지금은 OrbitHq 하나다.
+    [Serializable]
+    public sealed class EnemyBehaviorData
+    {
+        // 이름 문자열. 가능한 값은 ContentLoader의 해석 목록에 있다.
+        public string Kind;
+        // OrbitHq
+        public bool Clockwise;
+    }
+
+    [Serializable]
+    public sealed class SpawnData
+    {
+        public float Interval;
+        public int MaxAlive;
+        public float Distance;
+        public float AngleStep;
+        public List<string> Order = new List<string>();
     }
 }

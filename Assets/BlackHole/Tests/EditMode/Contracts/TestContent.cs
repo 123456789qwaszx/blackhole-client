@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using BlackHole.Core;
 
 namespace BlackHole.Core.Tests
@@ -7,12 +8,27 @@ namespace BlackHole.Core.Tests
     {
         public static readonly PlayerId First = new PlayerId(1);
         public static readonly PlayerId Second = new PlayerId(2);
+        public const string EnemyId = "test-enemy";
 
+        // 기본: Enemy 1종(HP 10, 속도 1, 크기 0.3, 반시계 공전), 1초마다 HQ에서 거리 3에 출현, 최대 10.
         public static ContentData Data(float timeLimit = 60, float hqX = 0, float hqY = 0) => new ContentData
         {
             Session = new SessionData { TimeLimit = timeLimit },
-            Hq = new HqData { X = hqX, Y = hqY }
+            Hq = new HqData { X = hqX, Y = hqY },
+            Enemies = new List<EnemyData> { Enemy(EnemyId, 10, 1, 0.3f) },
+            Spawn = new SpawnData
+            {
+                Interval = 1, MaxAlive = 10, Distance = 3, AngleStep = 1,
+                Order = new List<string> { EnemyId }
+            }
         };
+
+        public static EnemyData Enemy(string id, float health, float speed, float size, bool clockwise = false) =>
+            new EnemyData
+            {
+                Id = id, MaxHealth = health, MoveSpeed = speed, Size = size,
+                Behavior = new EnemyBehaviorData { Kind = "OrbitHq", Clockwise = clockwise }
+            };
 
         public static GameContent Load(ContentData data)
         {
@@ -33,5 +49,8 @@ namespace BlackHole.Core.Tests
             throw new System.InvalidOperationException(
                 $"진단 없음: {path} ({reason}). 받은 진단: {string.Join(" | ", result.Diagnostics)}");
         }
+
+        public static float DistanceToHq(GameSession game, Enemy enemy) =>
+            (float)System.Math.Sqrt(enemy.Position.DistanceSquared(game.World.Hq.Position));
     }
 }

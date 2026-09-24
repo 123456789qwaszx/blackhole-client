@@ -17,7 +17,7 @@ namespace BlackHole.Unity
             GUILayout.BeginArea(new Rect(16, 16, 320, 200), GUI.skin.box);
             GUILayout.Label("BLACK HOLE / Reference v2");
             GUILayout.Label($"{session.Phase}  |  {session.Remaining:F1}s remaining");
-            GUILayout.Label($"Players {session.World.Players.Count}");
+            GUILayout.Label($"Players {session.World.Players.Count}   Enemies {session.World.Enemies.Count}");
             GUILayout.Label("P: pause/resume   R: restart");
             GUILayout.Space(8);
 

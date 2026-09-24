@@ -1,6 +1,6 @@
 # Reference v2 — 전체 PLAN
 
-작성일: 2026-09-24 · 상태: M0·M1 완료, M2 진행 중
+작성일: 2026-09-24 · 상태: M0~M2 완료, M3 진행 중
 
 ## 1. 목적
 
@@ -72,9 +72,9 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../v1/SYSTEM_CATALOG.md)
 |---|---|---|
 | 한 판 길이(시간제) | 판이 끝나야 결과·재시작을 검증할 수 있다 | M1 |
 | HQ 위치 | 기준점이 있어야 한다(월드 중앙) | M1 |
-| 출현 주기·동시 최대 수·HQ로부터의 거리 | 출현이 있어야 한다 | M2 |
+| 출현 주기·동시 최대 수·HQ로부터의 거리·각도 간격. 판 시작 후 주기마다 한 번, 최대 수에 걸린 출현은 건너뜀 | 출현이 있어야 한다 | M2 |
 | Enemy 종류(2종)와 기본 수치 | 종류별 차이를 검증한다 | M2 |
-| Orbit 속도·반경 | 행동이 있어야 한다 | M2 |
+| Orbit: HQ로부터 거리 유지(해석), 회전 방향(행동 정의 값). 이동 속도는 Enemy 수치 | 행동이 있어야 한다 | M2 |
 | Runtime Stat 계산 시점(출현 때 1회) | 계산 시점을 정해야 계산할 수 있다 | M2 |
 | 첫 Skill의 반경·공격 주기·피해량 | Skill이 있어야 한다 | M3 |
 | Enemy 종류별 보상 Gold/EXP | 지급할 값이 있어야 한다 | M4 |
@@ -97,8 +97,8 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../v1/SYSTEM_CATALOG.md)
 |---|---|---|---|---|
 | M0 | v1 정리와 빈 뼈대 | — | [M0-cleanup.md](M0-cleanup.md) | 완료 |
 | M1 | 월드 뼈대: Session, Content, HQ, Player | B1, B2, B8, B9 | [M1-world.md](M1-world.md) | 완료 |
-| M2 | Enemy: 정의, Runtime Stat, 출현, Orbit 행동 | B2, B3, B4, B9 | [M2-enemy.md](M2-enemy.md) | 진행 중 |
-| M3 | 첫 Passive Skill(Player 1의 AimPoint 기준) | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 계획 |
+| M2 | Enemy: 정의, Runtime Stat, 출현, Orbit 행동 | B2, B3, B4, B9 | [M2-enemy.md](M2-enemy.md) | 완료 |
+| M3 | 첫 Passive Skill(Player 1의 AimPoint 기준) | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 진행 중 |
 | M4 | Death → Reward와 흡수 연출(사망 기록을 화면이 읽음) | B1, B6, B7 | [M4-death-reward.md](M4-death-reward.md) | 계획 |
 | M5 | 변화 실험과 정리 | 전체 | [M5-review.md](M5-review.md) | 계획 |
 
@@ -151,3 +151,4 @@ docs/
 | 2026-09-24 | 계획 검토 | D1~D4 승인. 보상 귀속과 입력 소유 관계를 지어내던 부분 발견 | B1·B5·B6 문구 수정, 보상 수령자 [임시] 삭제, PlayerCharacter 코드 제외, D3를 테스트 Fake로 변경 |
 | 2026-09-24 | M0 | 완료 기준 충족(원격 CI 실행만 push 후 확인). 임의 규칙 없음. 뼈대에 v1 가정 없음(GameHost와 계약 실행 구조뿐) | 없음. M1 계획 그대로 진행 |
 | 2026-09-24 | M1 | 완료 기준 충족. 새 게임 규칙 없음(참가자 검증은 조립 규칙). 원점 가정이 카메라에 남아 있던 것을 발견해 제거. 시간 분할은 M2에서야 관찰 가능 | [임시] 정책 2번을 Sample 어셈블리로 갱신. M2 완료 기준에 "긴 프레임도 단계로 나뉘어 이동" 추가 |
+| 2026-09-24 | M2 | 완료 기준 충족. 새 [임시] 규칙(Orbit 거리 유지, 출현 건너뜀)을 5절 표로 옮김. 보상 필드는 쓰일 때(M4) 추가. 행동 교체 자리는 조립 시 해석기 | M3 확인 질문에 "원 안"의 판정(중심 vs 크기 포함) 추가 |
