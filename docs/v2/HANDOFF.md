@@ -1,10 +1,10 @@
-# 작업 인계 — M7 완료 후
+# 작업 인계 — M8 완료 후
 
-갱신: 2026-09-24 · M0~M7 완료. M8은 착수 조건 확인 전이다.
+갱신: 2026-09-24 · M0~M8 완료. 다음 단계는 결정 전이다.
 
 ## 읽는 순서
 
-[GAME_RULES](../GAME_RULES.md) → [레퍼런스 분석](../REFERENCE_ANALYSIS.md) → [PLAN](PLAN.md) → [RULES_ALIGNMENT](RULES_ALIGNMENT.md) → [M8](M8-review.md). M7 결과는 [M7](M7-death-effects.md)의 "결과" 절에 있다.
+[GAME_RULES](../GAME_RULES.md) → [레퍼런스 분석](../REFERENCE_ANALYSIS.md) → [PLAN](PLAN.md) → [RULES_ALIGNMENT](RULES_ALIGNMENT.md) → [v2 예제집](SYSTEM_CATALOG.md) → [팀 분배 자료](TEAM_SPLIT.md). M8 결과와 재점검 항목의 답은 [M8](M8-review.md)의 "결과" 절에 있다.
 
 ## 기존 인계에서 바뀐 점
 
@@ -27,12 +27,14 @@ World.Step은 이동 → Skill(피해·사망·보상·Level) → 사망 효과 
 
 ## 다음 작업
 
-M8의 범위와 "착수 전에 정할 것"을 먼저 검토한다. M8은 새 게임 규칙을 추가하지 않는다. 변화 실험, v2 예제집, [임시] 목록 정리, 팀 분배 자료가 대상이다. 결정 전에는 구현하지 않는다.
+v2 마일스톤(M0~M8)은 끝났다. 다음 단계가 Reference 확장인지, 팀 설계로 넘어가는 것인지는 사용자가 정한다. M8 결과는 팀 설계로 넘어가는 것을 권한다.
+
+팀 설계로 넘어가면 [팀 분배 자료](TEAM_SPLIT.md) 5절의 합의 항목과 GAME_RULES 16절의 남은 결정부터 본다. Reference를 넓히면 M8 결과의 "다음에 기획이 먼저 정해야 할 것"을 먼저 확인한다. 결정 전에는 구현하지 않는다.
 
 ## 작업 방식과 검증
 
 - 계획 검토 → 구현 → CoreSmoke/가능한 분리 빌드·핵심 변이 검사 → 사용자 Unity 플레이 확인 → 결과/PLAN 갱신 → 의미 있는 커밋 1개.
 - 다음 마일스톤은 사용자 확인 후 진행한다.
-- 검증 기록: M7 기준 CoreSmoke 63개 통과, 분리 빌드 경고 0·오류 0. M7은 사용자가 Unity 플레이를 확인했다.
+- 검증 기록: M8 기준 CoreSmoke 63개 통과, 분리 빌드 경고 0·오류 0. M8의 Core 변경 실험은 되돌렸다. 규모 참고 측정은 `tests/CoreBench`.
 - Windows 로컬 경로와 열려 있는 Unity 상태는 과거 환경이다. 현재 실행 환경을 확인한다.
 - 커밋의 기여자는 실제 작성자로 표기한다. 이전 에이전트 이름을 관례적으로 복사하지 않는다.
