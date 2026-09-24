@@ -30,6 +30,7 @@ namespace BlackHole.Unity
         public Color DepletedEnemyColor { get; } = new Color(0.16f, 0.12f, 0.16f);
         public Color HitFlashColor { get; } = Color.white;
         public float HitFlashSeconds { get; } = 0.12f;
+        // 흡수 연출 길이. 실제 시간으로 흘러 일시정지 중에도 끝까지 진행한다([임시]: 일시정지 시 연출 처리는 미정).
         public float AbsorbSeconds { get; } = 0.55f;
 
         // 범위 원: 옅은 안쪽과 테두리. 틱마다 안쪽이 잠깐 밝아진다.

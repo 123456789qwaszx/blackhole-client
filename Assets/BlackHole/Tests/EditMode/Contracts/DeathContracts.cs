@@ -56,7 +56,10 @@ namespace BlackHole.Core.Tests
 
         private static void LongAdvanceKeepsAllDeathsUntilNextAdvance()
         {
-            GameSession game = TestContent.Session(Arena());
+            ContentData data = Arena();
+            // 두 번째 적도 조준점 (3, 0)에 나오게 한다. 기본 각도 간격 π면 (-3, 0)에 나와 맞지 않는다.
+            data.Spawn.AngleStep = 0;
+            GameSession game = TestContent.Session(data);
             game.SetAimPoint(TestContent.First, new Point2(3, 0));
             game.Advance(1.08f);
             game.World.TryGetPlayer(TestContent.First, out Player player);

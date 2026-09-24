@@ -1,6 +1,6 @@
 # M4 — Death, Player Gold / HQ EXP, 흡수 연출
 
-상태: 계획 갱신 · 선행: M3 · 아직 미구현  
+상태: 완료(2026-09-24) · 선행: M3  
 기준: [GAME_RULES](../GAME_RULES.md), [PLAN](PLAN.md). 종전 Player EXP 지급 계획을 대체한다.
 
 ## 목표와 범위
@@ -40,4 +40,52 @@ HQ 레벨 곡선·구간 효과(M5), 구매(M6), 사망 효과(M7), Player Level
 
 ## 결과
 
-미구현. 자동 검증 및 사용자 플레이 확인 후 작성한다.
+완료: 2026-09-24. 구현 `38b41ea`, 계약 메시지 보완 `050fa55`, 서식 정리 `b22e7af`. 계약 수정과 결과 기록은 그다음 커밋이다.
+
+**한 일**
+
+- Enemy: `IsAlive`를 둔다. `ApplyDamage`는 처음 사망한 피해에서만 true를 돌려주고, 죽은 적은 피해를 더 받지 않는다.
+- World.DealDamage: 사망이 확정되면 같은 흐름에서 아래를 한 번씩 처리한다.
+  - Gold를 현재 단일 Player에게 지급
+  - HQ EXP를 HQ에 누적
+  - DeathRecord 기록(순번, 적 ID·종류, 사망 위치, 크기)
+  - Enemy 목록에서 제거
+- PassiveSkill은 피해를 World를 통해 요청하고, 대상을 고를 때 죽은 적을 거른다.
+- DeathRecord 수명
+  - `GameSession.Advance` 한 번의 모든 하위 단계를 모은다. 다음 Advance가 진행될 때 비운다.
+  - 일시정지·종료 중에는 그대로 둔다.
+  - 순번은 판 안에서 계속 증가한다. 화면은 이 순번으로 같은 기록을 한 번만 소비한다.
+- 보상 정의: `EnemyData`와 `EnemyDefinition`에 Gold·HqExp를 추가했다(음수는 콘텐츠 오류). 상태는 `PlayerState.Gold`와 `Hq.Exp`.
+- 다인 정책 부재의 노출: 보상이 있는 콘텐츠로 2명 이상 판을 조립하면 SessionAssembler가 거부한다. 보상이 없는 2인 판은 조립된다. 그래서 Player 구별·조준점 계약 3개가 유지된다.
+- Unity
+  - WorldView가 DeathRecord를 읽어 흡수 연출을 재생하고 View를 지운다. 사망 위치에서 HQ로 0.55초 동안 작아지며 이동한다.
+  - View가 없던 적도 기록만으로 연출한다. 일반 목록 제거는 연출을 만들지 않는다.
+  - HUD에 HQ EXP와 Player별 Gold를 표시한다.
+- Sample: light(Gold 2, HQ EXP 1), heavy(Gold 5, HQ EXP 3).
+- 계약 6개 추가. 합계 37개.
+
+**검증**
+
+- CoreSmoke 37개 통과(계약 수정 후).
+- 변이 검사: 아래를 하나씩 깨뜨리면 해당 계약이 실패한다. 코드는 복원했다.
+  - 사망 기록을 비우지 않음
+  - 다인 보상 거부를 제거함
+  - 적이 죽지 않음
+  - 죽은 적을 목록에 남김
+- Unity와 같은 경계로 나눈 컴파일: 경고 0, 오류 0.
+- 사용자 플레이 확인 완료.
+
+**발견**
+
+- 원격 CI가 M4 커밋 3개에서 연속 실패했다.
+  - `38b41ea`: `Expect.True`에 메시지 인자가 빠져 계약이 컴파일되지 않았다.
+  - 그 뒤: `Death.LongAdvanceKeepsAllDeathsUntilNextAdvance`가 실패했다. 원인은 코드가 아니라 테스트 전장이었다. 각도 간격이 π라서 두 번째 적이 (-3, 0)에 나와 조준 원 밖에 있었다.
+  - 이 계약만 각도 간격을 0으로 고쳤다. 이 전장에서 두 적이 모두 맞으면 37개가 통과함을 확인했다.
+- 목록 제거는 피해 처리 중에 바로 일어난다. 지금은 Skill이 복사한 대상 목록을 돌기 때문에 안전하다. M7의 연쇄 사망은 GAME_RULES 11절대로 대기열이 필요하다.
+- 단일 Player 보상 전제가 두 곳에 있다. 조립 때 검증하는 SessionAssembler와, 지급하는 World.DealDamage다. 다인 정책이 정해지면 두 곳을 함께 바꾼다.
+- 흡수 연출은 실제 시간으로 흘러 일시정지 중에도 진행된다. GAME_RULES 13절에서 미정인 항목이라 [임시]로 표시했다(PLAN 7절, SamplePresentation).
+- 음수 보상 진단은 .NET 기본 예외 메시지(영문)를 쓴다. 다른 진단은 한국어 메시지다.
+
+**계획과 달라진 점**
+
+- 없음. 테스트 전장의 오류만 바로잡았다.

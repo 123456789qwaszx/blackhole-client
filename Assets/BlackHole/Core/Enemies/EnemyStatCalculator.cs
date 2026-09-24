@@ -3,14 +3,14 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // Enemy 실행 수치에 대한 보정 하나. 보정의 출처(진행도, PlayerState, 획득 능력)와 방식은 미정이다(B4).
+    // Enemy 실행 수치에 대한 보정 하나. 보정의 출처는 구매한 업그레이드다(연결은 M6).
     public interface IEnemyStatModifier
     {
         EnemyStats Apply(EnemyDefinition definition, EnemyStats current);
     }
 
     // 실행 수치 = 기본 수치 + 보정(순서대로). 기본 정의는 바뀌지 않는다.
-    // 계산 시점은 [임시]로 출현 때 1회다(EnemySpawner). 살아 있는 Enemy에 즉시 반영할지는 미정이다.
+    // 계산 시점은 출현 때 1회로 확정이다(EnemySpawner). 살아 있는 Enemy에는 다시 적용하지 않는다.
     public static class EnemyStatCalculator
     {
         public static EnemyStats Compute(

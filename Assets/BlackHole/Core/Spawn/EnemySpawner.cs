@@ -43,7 +43,7 @@ namespace BlackHole.Core
                 hq.X + _definition.Distance * (float)Math.Cos(angle),
                 hq.Y + _definition.Distance * (float)Math.Sin(angle));
 
-            // 실행 수치 계산 시점: 출현 때 1회([임시]). 보정의 출처가 미정이라 지금은 보정이 없다.
+            // 실행 수치는 출현 때 한 번 확정한다. 구매 보정은 M6에서 연결한다(지금은 보정 없음).
             EnemyStats stats = EnemyStatCalculator.Compute(definition, Array.Empty<IEnemyStatModifier>());
             world.AddEnemy(definition, stats, position, _behaviors(definition.Behavior));
             _spawned++;
