@@ -54,6 +54,12 @@ namespace BlackHole.Core.Tests
         public static GrowthLevelData Level(int exp, float extraTime = 0, params SupplyData[] supply) =>
             new GrowthLevelData { Exp = exp, ExtraTime = extraTime, Supply = new List<SupplyData>(supply) };
 
+        public static UpgradeData Upgrade(string id, int price, string requires, params UpgradeEffectData[] effects) =>
+            new UpgradeData { Id = id, Price = price, Requires = requires, Effects = new List<UpgradeEffectData>(effects) };
+
+        public static UpgradeEffectData Effect(string kind, float value, string target = null) =>
+            new UpgradeEffectData { Kind = kind, Value = value, Target = target };
+
         public static GameContent Load(ContentData data)
         {
             ContentLoadResult result = ContentLoader.Load(data);

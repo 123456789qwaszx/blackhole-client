@@ -46,6 +46,46 @@ namespace BlackHole.Core
             return byId;
         }
 
+        // 업그레이드 노드 사이의 규칙: ID 유일, 선행 노드의 실재, 선행을 따라가면 시작 노드에 닿는다(순환 없음).
+        public static void CollectUpgrades(
+            IReadOnlyList<UpgradeNodeDefinition> upgrades,
+            ICollection<ContentDiagnostic> into,
+            out Dictionary<string, UpgradeNodeDefinition> upgradesById)
+        {
+            upgradesById = Index(upgrades, "Upgrades", "업그레이드", u => u.Id, into);
+
+            for (int i = 0; i < upgrades.Count; i++)
+            {
+                UpgradeNodeDefinition node = upgrades[i];
+
+                if (node?.Requires == null)
+                    continue;
+
+                string at = $"Upgrades[{i}].Requires";
+
+                if (!upgradesById.ContainsKey(node.Requires))
+                    into.Add(new ContentDiagnostic(at, $"정의되지 않은 선행 노드 ID '{node.Requires}'."));
+                else if (!ReachesRoot(node, upgradesById))
+                    into.Add(new ContentDiagnostic(at, $"선행 노드를 따라가면 시작 노드에 닿지 않는다(순환): '{node.Id}'."));
+            }
+        }
+
+        private static bool ReachesRoot(UpgradeNodeDefinition node, Dictionary<string, UpgradeNodeDefinition> byId)
+        {
+            UpgradeNodeDefinition current = node;
+
+            for (int steps = 0; steps <= byId.Count; steps++)
+            {
+                if (current.Requires == null)
+                    return true;
+
+                if (!byId.TryGetValue(current.Requires, out current))
+                    return false;
+            }
+
+            return false;
+        }
+
         // 시작 Skill은 실재해야 하고, 같은 Skill을 두 번 가질 수 없다.
         private static void VerifyStartingSkills(
             IReadOnlyList<string> startingSkills,

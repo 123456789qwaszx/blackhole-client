@@ -30,6 +30,8 @@ namespace BlackHole.Core
         public EnemyDefinition Definition { get; }
         // 실행 수치. 출현 때 계산하고 고정한다.
         public EnemyStats Stats { get; }
+        // 사망 보상. 출현 때 구매 보정을 반영해 확정한다.
+        public EnemyReward Reward { get; }
         public float Health { get; private set; }
         public bool IsAlive { get; private set; } = true;
         public Point2 Position { get; private set; }
@@ -41,12 +43,14 @@ namespace BlackHole.Core
             EnemyId id, 
             EnemyDefinition definition,
             EnemyStats stats, 
+            EnemyReward reward,
             Point2 position,
             IEnemyBehavior behavior)
         {
             Id = id;
             Definition = definition;
             Stats = stats;
+            Reward = reward;
             Health = stats.MaxHealth;
             Position = position;
             _behavior = behavior ?? throw new ArgumentNullException(nameof(behavior));

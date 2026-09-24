@@ -11,7 +11,8 @@ namespace BlackHole.Core
     //
     // 두 단계로 읽는다.
     // 1. 독립 정의: 판 설정, HQ, Enemy, 출현 위치, Skill.
-    // 2. Enemy를 참조하는 정의: 전투 시작 배치, HQ 성장 노드. 1단계의 Enemy 색인으로 ID를 정의로 해석한다.
+    // 2. 다른 정의를 참조하는 정의: 전투 시작 배치, HQ 성장 노드, 업그레이드 노드.
+    //    1단계의 Enemy·Skill 색인으로 대상 ID를 정의로 해석한다.
     public static class ContentLoader
     {
         public static ContentLoadResult Load(ContentData data)
@@ -39,10 +40,17 @@ namespace BlackHole.Core
                 startingSkills,
                 diagnostics,
                 out Dictionary<string, EnemyDefinition> enemiesById,
-                out _);
+                out Dictionary<string, PassiveSkillDefinition> skillsById);
 
             List<SupplyRequest> startSupply = LoadSupplyList(data.StartSupply, "StartSupply", enemiesById, diagnostics);
             HqGrowthDefinition growth = LoadGrowth(data.Growth, enemiesById, diagnostics);
+            List<UpgradeNodeDefinition> upgrades = LoadUpgrades(data.Upgrades, enemiesById, skillsById, diagnostics);
+
+            if (diagnostics.Count > 0)
+                return Fail(diagnostics);
+
+            // 노드 사이의 규칙(ID 유일, 선행 노드의 실재, 순환 없음)은 노드가 모두 올바를 때 본다.
+            ContentInvariants.CollectUpgrades(upgrades, diagnostics, out _);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
@@ -55,7 +63,8 @@ namespace BlackHole.Core
                 startSupply,
                 growth,
                 skills,
-                startingSkills);
+                startingSkills,
+                upgrades);
 
             return new ContentLoadResult(content, diagnostics);
         }
@@ -208,6 +217,117 @@ namespace BlackHole.Core
 
             // 노드 사이의 규칙(임계값이 앞 노드보다 큼)은 성장 정의 생성자가 본다.
             return Guard("Growth", into, () => new HqGrowthDefinition(levels));
+        }
+
+        // ── 업그레이드 ──────────────────────────────────────────────────────
+
+        // 없으면 업그레이드 노드가 없다.
+        private static List<UpgradeNodeDefinition> LoadUpgrades(
+            List<UpgradeData> items,
+            IReadOnlyDictionary<string, EnemyDefinition> enemies,
+            IReadOnlyDictionary<string, PassiveSkillDefinition> skills,
+            List<ContentDiagnostic> into)
+        {
+            var upgrades = new List<UpgradeNodeDefinition>();
+
+            if (items == null)
+                return upgrades;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                UpgradeData item = items[i];
+                string at = At("Upgrades", i, item?.Id);
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "업그레이드 데이터가 null이다."));
+                    continue;
+                }
+
+                int errors = into.Count;
+                var effects = new List<UpgradeEffect>();
+
+                if (item.Effects != null)
+                {
+                    for (int j = 0; j < item.Effects.Count; j++)
+                    {
+                        UpgradeEffect effect = LoadUpgradeEffect(item.Effects[j], $"{at}.Effects[{j}]", enemies, skills, into);
+
+                        if (effect != null)
+                            effects.Add(effect);
+                    }
+                }
+
+                if (into.Count > errors)
+                    continue;
+
+                UpgradeNodeDefinition node = Guard(at, into, () =>
+                    new UpgradeNodeDefinition(item.Id, item.Price, item.Requires, effects));
+
+                if (node != null)
+                    upgrades.Add(node);
+            }
+
+            return upgrades;
+        }
+
+        // 효과 종류 이름을 UpgradeEffectKind로, 대상 ID를 정의로 바꾼다. 종류 목록은 열거형 하나에만 있다.
+        private static UpgradeEffect LoadUpgradeEffect(
+            UpgradeEffectData item,
+            string at,
+            IReadOnlyDictionary<string, EnemyDefinition> enemies,
+            IReadOnlyDictionary<string, PassiveSkillDefinition> skills,
+            List<ContentDiagnostic> into)
+        {
+            if (item == null)
+                return Missing<UpgradeEffect>(at, into);
+
+            if (!TryParseUpgradeKind(item.Kind, out UpgradeEffectKind kind))
+            {
+                into.Add(new ContentDiagnostic(
+                    at + ".Kind",
+                    $"알 수 없는 업그레이드 효과 종류 '{item.Kind}'. 가능한 값: {string.Join(", ", Enum.GetNames(typeof(UpgradeEffectKind)))}."));
+                return null;
+            }
+
+            PassiveSkillDefinition skill = null;
+            EnemyDefinition enemy = null;
+            bool hasTarget = !string.IsNullOrWhiteSpace(item.Target);
+
+            if (UpgradeEffect.TargetsSkill(kind))
+            {
+                if (!hasTarget || !skills.TryGetValue(item.Target, out skill))
+                {
+                    into.Add(new ContentDiagnostic(at + ".Target", $"대상 Skill ID '{item.Target}'가 정의되지 않았다."));
+                    return null;
+                }
+            }
+            else if (hasTarget || UpgradeEffect.RequiresEnemy(kind))
+            {
+                if (!hasTarget || !enemies.TryGetValue(item.Target, out enemy))
+                {
+                    into.Add(new ContentDiagnostic(at + ".Target", $"대상 Enemy ID '{item.Target}'가 정의되지 않았다."));
+                    return null;
+                }
+            }
+
+            return Guard(at, into, () => new UpgradeEffect(kind, item.Value, skill, enemy));
+        }
+
+        // Enum.TryParse는 숫자 문자열도 통과시킨다. 이름이 정확히 같을 때만 받는다.
+        private static bool TryParseUpgradeKind(string name, out UpgradeEffectKind kind)
+        {
+            foreach (UpgradeEffectKind candidate in (UpgradeEffectKind[])Enum.GetValues(typeof(UpgradeEffectKind)))
+            {
+                if (candidate.ToString() == name)
+                {
+                    kind = candidate;
+                    return true;
+                }
+            }
+
+            kind = default;
+            return false;
         }
 
         // ── Passive Skill ───────────────────────────────────────────────────

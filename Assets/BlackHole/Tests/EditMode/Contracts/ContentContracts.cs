@@ -15,6 +15,40 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.ReportsSkillErrorsWithPath", ReportsSkillErrorsWithPath);
             yield return new Contract("Content.ReportsSupplyAndGrowthErrorsWithPath", ReportsSupplyAndGrowthErrorsWithPath);
+            yield return new Contract("Content.ReportsUpgradeErrorsWithPath", ReportsUpgradeErrorsWithPath);
+        }
+
+        // 업그레이드 노드의 오류. 노드와 효과의 값·종류·대상은 경로와 함께 모두 보고한다.
+        // 노드 사이의 규칙(ID 유일, 선행 노드 실재, 순환)은 노드가 모두 올바를 때 본다.
+        private static void ReportsUpgradeErrorsWithPath()
+        {
+            ContentData values = TestContent.Data();
+            values.Upgrades.Add(TestContent.Upgrade("bad-price", 0, null, TestContent.Effect("GoldMultiply", 2)));
+            values.Upgrades.Add(TestContent.Upgrade("bad-kind", 5, null, TestContent.Effect("Teleport", 1)));
+            values.Upgrades.Add(TestContent.Upgrade("no-skill", 5, null, TestContent.Effect("SkillDamageAdd", 1, "ghost")));
+            values.Upgrades.Add(TestContent.Upgrade("zero-gold", 5, null, TestContent.Effect("GoldMultiply", 0)));
+            values.Upgrades.Add(TestContent.Upgrade("half-supply", 5, null, TestContent.Effect("GrowthSupplyAdd", 1.5f, TestContent.EnemyId)));
+            values.Upgrades.Add(TestContent.Upgrade("empty", 5, null));
+            ContentLoadResult result = ContentLoader.Load(values);
+            Expect.Equal(6, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Upgrades[bad-price]", "price");
+            TestContent.HasDiagnostic(result, "Upgrades[bad-kind].Effects[0].Kind", "Teleport");
+            TestContent.HasDiagnostic(result, "Upgrades[no-skill].Effects[0].Target", "ghost");
+            TestContent.HasDiagnostic(result, "Upgrades[zero-gold].Effects[0]", "value");
+            TestContent.HasDiagnostic(result, "Upgrades[half-supply].Effects[0]", "value");
+            TestContent.HasDiagnostic(result, "Upgrades[empty]", "효과");
+
+            ContentData links = TestContent.Data();
+            links.Upgrades.Add(TestContent.Upgrade("a", 5, "b", TestContent.Effect("GoldMultiply", 2)));
+            links.Upgrades.Add(TestContent.Upgrade("b", 5, "a", TestContent.Effect("GoldMultiply", 2)));
+            links.Upgrades.Add(TestContent.Upgrade("c", 5, "ghost", TestContent.Effect("GoldMultiply", 2)));
+            links.Upgrades.Add(TestContent.Upgrade("c", 5, null, TestContent.Effect("GoldMultiply", 2)));
+            result = ContentLoader.Load(links);
+            Expect.Equal(4, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Upgrades[3]", "c");
+            TestContent.HasDiagnostic(result, "Upgrades[2].Requires", "ghost");
+            TestContent.HasDiagnostic(result, "Upgrades[0].Requires", "순환");
+            TestContent.HasDiagnostic(result, "Upgrades[1].Requires", "순환");
         }
 
         // 전투 시작 배치와 성장 노드의 오류. 개별 값은 정의 생성자가, Enemy 참조는 로더가 경로와 함께 보고한다.

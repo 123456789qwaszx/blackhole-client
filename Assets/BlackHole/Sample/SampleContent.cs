@@ -53,7 +53,20 @@ namespace BlackHole.Sample
             {
                 new SkillData { Id = AuraSkillId, Origin = "OwnerAimPoint", Radius = 1.2f, Interval = 0.5f, Damage = 3 }
             },
-            StartingSkills = new List<string> { AuraSkillId }
+            StartingSkills = new List<string> { AuraSkillId },
+            // [임시] 업그레이드 샘플 트리. 원래는 노드 저작 툴이 만들 데이터다(M6).
+            Upgrades = new List<UpgradeData>
+            {
+                Upgrade("breaker-damage", 10, null, Effect("SkillDamageAdd", 2, AuraSkillId)),
+                Upgrade("breaker-radius", 15, "breaker-damage", Effect("SkillRadiusAdd", 0.3f, AuraSkillId)),
+                Upgrade("growth-supply", 25, "breaker-radius", Effect("GrowthSupplyAdd", 2, LightEnemyId)),
+                Upgrade("breaker-speed", 20, "breaker-damage", Effect("SkillIntervalMultiply", 0.8f, AuraSkillId)),
+                Upgrade("golden-touch", 40, "breaker-speed", Effect("GoldMultiply", 1.5f)),
+                Upgrade("dense-matter", 30, "breaker-damage",
+                    Effect("EnemyHealthMultiply", 1.5f),
+                    Effect("GoldMultiply", 1.5f),
+                    Effect("HqExpMultiply", 1.5f))
+            }
         };
 
         private static List<GrowthLevelData> GrowthLevels()
@@ -79,5 +92,11 @@ namespace BlackHole.Sample
 
         private static SupplyData Supply(string enemy, int count) =>
             new SupplyData { Enemy = enemy, Count = count };
+
+        private static UpgradeData Upgrade(string id, int price, string requires, params UpgradeEffectData[] effects) =>
+            new UpgradeData { Id = id, Price = price, Requires = requires, Effects = new List<UpgradeEffectData>(effects) };
+
+        private static UpgradeEffectData Effect(string kind, float value, string target = null) =>
+            new UpgradeEffectData { Kind = kind, Value = value, Target = target };
     }
 }

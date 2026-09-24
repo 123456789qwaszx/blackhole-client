@@ -28,6 +28,7 @@ namespace BlackHole.Core
         public EnemyBehaviorDefinition Behavior { get; }
         public int Gold { get; }
         public int HqExp { get; }
+        public EnemyReward BaseReward => new EnemyReward(Gold, HqExp);
 
         public EnemyDefinition(
             string id, 

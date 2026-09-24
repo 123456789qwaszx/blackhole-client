@@ -67,11 +67,17 @@ namespace BlackHole.Core
 
         public void Stop() => End(SessionEndReason.Stopped);
 
+        // 전투가 끝나면 PlayerState를 전투에서 풀어 준다. 그때부터 구매할 수 있다.
         private void End(SessionEndReason reason)
         {
             if (Phase == SessionPhase.Ended) return;
             Result = new SessionResult(reason, Elapsed);
             Phase = SessionPhase.Ended;
+
+            foreach (Player player in World.Players)
+            {
+                player.State.LeaveBattle();
+            }
         }
     }
 }

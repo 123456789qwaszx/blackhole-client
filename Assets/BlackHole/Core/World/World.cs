@@ -53,7 +53,7 @@ namespace BlackHole.Core
         // 전투 시작 배치. 판 조립 때(0초) 한 번 공급한다. 그래서 0초 첫 틱이 이 적을 맞힐 수 있다.
         internal void PlaceStartingEnemies(IReadOnlyList<SupplyRequest> requests)
         {
-            _supply.Request(requests);
+            _supply.Request(requests, SupplySource.Start);
             _supply.Release(this);
         }
 
@@ -98,9 +98,9 @@ namespace BlackHole.Core
 
             // 현재 실제 보상 구성은 단일 Player다. 조립 때 그 전제를 검증한다.
             if (_players.Count == 1)
-                _players[0].State.EarnGold(enemy.Definition.Gold);
+                _players[0].State.EarnGold(enemy.Reward.Gold);
 
-            Hq.GainExp(enemy.Definition.HqExp);
+            Hq.GainExp(enemy.Reward.HqExp);
 
             _deaths.Add(new DeathRecord(_nextDeathSequence++, enemy));
 
@@ -111,6 +111,7 @@ namespace BlackHole.Core
         internal void AddEnemy(
             EnemyDefinition definition,
             EnemyStats stats,
+            EnemyReward reward,
             Point2 position,
             IEnemyBehavior behavior)
         {
@@ -119,6 +120,7 @@ namespace BlackHole.Core
                     new EnemyId(_nextEnemyId++),
                     definition,
                     stats,
+                    reward,
                     position,
                     behavior));
         }

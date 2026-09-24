@@ -19,6 +19,29 @@ namespace BlackHole.Core
         public List<SkillData> Skills = new List<SkillData>();
         // 모든 Player가 판 시작 때 가지는 Skill ID(Character 1종, 고정 구성). 획득 구조가 아니다.
         public List<string> StartingSkills = new List<string>();
+        // 업그레이드 노드. 노드 저작 툴이 만들 데이터다.
+        public List<UpgradeData> Upgrades = new List<UpgradeData>();
+    }
+
+    // 업그레이드 노드 하나. 툴과 게임이 공유하는 형식 중 게임 규칙에 필요한 칸만 있다(위치·구역 없음).
+    [Serializable]
+    public sealed class UpgradeData
+    {
+        public string Id;
+        public int Price;
+        // 선행 노드 ID. 비어 있으면 처음부터 살 수 있다.
+        public string Requires;
+        public List<UpgradeEffectData> Effects = new List<UpgradeEffectData>();
+    }
+
+    [Serializable]
+    public sealed class UpgradeEffectData
+    {
+        // 효과 종류 이름(UpgradeEffectKind).
+        public string Kind;
+        public float Value;
+        // 대상 ID. Skill 효과는 Skill ID, 공급 효과는 Enemy ID, 적 수치·보상 효과는 Enemy ID(비우면 모든 종류).
+        public string Target;
     }
 
     [Serializable]

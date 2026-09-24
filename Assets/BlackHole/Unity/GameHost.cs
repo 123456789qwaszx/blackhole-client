@@ -6,11 +6,11 @@ namespace BlackHole.Unity
 {
     // Unity 수명과 한 프레임의 순서를 가진 진입점(조립 루트).
     // - Awake: 콘텐츠 로드·검증, 화면·입력·HUD·판 시작 흐름 조립. 판은 만들지 않는다.
-    // - OnEnable / OnDisable: 판 시작 / 종료. 최초 활성화와 재활성화가 같은 경로를 쓴다.
+    // - OnEnable / OnDisable: 새 진행 시작 / 전투 종료. 최초 활성화와 재활성화가 같은 경로를 쓴다.
     //
-    // 한 프레임(Update): 입력 읽기 → 재시작 요청(있으면 새 판을 보이고 그 프레임 끝) → 일시정지 전환
-    //   → AimPoint 갱신 → 진행 → 화면 갱신.
-    // HUD 버튼 요청은 OnGUI, 곧 그 프레임의 진행 뒤에 적용된다.
+    // 한 프레임(Update): 입력 읽기 → 새 진행 요청(R, 있으면 그 프레임 끝) → 구매 화면이면 끝
+    //   → 일시정지 전환 → AimPoint 갱신 → 진행 → 전투가 끝났으면 구매 화면으로 → 화면 갱신.
+    // HUD 버튼 요청(구매, 다음 전투, 전투 끝내기)은 OnGUI, 곧 그 프레임의 진행 뒤에 적용된다.
     public sealed class GameHost : MonoBehaviour
     {
         // 판에 참가하는 로컬 Player. 지금은 1명이다(Players.Count == 1일 뿐 전역 Player가 아니다).
@@ -64,6 +64,10 @@ namespace BlackHole.Unity
                 return;
             }
 
+            // 구매 화면에는 진행 중인 전투가 없다.
+            if (_launcher.InShop)
+                return;
+
             GameSession session = _launcher.Current;
             
             if (_input.TogglePause) 
@@ -73,11 +77,21 @@ namespace BlackHole.Unity
 
             session.Advance(Time.deltaTime);
 
-            _view.Synchronize(session.World);
+            // 시간이 끝났거나 "End session"으로 끝난 전투는 정리하고 구매 화면으로 간다.
+            _launcher.OpenShopIfEnded();
+
+            if (!_launcher.InShop)
+                _view.Synchronize(session.World);
         }
 
         private void OnGUI()
         {
+            if (_launcher.InShop)
+            {
+                DrawShop();
+                return;
+            }
+
             switch (_hud.Draw(_launcher.Current))
             {
                 case HudRequest.TogglePause: 
@@ -88,7 +102,27 @@ namespace BlackHole.Unity
                     _launcher.Stop();
                     break;
                 
-                case HudRequest.Restart: 
+                case HudRequest.NewRun: 
+                    _launcher.StartNew();
+                    break;
+            }
+        }
+
+        private void DrawShop()
+        {
+            ShopRequest request = _hud.DrawShop(_launcher.Current, _launcher.Progress, _launcher.Upgrades);
+
+            switch (request.Kind)
+            {
+                case ShopRequestKind.Purchase:
+                    _launcher.Purchase(request.State, request.Node);
+                    break;
+
+                case ShopRequestKind.NextBattle:
+                    _launcher.NextBattle();
+                    break;
+
+                case ShopRequestKind.NewRun:
                     _launcher.StartNew();
                     break;
             }

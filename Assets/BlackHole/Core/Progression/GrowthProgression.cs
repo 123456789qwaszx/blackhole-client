@@ -26,7 +26,7 @@ namespace BlackHole.Core
                 if (!_growth.TryGetLevel(_handledLevel, out HqLevelDefinition level))
                     continue;
 
-                supply.Request(level.Supply);
+                supply.Request(level.Supply, SupplySource.Growth);
                 _timeLimit.Extend(level.ExtraTime);
             }
         }
