@@ -51,12 +51,27 @@ namespace BlackHole.Core
     public sealed class SkillData
     {
         public string Id;
+        public float Cooldown;
+        public SelectionData Selection;
+        // 적용 순서대로.
+        public List<EffectData> Effects = new List<EffectData>();
+    }
+
+    [Serializable]
+    public sealed class SelectionData
+    {
         // 이름 문자열. 가능한 값은 ContentLoader의 해석 목록에 있다.
         public string Kind;
-        public float Cooldown;
-        public float Damage;
         public float Radius;
-        public float PullDistance;
+    }
+
+    [Serializable]
+    public sealed class EffectData
+    {
+        // 이름 문자열. 가능한 값은 ContentLoader의 해석 목록에 있다.
+        public string Kind;
+        // Damage: 피해량. Pull: 당김 거리.
+        public float Amount;
     }
 
     [Serializable]

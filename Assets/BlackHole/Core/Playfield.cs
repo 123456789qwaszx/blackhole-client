@@ -34,7 +34,7 @@ namespace BlackHole.Core
             _spawn.Advance(delta, _world);
         }
 
-        internal CastResult TryCast(string id, Point2 aim) =>
-            _loadout.TryCast(id, aim, Growth.DamageMultiplier, _world, _combat);
+        internal CastResult TryCast(string id, Point2 aim, out CastReport report) =>
+            _loadout.TryCast(id, new CastContext(aim, Growth.DamageMultiplier), _world, _combat, out report);
     }
 }

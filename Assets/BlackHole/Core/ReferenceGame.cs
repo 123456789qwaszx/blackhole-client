@@ -20,10 +20,21 @@ namespace BlackHole.Core
                 new TargetData { Id = "shard", MaxHealth = 12, Reward = 2, Movement = Orbit(0.6f, 0.25f) },
                 new TargetData { Id = "heavy", MaxHealth = 30, Reward = 5, Movement = Orbit(-0.28f, 0.13f) }
             },
+            // 집중 공격 = 단일 대상 선택 + 피해. 중력파 = 범위 선택 + 피해 + 당김.
             Skills = new List<SkillData>
             {
-                new SkillData { Id = StrikeId, Kind = "FocusedStrike", Cooldown = 0.35f, Damage = 14, Radius = 0.9f },
-                new SkillData { Id = PulseId, Kind = "GravityPulse", Cooldown = 2, Damage = 9, Radius = 2.4f, PullDistance = 0.8f }
+                new SkillData
+                {
+                    Id = StrikeId, Cooldown = 0.35f,
+                    Selection = Select("NearestInRadius", 0.9f),
+                    Effects = { Effect("Damage", 14) }
+                },
+                new SkillData
+                {
+                    Id = PulseId, Cooldown = 2,
+                    Selection = Select("AllInRadius", 2.4f),
+                    Effects = { Effect("Damage", 9), Effect("Pull", 0.8f) }
+                }
             },
             Growth = new GrowthData { UpgradeCost = 6, MaxPowerLevel = 5, PowerPerLevel = 0.35f },
             Spawn = new SpawnData
@@ -38,5 +49,11 @@ namespace BlackHole.Core
 
         private static MovementData Orbit(float angularSpeed, float inwardSpeed) =>
             new MovementData { Kind = "Orbit", AngularSpeed = angularSpeed, InwardSpeed = inwardSpeed };
+
+        private static SelectionData Select(string kind, float radius) =>
+            new SelectionData { Kind = kind, Radius = radius };
+
+        private static EffectData Effect(string kind, float amount) =>
+            new EffectData { Kind = kind, Amount = amount };
     }
 }

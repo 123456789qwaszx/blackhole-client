@@ -3,41 +3,29 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    public enum SkillKind { FocusedStrike, GravityPulse }
-
-    // 스킬 한 종류의 공유 정의: 종류와 수치만 가진다.
-    // 종류를 실행 규칙으로 바꾸는 일은 SkillEffectFactory 한 곳이 맡는다.
-    // 종류별로 쓰는 수치가 다르다(집중 공격은 당김을 쓰지 않는다). 그 조합 규칙도 factory가 본다.
+    // 스킬 한 종류의 공유 정의: 쿨다운, 대상 선택, 효과 목록(적용 순서대로).
+    // 정의는 실행 규칙을 품지 않는다 — SkillRuleFactory가 해석한다.
     public sealed class SkillDefinition
     {
         public string Id { get; }
-        public SkillKind Kind { get; }
         public float Cooldown { get; }
-        public float Damage { get; }
-        // 집중 공격: 조준 허용 반경. 중력파: 효과 범위.
-        public float Radius { get; }
-        public float PullDistance { get; }
+        public TargetSelectionDefinition Selection { get; }
+        public IReadOnlyList<SkillEffectDefinition> Effects { get; }
 
-        public SkillDefinition(string id, SkillKind kind, float cooldown,
-            float damage, float radius, float pullDistance)
+        public SkillDefinition(string id, float cooldown,
+            TargetSelectionDefinition selection, IReadOnlyList<SkillEffectDefinition> effects)
         {
             Id = DefinitionGuard.Id(id, nameof(id));
-            if (!Enum.IsDefined(typeof(SkillKind), kind))
-                throw new ArgumentOutOfRangeException(nameof(kind), $"정의되지 않은 스킬 종류 값 {(int)kind}.");
-            Kind = kind;
             Cooldown = DefinitionGuard.Positive(cooldown, nameof(cooldown));
-            Damage = DefinitionGuard.Positive(damage, nameof(damage));
-            Radius = DefinitionGuard.Positive(radius, nameof(radius));
-            PullDistance = DefinitionGuard.NonNegative(pullDistance, nameof(pullDistance));
-        }
-    }
+            Selection = selection ?? throw new ArgumentNullException(nameof(selection), "대상 선택 정의가 필요하다.");
+            if (effects == null || effects.Count == 0)
+                throw new ArgumentException("효과가 하나 이상 필요하다.", nameof(effects));
 
-    // 실행 규칙의 확장점. 보상과 Session 수명은 알지 못한다.
-    // 구현은 SkillEffectFactory만 만든다. 정의는 구현을 품지 않는다.
-    internal interface ISkillEffect
-    {
-        int Execute(Point2 aim, float damageMultiplier,
-            IReadOnlyList<TargetState> targets, CombatResolver combat);
+            var copy = new SkillEffectDefinition[effects.Count];
+            for (int i = 0; i < copy.Length; i++)
+                copy[i] = effects[i] ?? throw new ArgumentNullException($"{nameof(effects)}[{i}]", "효과 정의가 null이다.");
+            Effects = Array.AsReadOnly(copy);
+        }
     }
 
     // 스킬 사용자 한 명이 가진 스킬 하나의 실행 상태. 판마다 새로 만든다.
@@ -45,12 +33,14 @@ namespace BlackHole.Core
     {
         public SkillDefinition Definition { get; }
         public float RemainingCooldown { get; private set; }
-        internal ISkillEffect Effect { get; }
+        internal ITargetSelector Selector { get; }
+        internal IReadOnlyList<ISkillEffect> Effects { get; }
 
-        internal SkillState(SkillDefinition definition, ISkillEffect effect)
+        internal SkillState(SkillDefinition definition, ITargetSelector selector, IReadOnlyList<ISkillEffect> effects)
         {
             Definition = definition;
-            Effect = effect;
+            Selector = selector;
+            Effects = effects;
         }
 
         internal void Advance(float delta) => RemainingCooldown = Math.Max(0, RemainingCooldown - delta);
@@ -58,4 +48,21 @@ namespace BlackHole.Core
     }
 
     public enum CastResult { Cast, NoTarget, CoolingDown, UnknownSkill, SessionInactive }
+
+    // 발동에 성공했을 때 실제로 적용된 내용. 화면은 이것으로 연출하고 스킬 수치를 다시 적지 않는다.
+    public readonly struct CastReport
+    {
+        public Point2 Aim { get; }
+        // 선택에 쓴 범위 반경.
+        public float AreaRadius { get; }
+        // 효과가 하나 이상 적용된 대상 수.
+        public int AffectedCount { get; }
+
+        internal CastReport(Point2 aim, float areaRadius, int affectedCount)
+        {
+            Aim = aim;
+            AreaRadius = areaRadius;
+            AffectedCount = affectedCount;
+        }
+    }
 }

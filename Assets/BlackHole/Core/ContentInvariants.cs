@@ -66,9 +66,13 @@ namespace BlackHole.Core
                 if (!ids.Add(skill.Id))
                     into.Add(new ContentDiagnostic($"Skills[{i}]", $"스킬 ID '{skill.Id}'가 중복됐다."));
 
-                string error = SkillEffectFactory.Verify(skill);
-                if (error != null)
-                    into.Add(new ContentDiagnostic($"Skills[{skill.Id}]", error));
+                if (!SkillRuleFactory.TryCreateSelector(skill.Selection, out _))
+                    into.Add(new ContentDiagnostic($"Skills[{skill.Id}].Selection",
+                        SkillRuleFactory.Describe(skill.Selection)));
+                for (int e = 0; e < skill.Effects.Count; e++)
+                    if (!SkillRuleFactory.TryCreateEffect(skill.Effects[e], out _))
+                        into.Add(new ContentDiagnostic($"Skills[{skill.Id}].Effects[{e}]",
+                            SkillRuleFactory.Describe(skill.Effects[e])));
             }
         }
 

@@ -50,10 +50,16 @@ namespace BlackHole.Core
                 End(reason);
         }
 
-        public CastResult TryCast(string skillId, Point2 aim) =>
-            Phase == SessionPhase.Running
-                ? Field.TryCast(skillId, aim)
+        public CastResult TryCast(string skillId, Point2 aim) => TryCast(skillId, aim, out _);
+
+        // report는 Cast일 때만 의미가 있다. 화면은 이것으로 연출한다.
+        public CastResult TryCast(string skillId, Point2 aim, out CastReport report)
+        {
+            report = default;
+            return Phase == SessionPhase.Running
+                ? Field.TryCast(skillId, aim, out report)
                 : CastResult.SessionInactive;
+        }
 
         public UpgradeResult TryUpgrade() =>
             Phase == SessionPhase.Running

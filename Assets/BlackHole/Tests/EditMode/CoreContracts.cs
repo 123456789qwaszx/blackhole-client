@@ -28,13 +28,103 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(AbsorptionHappensInStepReachingRadius), AbsorptionHappensInStepReachingRadius);
             yield return Case(nameof(SharedCatalogKeepsSessionStateIsolated), SharedCatalogKeepsSessionStateIsolated);
             yield return Case(nameof(LoaderReportsEveryDefinitionErrorWithPath), LoaderReportsEveryDefinitionErrorWithPath);
-            yield return Case(nameof(LoaderReportsReferenceAndKindErrorsWithPath), LoaderReportsReferenceAndKindErrorsWithPath);
+            yield return Case(nameof(LoaderReportsReferenceErrorsWithPath), LoaderReportsReferenceErrorsWithPath);
             yield return Case(nameof(CatalogConstructorEnforcesSameInvariants), CatalogConstructorEnforcesSameInvariants);
             yield return Case(nameof(EndingFrameRejectsSameFrameRequests), EndingFrameRejectsSameFrameRequests);
             yield return Case(nameof(TargetLifecycleRulesComeFromDefinition), TargetLifecycleRulesComeFromDefinition);
             yield return Case(nameof(LoaderReportsMovementAndTargetRuleErrors), LoaderReportsMovementAndTargetRuleErrors);
             yield return Case(nameof(NewMovementRuleUsesSharedLifecycle), NewMovementRuleUsesSharedLifecycle);
             yield return Case(nameof(LoaderRejectsFieldsUnusedByMovementKind), LoaderRejectsFieldsUnusedByMovementKind);
+            yield return Case(nameof(DamagelessAreaPullIsOnlyComposition), DamagelessAreaPullIsOnlyComposition);
+            yield return Case(nameof(CastReportCarriesAppliedArea), CastReportCarriesAppliedArea);
+            yield return Case(nameof(AreaSkipsDefeatedAndPullsWhatItKills), AreaSkipsDefeatedAndPullsWhatItKills);
+            yield return Case(nameof(LoaderReportsSkillCompositionErrors), LoaderReportsSkillCompositionErrors);
+        }
+
+        // 피해 없는 범위 당김은 새 코드 없이 기존 선택(AllInRadius)과 효과(Pull)의 조합이다.
+        public static void DamagelessAreaPullIsOnlyComposition()
+        {
+            GameSession game = Assemble(Content(
+                new[] { Target("test", 100, 0, 0.01f, 10) },
+                new[] { Skill("tractor", 1, "AllInRadius", 10, Effect("Pull", 1)) },
+                Growth(6, 1, 0.5f),
+                Spawn(0.1f, 2, 3, "test")));
+            game.Advance(0.3f);
+            Equal(3, game.Field.Targets.Count);
+            var before = new float[3];
+            for (int i = 0; i < 3; i++) before[i] = game.Field.Targets[i].Radius;
+
+            Equal(CastResult.Cast, game.TryCast("tractor", new Point2(0, 0), out CastReport report));
+            Equal(3, report.AffectedCount);
+            for (int i = 0; i < 3; i++)
+            {
+                Near(100, game.Field.Targets[i].Health);
+                Near(before[i] - 1, game.Field.Targets[i].Radius);
+            }
+            Near(1, game.Field.Skills[0].RemainingCooldown);
+        }
+
+        // 화면은 발동 결과로 연출한다. 결과에는 실제 선택 범위와 적용 대상 수가 있다.
+        public static void CastReportCarriesAppliedArea()
+        {
+            GameSession game = Reference();
+            Point2 aim = game.Field.Targets[0].Position;
+
+            Equal(CastResult.NoTarget, game.TryCast(ReferenceGame.PulseId, new Point2(100, 100), out CastReport miss));
+            Equal(0, miss.AffectedCount);
+
+            Equal(CastResult.Cast, game.TryCast(ReferenceGame.PulseId, aim, out CastReport pulse));
+            Near(2.4f, pulse.AreaRadius);
+            Equal(1, pulse.AffectedCount);
+            Near(aim.X, pulse.Aim.X);
+            Near(aim.Y, pulse.Aim.Y);
+
+            Equal(CastResult.Cast, game.TryCast(ReferenceGame.StrikeId, game.Field.Targets[0].Position, out CastReport strike));
+            Near(0.9f, strike.AreaRadius);
+            Equal(1, strike.AffectedCount);
+        }
+
+        // 범위 선택은 살아 있는 대상만 고른다(이미 사망한 대상은 당기지 않는다).
+        // 고른 대상에는 정의 순서대로 효과를 적용하므로, 이번 피해로 사망한 대상에도 당김이 적용된다.
+        public static void AreaSkipsDefeatedAndPullsWhatItKills()
+        {
+            GameSession game = Assemble(Content(
+                new[] { Target("weak", 5, 0, 0.01f, 1) },
+                new[] { Strike("strike", 0.1f, 10, 10), Pulse("pulse", 0.1f, 9, 10, 0.8f) },
+                Growth(6, 1, 0.5f),
+                Spawn(0.1f, 2, 2, "weak")));
+            game.Advance(0.1f);
+            Equal(2, game.Field.Targets.Count);
+            TargetState first = game.Field.Targets[0];
+            TargetState second = game.Field.Targets[1];
+
+            Equal(CastResult.Cast, game.TryCast("strike", first.Position));
+            Equal(TargetPhase.Defeated, first.Phase);
+            float firstRadius = first.Radius;
+            float secondRadius = second.Radius;
+
+            Equal(CastResult.Cast, game.TryCast("pulse", new Point2(0, 0), out CastReport report));
+            Equal(1, report.AffectedCount);
+            Near(firstRadius, first.Radius);
+            Equal(TargetPhase.Defeated, second.Phase);
+            Near(secondRadius - 0.8f, second.Radius);
+        }
+
+        public static void LoaderReportsSkillCompositionErrors()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.Skills[0].Selection = null;
+            data.Skills[1].Selection.Kind = "Cone";
+            data.Skills[1].Effects[1].Amount = -1;
+            data.Skills.Add(Skill("empty", 1, "AllInRadius", 1));
+
+            ContentLoadResult result = ContentLoader.Load(data);
+            Check(!result.Succeeded, "스킬 조합 오류가 있으면 로드에 실패해야 한다.");
+            Equal(4, result.Diagnostics.Count);
+            HasDiagnostic(result, "Skills[focused-strike].Selection", string.Empty);
+            HasDiagnostic(result, "Skills[gravity-pulse].Selection.Kind", "Cone");
+            HasDiagnostic(result, "Skills[gravity-pulse].Effects[1]", "distance");
+            HasDiagnostic(result, "Skills[empty]", "효과");
         }
 
         // 검증용 콘텐츠: Dive는 Orbit의 수치 변형이 아닌 두 번째 이동 규칙이다.
@@ -299,7 +389,8 @@ namespace BlackHole.Core.Tests
         {
             Throws<ArgumentException>(() => new TargetDefinition("", 1, new OrbitMovementDefinition(1, 1), 1));
             Throws<ArgumentOutOfRangeException>(() => new TargetDefinition("a", float.NaN, new OrbitMovementDefinition(1, 1), 1));
-            Throws<ArgumentOutOfRangeException>(() => new SkillDefinition("a", SkillKind.GravityPulse, 1, 1, -1, 1));
+            Throws<ArgumentOutOfRangeException>(() => new AllInRadiusDefinition(-1));
+            Throws<ArgumentException>(() => new SkillDefinition("a", 1, new AllInRadiusDefinition(1), new SkillEffectDefinition[0]));
             Throws<ArgumentOutOfRangeException>(() => new Point2(float.PositiveInfinity, 0));
 
             ContentData duplicateSkill = ReferenceGame.CreateContent();
@@ -317,7 +408,7 @@ namespace BlackHole.Core.Tests
         }
 
         // 수치만 다른 새 스킬은 정의 추가만으로 동작한다. Session·Loadout·호스트를 고치지 않는다.
-        // 새 실행 규칙의 추가 자리는 SkillEffectFactory 한 곳이다(SkillKind + 분기 + 실행 클래스).
+        // 새 선택·효과의 의미를 추가하는 자리는 SkillRuleFactory 한 곳이다(하위 정의 + 분기 + 실행 규칙).
         public static void NewSkillNeedsOnlyDefinition()
         {
             GameSession game = Assemble(Content(
@@ -455,7 +546,7 @@ namespace BlackHole.Core.Tests
             ContentData data = ReferenceGame.CreateContent();
             data.Targets[1].MaxHealth = float.NaN;
             data.Skills[0].Cooldown = 0;
-            data.Skills[1].Kind = "Laser";
+            data.Skills[1].Effects[0].Kind = "Laser";
             data.Spawn.Interval = -1;
             data.TimeLimit = 0;
 
@@ -464,30 +555,31 @@ namespace BlackHole.Core.Tests
             Equal(5, result.Diagnostics.Count);
             HasDiagnostic(result, "Targets[heavy]", "maxHealth");
             HasDiagnostic(result, "Skills[focused-strike]", "cooldown");
-            HasDiagnostic(result, "Skills[gravity-pulse].Kind", "Laser");
+            HasDiagnostic(result, "Skills[gravity-pulse].Effects[0].Kind", "Laser");
             HasDiagnostic(result, "Spawn", "interval");
             HasDiagnostic(result, "TimeLimit", "duration");
         }
 
-        public static void LoaderReportsReferenceAndKindErrorsWithPath()
+        public static void LoaderReportsReferenceErrorsWithPath()
         {
             ContentData data = ReferenceGame.CreateContent();
             data.Targets.Add(Target("shard", 1, 0, 1, 1));
-            data.Skills[0].PullDistance = 1;
+            data.Skills[1].Id = ReferenceGame.StrikeId;
             data.Spawn.TargetOrder.Add("ghost");
 
             ContentLoadResult result = ContentLoader.Load(data);
             Check(!result.Succeeded, "참조 오류가 있으면 로드에 실패해야 한다.");
             Equal(3, result.Diagnostics.Count);
             HasDiagnostic(result, "Targets[2]", "shard");
-            HasDiagnostic(result, "Skills[focused-strike]", "당김");
+            HasDiagnostic(result, "Skills[1]", ReferenceGame.StrikeId);
             HasDiagnostic(result, "Spawn.TargetOrder[2]", "ghost");
         }
 
         public static void CatalogConstructorEnforcesSameInvariants()
         {
             var target = new TargetDefinition("shard", 12, new OrbitMovementDefinition(0, 1), 2);
-            var skill = new SkillDefinition("strike", SkillKind.FocusedStrike, 1, 1, 1, 0);
+            var skill = new SkillDefinition("strike", 1, new NearestInRadiusDefinition(1),
+                new SkillEffectDefinition[] { new DamageEffectDefinition(1) });
             var growth = new GrowthDefinition(1, 1, 1);
             var spawn = new SpawnDefinition(new[] { "shard" }, 1, 5, 0, 4);
             var limit = new TimeLimitDefinition(10);
@@ -498,9 +590,6 @@ namespace BlackHole.Core.Tests
                 limit, rules, new[] { target }, new[] { skill, skill }, growth, spawn));
             Throws<ArgumentException>(() => new ContentCatalog(
                 limit, rules, new[] { target }, new[] { skill }, growth, new SpawnDefinition(new[] { "ghost" }, 1, 5, 0, 4)));
-            Throws<ArgumentException>(() => new ContentCatalog(
-                limit, rules, new[] { target }, new[] { new SkillDefinition("pulse", SkillKind.GravityPulse, 1, 1, 1, 0) },
-                growth, spawn));
         }
 
         // ── 공통 준비 ───────────────────────────────────────────────────────
@@ -545,11 +634,24 @@ namespace BlackHole.Core.Tests
                 Movement = new MovementData { Kind = "Dive", InitialSpeed = initialSpeed, Acceleration = acceleration }
             };
 
+        // 집중 공격 모양: 단일 선택 + 피해.
         private static SkillData Strike(string id, float cooldown, float damage, float aimRadius) =>
-            new SkillData { Id = id, Kind = "FocusedStrike", Cooldown = cooldown, Damage = damage, Radius = aimRadius };
+            Skill(id, cooldown, "NearestInRadius", aimRadius, Effect("Damage", damage));
 
+        // 중력파 모양: 범위 선택 + 피해 + 당김.
         private static SkillData Pulse(string id, float cooldown, float damage, float radius, float pull) =>
-            new SkillData { Id = id, Kind = "GravityPulse", Cooldown = cooldown, Damage = damage, Radius = radius, PullDistance = pull };
+            Skill(id, cooldown, "AllInRadius", radius, Effect("Damage", damage), Effect("Pull", pull));
+
+        private static SkillData Skill(string id, float cooldown, string selection, float radius,
+            params EffectData[] effects) => new SkillData
+        {
+            Id = id,
+            Cooldown = cooldown,
+            Selection = new SelectionData { Kind = selection, Radius = radius },
+            Effects = new List<EffectData>(effects)
+        };
+
+        private static EffectData Effect(string kind, float amount) => new EffectData { Kind = kind, Amount = amount };
 
         private static GrowthData Growth(int cost, int maxLevel, float perLevel) =>
             new GrowthData { UpgradeCost = cost, MaxPowerLevel = maxLevel, PowerPerLevel = perLevel };

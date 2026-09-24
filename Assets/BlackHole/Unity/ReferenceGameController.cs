@@ -97,11 +97,11 @@ namespace BlackHole.Unity
             IReadOnlyList<SkillState> skills = session.Field.Skills;
             if (slot >= skills.Count) return;
 
-            SkillDefinition skill = skills[slot].Definition;
-            CastResult result = session.TryCast(skill.Id, aim);
-            _hud.Show(skill.Id + ": " + result);
-            // 연출 반경은 정의에서 읽는다. 실제 적용 범위를 발동 결과로 받는 것은 S4에서 한다.
-            if (result == CastResult.Cast) _view.ShowCast(aim, skill.Radius);
+            string id = skills[slot].Definition.Id;
+            CastResult result = session.TryCast(id, aim, out CastReport report);
+            _hud.Show(id + ": " + result);
+            // 연출은 실제로 적용된 내용(발동 결과)으로 한다. 스킬 수치를 다시 읽지 않는다.
+            if (result == CastResult.Cast) _view.ShowCast(report.Aim, report.AreaRadius);
         }
 
         private void Upgrade() => _hud.Show("Upgrade: " + _launcher.Current.TryUpgrade());

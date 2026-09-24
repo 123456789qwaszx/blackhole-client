@@ -56,10 +56,11 @@ namespace BlackHole.Core
         }
 
         // 당김은 하한을 무시한다. 살아 있는 대상은 다음 이동에서 하한으로 돌아간다.
-        internal void Pull(float distance)
+        internal bool Pull(float distance)
         {
-            if (Phase != TargetPhase.Absorbed)
-                Radius = Math.Max(0, Radius - distance);
+            if (Phase == TargetPhase.Absorbed) return false;
+            Radius = Math.Max(0, Radius - distance);
+            return true;
         }
 
         internal bool TryAbsorb(float radius)

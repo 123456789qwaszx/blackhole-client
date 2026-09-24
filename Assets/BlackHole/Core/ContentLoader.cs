@@ -121,29 +121,74 @@ namespace BlackHole.Core
                     into.Add(new ContentDiagnostic(at, "스킬 데이터가 null이다."));
                     continue;
                 }
-                if (!TryParseSkillKind(item.Kind, out SkillKind kind))
-                {
-                    into.Add(new ContentDiagnostic(at + ".Kind",
-                        $"알 수 없는 스킬 종류 '{item.Kind}'. 가능한 값: FocusedStrike, GravityPulse."));
-                    continue;
-                }
+                int errors = into.Count;
+                TargetSelectionDefinition selection = LoadSelection(item.Selection, at + ".Selection", into);
+                List<SkillEffectDefinition> effects = LoadEffects(item.Effects, at + ".Effects", into);
+                if (into.Count > errors) continue;
 
-                SkillDefinition skill = Guard(at, into, () => new SkillDefinition(
-                    item.Id, kind, item.Cooldown, item.Damage, item.Radius, item.PullDistance));
+                SkillDefinition skill = Guard(at, into, () =>
+                    new SkillDefinition(item.Id, item.Cooldown, selection, effects));
                 if (skill != null) skills.Add(skill);
             }
             return skills;
         }
 
-        // Enum.TryParse는 숫자 문자열("0")도 통과시킨다. 명시 목록이면 가능한 값을 진단에 그대로 싣는다.
-        private static bool TryParseSkillKind(string name, out SkillKind kind)
+        // 종류 이름은 명시 목록으로 해석한다. 가능한 값을 진단에 그대로 싣는다.
+        private static TargetSelectionDefinition LoadSelection(SelectionData item, string at,
+            List<ContentDiagnostic> into)
         {
-            switch (name)
+            if (item == null)
             {
-                case "FocusedStrike": kind = SkillKind.FocusedStrike; return true;
-                case "GravityPulse": kind = SkillKind.GravityPulse; return true;
-                default: kind = default; return false;
+                into.Add(new ContentDiagnostic(at, "대상 선택 데이터가 없다."));
+                return null;
             }
+
+            switch (item.Kind)
+            {
+                case "NearestInRadius":
+                    return Guard(at, into, () => new NearestInRadiusDefinition(item.Radius));
+                case "AllInRadius":
+                    return Guard(at, into, () => new AllInRadiusDefinition(item.Radius));
+                default:
+                    into.Add(new ContentDiagnostic(at + ".Kind",
+                        $"알 수 없는 대상 선택 종류 '{item.Kind}'. 가능한 값: NearestInRadius, AllInRadius."));
+                    return null;
+            }
+        }
+
+        private static List<SkillEffectDefinition> LoadEffects(List<EffectData> items, string at,
+            List<ContentDiagnostic> into)
+        {
+            var effects = new List<SkillEffectDefinition>();
+            if (items == null) return effects;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                EffectData item = items[i];
+                string where = $"{at}[{i}]";
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic(where, "효과 데이터가 null이다."));
+                    continue;
+                }
+
+                SkillEffectDefinition effect;
+                switch (item.Kind)
+                {
+                    case "Damage":
+                        effect = Guard(where, into, () => new DamageEffectDefinition(item.Amount));
+                        break;
+                    case "Pull":
+                        effect = Guard(where, into, () => new PullEffectDefinition(item.Amount));
+                        break;
+                    default:
+                        into.Add(new ContentDiagnostic(where + ".Kind",
+                            $"알 수 없는 효과 종류 '{item.Kind}'. 가능한 값: Damage, Pull."));
+                        continue;
+                }
+                if (effect != null) effects.Add(effect);
+            }
+            return effects;
         }
 
         // ── 성장·출현 ───────────────────────────────────────────────────────
