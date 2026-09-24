@@ -1,6 +1,6 @@
 # Reference v2 — 전체 PLAN
 
-작성일: 2026-09-24 · 상태: 계획 승인(D1~D4), M0 진행 중
+작성일: 2026-09-24 · 상태: M0 완료, M1 진행 중
 
 ## 1. 목적
 
@@ -95,8 +95,8 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../v1/SYSTEM_CATALOG.md)
 
 | 마일스톤 | 내용 | 검증 경계 | 문서 | 상태 |
 |---|---|---|---|---|
-| M0 | v1 정리와 빈 뼈대 | — | [M0-cleanup.md](M0-cleanup.md) | 진행 중 |
-| M1 | 월드 뼈대: Session, Content, HQ, Player | B1, B2, B8, B9 | [M1-world.md](M1-world.md) | 계획 |
+| M0 | v1 정리와 빈 뼈대 | — | [M0-cleanup.md](M0-cleanup.md) | 완료 |
+| M1 | 월드 뼈대: Session, Content, HQ, Player | B1, B2, B8, B9 | [M1-world.md](M1-world.md) | 진행 중 |
 | M2 | Enemy: 정의, Runtime Stat, 출현, Orbit 행동 | B2, B3, B4, B9 | [M2-enemy.md](M2-enemy.md) | 계획 |
 | M3 | 첫 Passive Skill(Player 1의 AimPoint 기준) | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 계획 |
 | M4 | Death → Reward와 흡수 연출(사망 기록을 화면이 읽음) | B1, B6, B7 | [M4-death-reward.md](M4-death-reward.md) | 계획 |
@@ -149,3 +149,4 @@ docs/
 | 날짜 | 마일스톤 | 점검 결과 | PLAN 변경 |
 |---|---|---|---|
 | 2026-09-24 | 계획 검토 | D1~D4 승인. 보상 귀속과 입력 소유 관계를 지어내던 부분 발견 | B1·B5·B6 문구 수정, 보상 수령자 [임시] 삭제, PlayerCharacter 코드 제외, D3를 테스트 Fake로 변경 |
+| 2026-09-24 | M0 | 완료 기준 충족(원격 CI 실행만 push 후 확인). 임의 규칙 없음. 뼈대에 v1 가정 없음(GameHost와 계약 실행 구조뿐) | 없음. M1 계획 그대로 진행 |

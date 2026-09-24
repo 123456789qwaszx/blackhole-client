@@ -1,6 +1,6 @@
 # M0 — v1 정리와 빈 뼈대
 
-상태: 진행 중 · 선행: 전체 PLAN 승인
+상태: 완료(2026-09-24) · 선행: 전체 PLAN 승인
 
 ## 목표
 
@@ -53,4 +53,29 @@ v1 코드를 보존한 채 작업 트리에서 치우고, v2가 올라갈 빈 �
 
 ## 결과
 
-(완료 후 작성)
+완료: 2026-09-24
+
+**한 일**
+
+| 커밋·태그 | 내용 |
+|---|---|
+| 태그 `reference-v1` (`165fb44`) | v1 코드가 남아 있는 마지막 커밋. 원격에 올렸다 |
+| `5d3acb3` | v1 문서 3개를 `docs/v1/`로 이동, 링크 정리. GAME_RULES 4절을 "v1 Reference와 다른 점"으로 변경 |
+| `aec452c` | v1 코드 삭제. 어셈블리 정의 3개는 GUID와 함께 유지. 계약 등록부(`Contracts`), 판정 도우미(`Expect`), 실행기 자체 확인 계약 1개, EditMode 래퍼(`ContractTests`), 빈 호스트(`GameHost`), CoreSmoke 경로 갱신 |
+| (이 커밋) | 사용자가 에디터에서 v1 누락 스크립트를 지우고 `GameHost`를 붙여 저장한 씬 |
+
+**검증**
+
+- `git show reference-v1`로 v1을 볼 수 있다. 작업 트리에 v1 코드가 없다.
+- CoreSmoke: 1개 통과. Unity와 같은 경계로 나눈 컴파일: 경고 0, 오류 0(Core에 스크립트가 없는 상태 포함).
+- 사용자 확인: 컴파일 오류 없음, Play 시 `[GameHost] enabled` / `disabled`, EditMode 테스트 통과.
+- 씬 파일에 v1 컨트롤러 GUID가 없고 `GameHost` GUID가 있다.
+- CI(`Core contracts`)는 경로가 그대로라 push 후 실행될 것이다. 아직 push하지 않아 원격 실행은 확인 전이다.
+
+**발견**
+
+- 스크립트가 없는 어셈블리(`BlackHole.Core`)는 Unity가 빌드하지 않지만, 참조하는 어셈블리에 오류를 내지 않았다.
+- 씬 저장 때 Unity 6이 씬을 새 형식으로 다시 직렬화해 차이가 크다(126줄). 내용상 변경은 컴포넌트 교체와 이름뿐이다.
+- Unity가 `ProjectSettings/SceneTemplateSettings.json`을 새로 만들었다. 이번 작업과 무관해 커밋하지 않았다.
+
+**계획과 달라진 점**: 없음.
