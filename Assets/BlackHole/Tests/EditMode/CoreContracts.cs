@@ -18,7 +18,7 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(EndRejectsCommandsAndFreezesResult), EndRejectsCommandsAndFreezesResult);
             yield return Case(nameof(RestartHasFreshState), RestartHasFreshState);
             yield return Case(nameof(DefinitionsRejectInvalidData), DefinitionsRejectInvalidData);
-            yield return Case(nameof(NewSkillNeedsOnlyComposition), NewSkillNeedsOnlyComposition);
+            yield return Case(nameof(NewSkillNeedsOnlyDefinition), NewSkillNeedsOnlyDefinition);
             yield return Case(nameof(TargetCapacityAndTwoDefinitionsAreUsed), TargetCapacityAndTwoDefinitionsAreUsed);
             yield return Case(nameof(ReferenceLoopReachesGrowthUpgradeAndEnd), ReferenceLoopReachesGrowthUpgradeAndEnd);
             yield return Case(nameof(BaselineAtCoarseFixedStep), BaselineAtCoarseFixedStep);
@@ -26,6 +26,10 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(FinalFrameIsClippedToTimeLimit), FinalFrameIsClippedToTimeLimit);
             yield return Case(nameof(CooldownExpiresBeforeSameFrameRequest), CooldownExpiresBeforeSameFrameRequest);
             yield return Case(nameof(AbsorptionHappensInStepReachingRadius), AbsorptionHappensInStepReachingRadius);
+            yield return Case(nameof(SharedCatalogKeepsSessionStateIsolated), SharedCatalogKeepsSessionStateIsolated);
+            yield return Case(nameof(LoaderReportsEveryDefinitionErrorWithPath), LoaderReportsEveryDefinitionErrorWithPath);
+            yield return Case(nameof(LoaderReportsReferenceAndKindErrorsWithPath), LoaderReportsReferenceAndKindErrorsWithPath);
+            yield return Case(nameof(CatalogConstructorEnforcesSameInvariants), CatalogConstructorEnforcesSameInvariants);
         }
 
         public static void DeathDoesNotRewardUntilAbsorption()
@@ -96,14 +100,11 @@ namespace BlackHole.Core.Tests
 
         public static void UpgradeFailureIsAtomicAndSuccessChangesDamage()
         {
-            GameSession game = new GameSession(new Playfield(
-                new SpawnSchedule(new[]
-                {
-                    new TargetDefinition("reward", 1, 0, 0.01f, 10),
-                    new TargetDefinition("durable", 100, 0, 0.01f, 10)
-                }, 0.8f, 2, 3),
-                new SkillLoadout(new[] { new SkillDefinition("strike", 0.1f, new FocusedStrike(10, 0.5f)) }),
-                new GrowthState(new GrowthDefinition(6, 1, 0.5f))), 60);
+            GameSession game = Assemble(Content(
+                new[] { Target("reward", 1, 0, 0.01f, 10), Target("durable", 100, 0, 0.01f, 10) },
+                new[] { Strike("strike", 0.1f, 10, 0.5f) },
+                Growth(6, 1, 0.5f),
+                Spawn(0.8f, 2, 3, "reward", "durable")));
             Equal(UpgradeResult.InsufficientCredits, game.TryUpgrade());
             Equal(0, game.Field.Growth.PowerLevel);
             Equal(0, game.Field.Growth.Credits);
@@ -181,23 +182,33 @@ namespace BlackHole.Core.Tests
         {
             Throws<ArgumentException>(() => new TargetDefinition("", 1, 1, 1, 1));
             Throws<ArgumentOutOfRangeException>(() => new TargetDefinition("a", float.NaN, 1, 1, 1));
-            Throws<ArgumentOutOfRangeException>(() => new GravityPulse(1, -1, 1));
+            Throws<ArgumentOutOfRangeException>(() => new SkillDefinition("a", SkillKind.GravityPulse, 1, 1, -1, 1));
             Throws<ArgumentOutOfRangeException>(() => new Point2(float.PositiveInfinity, 0));
-            var skill = new SkillDefinition("same", 1, new FocusedStrike(1, 1));
-            Throws<ArgumentException>(() => new SkillLoadout(new[] { skill, skill }));
-            var target = new TargetDefinition("same", 1, 1, 1, 1);
-            Throws<ArgumentException>(() => new SpawnSchedule(new[] { target, target }, 1, 5, 10));
+
+            ContentData duplicateSkill = ReferenceGame.CreateContent();
+            duplicateSkill.Skills[1].Id = ReferenceGame.StrikeId;
+            Fails(duplicateSkill, "Skills[1]");
+
+            ContentData duplicateTarget = ReferenceGame.CreateContent();
+            duplicateTarget.Targets[1].Id = "shard";
+            Fails(duplicateTarget, "Targets[1]");
+
             Throws<ArgumentOutOfRangeException>(() => Reference().Advance(float.NaN));
-            Throws<ArgumentOutOfRangeException>(() => Reference(-1));
+            ContentData negativeDuration = ReferenceGame.CreateContent();
+            negativeDuration.SessionDuration = -1;
+            Fails(negativeDuration, "SessionDuration");
         }
 
-        public static void NewSkillNeedsOnlyComposition()
+        // 수치만 다른 새 스킬은 정의 추가만으로 동작한다. Session·Loadout·호스트를 고치지 않는다.
+        // 새 실행 규칙의 추가 자리는 SkillEffectFactory 한 곳이다(SkillKind + 분기 + 실행 클래스).
+        public static void NewSkillNeedsOnlyDefinition()
         {
-            var effect = new TestSkillEffect();
-            var game = new GameSession(new Playfield(
-                new SpawnSchedule(new[] { new TargetDefinition("new-target", 50, 0, 1, 3) }, 1, 5, 4),
-                new SkillLoadout(new[] { new SkillDefinition("new-skill", 1, effect) }),
-                new GrowthState(new GrowthDefinition(1, 1, 1))), 5);
+            GameSession game = Assemble(Content(
+                new[] { Target("new-target", 50, 0, 1, 3) },
+                new[] { Strike("new-skill", 1, 7, 10) },
+                Growth(1, 1, 1),
+                Spawn(1, 5, 4, "new-target"),
+                duration: 5));
             Equal(CastResult.Cast, game.TryCast("new-skill", new Point2(0, 0)));
             Near(43, game.Field.Targets[0].Health);
             Near(1, game.Field.Skills[0].RemainingCooldown);
@@ -295,10 +306,141 @@ namespace BlackHole.Core.Tests
                 Check(current.Id != target.Id, "흡수한 단계에서 목록 제거까지 끝나야 한다.");
         }
 
+        public static void SharedCatalogKeepsSessionStateIsolated()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            ContentCatalog catalog = Load(data);
+            GameSession first = SessionAssembler.Create(catalog);
+            GameSession second = SessionAssembler.Create(catalog);
+
+            RunScriptedLoop(first, 0.1f, 60);
+            Check(first.Field.Growth.PowerLevel > 0, "첫 판은 강화까지 진행해야 한다.");
+            // 로드 뒤 저작 데이터를 바꿔도 이미 만든 카탈로그와 판에는 영향이 없다.
+            data.Targets[0].MaxHealth = 999;
+
+            foreach (GameSession fresh in new[] { second, SessionAssembler.Create(catalog) })
+            {
+                Near(0, fresh.Elapsed);
+                Equal(0, fresh.Field.Growth.Mass);
+                Equal(0, fresh.Field.Growth.Credits);
+                Equal(0, fresh.Field.Growth.PowerLevel);
+                Near(0, fresh.Field.Skills[0].RemainingCooldown);
+                Equal(1, fresh.Field.Targets.Count);
+                Near(12, fresh.Field.Targets[0].Health);
+                Check(!ReferenceEquals(first.Field.Skills[0], fresh.Field.Skills[0]), "스킬 상태는 판마다 새로 만든다.");
+                Check(ReferenceEquals(first.Field.Skills[0].Definition, fresh.Field.Skills[0].Definition),
+                    "정의는 판 사이에 공유한다.");
+            }
+        }
+
+        public static void LoaderReportsEveryDefinitionErrorWithPath()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.Targets[1].MaxHealth = float.NaN;
+            data.Skills[0].Cooldown = 0;
+            data.Skills[1].Kind = "Laser";
+            data.Spawn.Interval = -1;
+            data.SessionDuration = 0;
+
+            ContentLoadResult result = ContentLoader.Load(data);
+            Check(!result.Succeeded && result.Catalog == null, "오류가 있으면 카탈로그를 만들지 않는다.");
+            Equal(5, result.Diagnostics.Count);
+            HasDiagnostic(result, "Targets[heavy]", "maxHealth");
+            HasDiagnostic(result, "Skills[focused-strike]", "cooldown");
+            HasDiagnostic(result, "Skills[gravity-pulse].Kind", "Laser");
+            HasDiagnostic(result, "Spawn", "interval");
+            HasDiagnostic(result, "SessionDuration", "SessionDuration");
+        }
+
+        public static void LoaderReportsReferenceAndKindErrorsWithPath()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.Targets.Add(Target("shard", 1, 0, 1, 1));
+            data.Skills[0].PullDistance = 1;
+            data.Spawn.TargetOrder.Add("ghost");
+
+            ContentLoadResult result = ContentLoader.Load(data);
+            Check(!result.Succeeded, "참조 오류가 있으면 로드에 실패해야 한다.");
+            Equal(3, result.Diagnostics.Count);
+            HasDiagnostic(result, "Targets[2]", "shard");
+            HasDiagnostic(result, "Skills[focused-strike]", "당김");
+            HasDiagnostic(result, "Spawn.TargetOrder[2]", "ghost");
+        }
+
+        public static void CatalogConstructorEnforcesSameInvariants()
+        {
+            var target = new TargetDefinition("shard", 12, 0, 1, 2);
+            var skill = new SkillDefinition("strike", SkillKind.FocusedStrike, 1, 1, 1, 0);
+            var growth = new GrowthDefinition(1, 1, 1);
+            var spawn = new SpawnDefinition(new[] { "shard" }, 1, 5, 4);
+            new ContentCatalog(10, new[] { target }, new[] { skill }, growth, spawn);
+
+            Throws<ArgumentException>(() => new ContentCatalog(
+                10, new[] { target }, new[] { skill, skill }, growth, spawn));
+            Throws<ArgumentException>(() => new ContentCatalog(
+                10, new[] { target }, new[] { skill }, growth, new SpawnDefinition(new[] { "ghost" }, 1, 5, 4)));
+            Throws<ArgumentException>(() => new ContentCatalog(
+                10, new[] { target }, new[] { new SkillDefinition("pulse", SkillKind.GravityPulse, 1, 1, 1, 0) },
+                growth, spawn));
+        }
+
         // ── 공통 준비 ───────────────────────────────────────────────────────
 
-        private static GameSession Reference(float duration = 60) =>
-            ReferenceGame.CreateSession(duration);
+        private static GameSession Reference(float duration = 60)
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.SessionDuration = duration;
+            return Assemble(data);
+        }
+
+        private static GameSession Assemble(ContentData data) => SessionAssembler.Create(Load(data));
+
+        private static ContentCatalog Load(ContentData data)
+        {
+            ContentLoadResult result = ContentLoader.Load(data);
+            Check(result.Succeeded, result.Diagnostics.Count > 0 ? result.Diagnostics[0].ToString() : "로드 실패");
+            return result.Catalog;
+        }
+
+        private static ContentData Content(TargetData[] targets, SkillData[] skills,
+            GrowthData growth, SpawnData spawn, float duration = 60) => new ContentData
+        {
+            SessionDuration = duration,
+            Targets = new List<TargetData>(targets),
+            Skills = new List<SkillData>(skills),
+            Growth = growth,
+            Spawn = spawn
+        };
+
+        private static TargetData Target(string id, float health, float angular, float inward, int reward) =>
+            new TargetData { Id = id, MaxHealth = health, AngularSpeed = angular, InwardSpeed = inward, Reward = reward };
+
+        private static SkillData Strike(string id, float cooldown, float damage, float aimRadius) =>
+            new SkillData { Id = id, Kind = "FocusedStrike", Cooldown = cooldown, Damage = damage, Radius = aimRadius };
+
+        private static SkillData Pulse(string id, float cooldown, float damage, float radius, float pull) =>
+            new SkillData { Id = id, Kind = "GravityPulse", Cooldown = cooldown, Damage = damage, Radius = radius, PullDistance = pull };
+
+        private static GrowthData Growth(int cost, int maxLevel, float perLevel) =>
+            new GrowthData { UpgradeCost = cost, MaxPowerLevel = maxLevel, PowerPerLevel = perLevel };
+
+        private static SpawnData Spawn(float interval, float radius, int capacity, params string[] order) =>
+            new SpawnData { TargetOrder = new List<string>(order), Interval = interval, Radius = radius, Capacity = capacity };
+
+        private static void Fails(ContentData data, string path)
+        {
+            ContentLoadResult result = ContentLoader.Load(data);
+            Check(!result.Succeeded, "로드에 실패해야 한다: " + path);
+            HasDiagnostic(result, path, string.Empty);
+        }
+
+        private static void HasDiagnostic(ContentLoadResult result, string path, string reason)
+        {
+            foreach (ContentDiagnostic diagnostic in result.Diagnostics)
+                if (diagnostic.Path == path && diagnostic.Message.Contains(reason)) return;
+            throw new InvalidOperationException(
+                $"진단 없음: {path} ({reason}). 받은 진단: {string.Join(" | ", result.Diagnostics)}");
+        }
 
         // 매 프레임: 첫 번째 궤도 대상에 두 스킬 요청 → 가능하면 강화 → 진행.
         // 판이 끝나거나 frames만큼 진행하면 멈춘다.
@@ -361,23 +503,11 @@ namespace BlackHole.Core.Tests
             Equal(expected.Targets, game.Field.Targets.Count);
         }
 
-        private static GameSession CreateCrowdedSession(float health = 100)
-        {
-            return new GameSession(new Playfield(
-                new SpawnSchedule(new[] { new TargetDefinition("test", health, 0, 0.01f, 10) }, 0.1f, 2, 3),
-                new SkillLoadout(new[]
-                {
-                    new SkillDefinition("strike", 0.1f, new FocusedStrike(10, 10)),
-                    new SkillDefinition("pulse", 0.1f, new GravityPulse(5, 10, 0.5f))
-                }),
-                new GrowthState(new GrowthDefinition(6, 1, 0.5f))), 60);
-        }
-
-        private sealed class TestSkillEffect : ISkillEffect
-        {
-            public int Execute(Point2 aim, float multiplier, IReadOnlyList<TargetState> targets, CombatResolver combat) =>
-                combat.Hit(targets[0].Id, 7 * multiplier) ? 1 : 0;
-        }
+        private static GameSession CreateCrowdedSession(float health = 100) => Assemble(Content(
+            new[] { Target("test", health, 0, 0.01f, 10) },
+            new[] { Strike("strike", 0.1f, 10, 10), Pulse("pulse", 0.1f, 5, 10, 0.5f) },
+            Growth(6, 1, 0.5f),
+            Spawn(0.1f, 2, 3, "test")));
 
         private static KeyValuePair<string, Action> Case(string name, Action action) =>
             new KeyValuePair<string, Action>(name, action);

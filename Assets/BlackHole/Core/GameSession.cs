@@ -33,7 +33,7 @@ namespace BlackHole.Core
         public float Remaining => Math.Max(0, _duration - Elapsed);
         public SessionResult Result { get; private set; }
 
-        public GameSession(Playfield field, float duration)
+        internal GameSession(Playfield field, float duration)
         {
             Field = field ?? throw new ArgumentNullException(nameof(field));
             _duration = DefinitionGuard.Positive(duration, nameof(duration));

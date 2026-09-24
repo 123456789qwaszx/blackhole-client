@@ -7,6 +7,7 @@ namespace BlackHole.Unity
     // Unity 입력과 수명을 게임 요청으로 연결하는 진입점.
     public sealed class ReferenceGameController : MonoBehaviour
     {
+        private ContentCatalog _catalog;
         private GameSession _session;
         private ReferenceWorldView _view;
         private Camera _camera;
@@ -31,6 +32,16 @@ namespace BlackHole.Unity
             _camera.clearFlags = CameraClearFlags.SolidColor;
             _camera.backgroundColor = new Color(0.025f, 0.035f, 0.065f);
             _view = new ReferenceWorldView(transform);
+
+            ContentLoadResult content = ContentLoader.Load(ReferenceGame.CreateContent());
+            if (!content.Succeeded)
+            {
+                foreach (ContentDiagnostic diagnostic in content.Diagnostics)
+                    Debug.LogError("[콘텐츠] " + diagnostic, this);
+                enabled = false;
+                return;
+            }
+            _catalog = content.Catalog;
             Restart();
         }
 
@@ -48,8 +59,8 @@ namespace BlackHole.Unity
 
             if (keyboard != null)
             {
-                if (keyboard.digit1Key.wasPressedThisFrame) Cast(ReferenceGame.StrikeId, 0.9f);
-                if (keyboard.digit2Key.wasPressedThisFrame) Cast(ReferenceGame.PulseId, ReferenceGame.PulseRadius);
+                if (keyboard.digit1Key.wasPressedThisFrame) Cast(ReferenceGame.StrikeId);
+                if (keyboard.digit2Key.wasPressedThisFrame) Cast(ReferenceGame.PulseId);
                 if (keyboard.uKey.wasPressedThisFrame) Upgrade();
             }
 
@@ -57,7 +68,7 @@ namespace BlackHole.Unity
             _view.Synchronize(_session.Field, _lastAim, _flashRadius, _flashRemaining > 0);
         }
 
-        private void Cast(string id, float radius)
+        private void Cast(string id)
         {
             Mouse mouse = Mouse.current;
             if (mouse == null) return;
@@ -67,8 +78,16 @@ namespace BlackHole.Unity
             _message = id + ": " + result;
             if (result != CastResult.Cast) return;
             _lastAim = world;
-            _flashRadius = radius;
+            _flashRadius = FindSkillRadius(id);
             _flashRemaining = 0.18f;
+        }
+
+        // 연출 반경을 정의에서 읽는다. 실제 적용 범위를 발동 결과로 받는 것은 S4에서 한다.
+        private float FindSkillRadius(string id)
+        {
+            foreach (SkillState skill in _session.Field.Skills)
+                if (skill.Definition.Id == id) return skill.Definition.Radius;
+            return 0;
         }
 
         private void Upgrade() => _message = "Upgrade: " + _session.TryUpgrade();
@@ -76,7 +95,7 @@ namespace BlackHole.Unity
         private void Restart()
         {
             _session?.Stop();
-            _session = ReferenceGame.CreateSession();
+            _session = SessionAssembler.Create(_catalog);
             _view.ClearTargets();
             _flashRemaining = 0;
             _message = "New session. Aim with mouse, cast with 1 / 2.";

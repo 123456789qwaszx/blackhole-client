@@ -1,9 +1,9 @@
-using System;
 using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // 한 번의 진행 순서만 조립한다. 피해/보상/강화 공식은 각 소유자가 갖는다.
+    // 판 안의 시스템과 한 번의 진행 순서를 소유한다. 피해/보상/강화 공식은 각 소유자가 갖는다.
+    // 조립은 SessionAssembler가 한다.
     public sealed class Playfield
     {
         private readonly TargetWorld _world;
@@ -16,12 +16,12 @@ namespace BlackHole.Core
         public IReadOnlyList<SkillState> Skills => _loadout.Skills;
         public GrowthState Growth { get; }
 
-        public Playfield(SpawnSchedule spawn, SkillLoadout loadout, GrowthState growth)
+        internal Playfield(TargetWorld world, SpawnSchedule spawn, SkillLoadout loadout, GrowthState growth)
         {
-            _world = new TargetWorld();
-            _spawn = spawn ?? throw new ArgumentNullException(nameof(spawn));
-            _loadout = loadout ?? throw new ArgumentNullException(nameof(loadout));
-            Growth = growth ?? throw new ArgumentNullException(nameof(growth));
+            _world = world;
+            _spawn = spawn;
+            _loadout = loadout;
+            Growth = growth;
             _combat = new CombatResolver(_world);
             _spawn.Advance(0, _world);
         }

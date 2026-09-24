@@ -1,7 +1,6 @@
-using System;
-
 namespace BlackHole.Core
 {
+    // 대상 한 종류의 공유 정의. 개별 HP·위치는 TargetState가 소유한다.
     public sealed class TargetDefinition
     {
         public string Id { get; }
@@ -13,14 +12,11 @@ namespace BlackHole.Core
         public TargetDefinition(string id, float maxHealth, float angularSpeed,
             float inwardSpeed, int reward)
         {
-            Id = DefinitionGuard.Id(id);
+            Id = DefinitionGuard.Id(id, nameof(id));
             MaxHealth = DefinitionGuard.Positive(maxHealth, nameof(maxHealth));
-            if (float.IsNaN(angularSpeed) || float.IsInfinity(angularSpeed))
-                throw new ArgumentOutOfRangeException(nameof(angularSpeed));
-            AngularSpeed = angularSpeed;
+            AngularSpeed = DefinitionGuard.Finite(angularSpeed, nameof(angularSpeed));
             InwardSpeed = DefinitionGuard.Positive(inwardSpeed, nameof(inwardSpeed));
-            if (reward <= 0) throw new ArgumentOutOfRangeException(nameof(reward));
-            Reward = reward;
+            Reward = DefinitionGuard.Positive(reward, nameof(reward));
         }
     }
 }

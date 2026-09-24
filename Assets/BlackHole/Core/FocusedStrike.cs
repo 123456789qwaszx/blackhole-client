@@ -3,15 +3,16 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 조준점 주변의 가장 가까운 살아 있는 대상 하나를 공격한다.
-    public sealed class FocusedStrike : ISkillEffect
+    // 수치는 검증된 SkillDefinition에서 온다(SkillEffectFactory).
+    internal sealed class FocusedStrike : ISkillEffect
     {
         private readonly float _damage;
         private readonly float _aimRadius;
 
         public FocusedStrike(float damage, float aimRadius)
         {
-            _damage = DefinitionGuard.Positive(damage, nameof(damage));
-            _aimRadius = DefinitionGuard.Positive(aimRadius, nameof(aimRadius));
+            _damage = damage;
+            _aimRadius = aimRadius;
         }
 
         public int Execute(Point2 aim, float damageMultiplier,

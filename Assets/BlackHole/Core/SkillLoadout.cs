@@ -3,7 +3,9 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    public sealed class SkillLoadout
+    // 스킬 사용자 한 명의 보유 스킬과 쿨다운. 판마다 새로 조립한다.
+    // 정의는 ContentCatalog가 검증했다(ID 유일, 종류별 수치 조합).
+    internal sealed class SkillLoadout
     {
         private readonly Dictionary<string, SkillState> _byId =
             new Dictionary<string, SkillState>(StringComparer.Ordinal);
@@ -11,33 +13,29 @@ namespace BlackHole.Core
 
         public SkillLoadout(IReadOnlyList<SkillDefinition> definitions)
         {
-            if (definitions == null || definitions.Count == 0)
-                throw new ArgumentException("스킬 정의가 필요하다.");
-            var states = new List<SkillState>();
+            var states = new List<SkillState>(definitions.Count);
             foreach (SkillDefinition definition in definitions)
             {
-                if (definition == null || _byId.ContainsKey(definition.Id))
-                    throw new ArgumentException("스킬 정의가 null이거나 ID가 중복됐다.");
-                var state = new SkillState(definition);
+                var state = new SkillState(definition, SkillEffectFactory.Create(definition));
                 _byId.Add(definition.Id, state);
                 states.Add(state);
             }
             Skills = states.AsReadOnly();
         }
 
-        internal void Advance(float delta)
+        public void Advance(float delta)
         {
             foreach (SkillState skill in Skills) skill.Advance(delta);
         }
 
-        internal CastResult TryCast(string id, Point2 aim, float multiplier,
+        public CastResult TryCast(string id, Point2 aim, float multiplier,
             TargetWorld world, CombatResolver combat)
         {
             if (id == null || !_byId.TryGetValue(id, out SkillState skill))
                 return CastResult.UnknownSkill;
             if (skill.RemainingCooldown > 0) return CastResult.CoolingDown;
 
-            int hits = skill.Definition.Effect.Execute(aim, multiplier, world.Targets, combat);
+            int hits = skill.Effect.Execute(aim, multiplier, world.Targets, combat);
             // 빈 조준은 쿨다운을 소비하지 않는 것이 이번 실험의 정책이다.
             if (hits == 0) return CastResult.NoTarget;
             skill.BeginCooldown();

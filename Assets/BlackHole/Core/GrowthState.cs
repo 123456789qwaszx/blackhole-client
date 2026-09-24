@@ -12,12 +12,10 @@ namespace BlackHole.Core
 
         public GrowthDefinition(int upgradeCost, int maxPowerLevel, float powerPerLevel)
         {
-            if (upgradeCost <= 0) throw new ArgumentOutOfRangeException(nameof(upgradeCost));
-            if (maxPowerLevel <= 0) throw new ArgumentOutOfRangeException(nameof(maxPowerLevel));
+            UpgradeCost = DefinitionGuard.Positive(upgradeCost, nameof(upgradeCost));
+            MaxPowerLevel = DefinitionGuard.Positive(maxPowerLevel, nameof(maxPowerLevel));
             if ((long)upgradeCost * maxPowerLevel > int.MaxValue)
-                throw new ArgumentOutOfRangeException(nameof(upgradeCost));
-            UpgradeCost = upgradeCost;
-            MaxPowerLevel = maxPowerLevel;
+                throw new ArgumentOutOfRangeException(nameof(upgradeCost), "최고 단계 강화 비용이 int 범위를 넘는다.");
             PowerPerLevel = DefinitionGuard.Positive(powerPerLevel, nameof(powerPerLevel));
         }
     }
