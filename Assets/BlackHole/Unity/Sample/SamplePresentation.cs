@@ -6,7 +6,7 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // 표현 샘플. 화면 전용 값이며 게임 규칙이 아니다(Core는 모른다).
-    // HQ 크기는 규칙에 없다(성장 미정, D1). 원판 크기는 보이게 하려는 표현 값일 뿐이다.
+    // HQ 레벨/크기 연계는 M5에서 정한다. 지금 원판 크기는 표현 샘플이다.
     // Enemy 크기는 게임 수치(Stats.Size)를 그대로 쓰고, 색만 여기서 정한다.
     // Skill 범위 원의 크기는 Skill의 실행 반경이다. 여기서는 색과 연출 시간만 정한다.
     internal sealed class SamplePresentation
@@ -30,6 +30,7 @@ namespace BlackHole.Unity
         public Color DepletedEnemyColor { get; } = new Color(0.16f, 0.12f, 0.16f);
         public Color HitFlashColor { get; } = Color.white;
         public float HitFlashSeconds { get; } = 0.12f;
+        public float AbsorbSeconds { get; } = 0.55f;
 
         // 범위 원: 옅은 안쪽과 테두리. 틱마다 안쪽이 잠깐 밝아진다.
         public Color SkillFillColor { get; } = new Color(0.55f, 0.75f, 1, 0.06f);

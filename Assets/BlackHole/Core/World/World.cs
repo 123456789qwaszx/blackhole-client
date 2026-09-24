@@ -7,13 +7,17 @@ namespace BlackHole.Core
     {
         private readonly List<Player> _players;
         private readonly List<Enemy> _enemies = new List<Enemy>();
+        private readonly List<DeathRecord> _deaths = new List<DeathRecord>();
         private readonly EnemySpawner _spawner;
         private int _nextEnemyId = 1;
+        private long _nextDeathSequence = 1;
 
         public Hq Hq { get; }
         // Player는 목록이다. "첫 번째 Player" 같은 전역 가정 없이 Id로 찾는다.
         public IReadOnlyList<Player> Players { get; }
         public IReadOnlyList<Enemy> Enemies { get; }
+        // 마지막 Advance 동안의 모든 하위 단계 사망 기록. 다음 Advance 시작 때 비운다.
+        public IReadOnlyList<DeathRecord> Deaths { get; }
 
         internal World(Hq hq, List<Player> players, EnemySpawner spawner)
         {
@@ -22,6 +26,7 @@ namespace BlackHole.Core
             _spawner = spawner;
             Players = players.AsReadOnly();
             Enemies = _enemies.AsReadOnly();
+            Deaths = _deaths.AsReadOnly();
         }
 
         public bool TryGetPlayer(PlayerId id, out Player player)
@@ -52,6 +57,20 @@ namespace BlackHole.Core
             }
 
             _spawner.Advance(delta, this);
+        }
+
+        internal void BeginAdvance() => _deaths.Clear();
+
+        // 사망은 피해를 수용한 Enemy가 판정한다. World는 보상·목록·사망 기록을 한 번 확정한다.
+        internal void DealDamage(Enemy enemy, Damage damage)
+        {
+            if (!enemy.IsAlive || !enemy.ApplyDamage(damage)) return;
+
+            // 현재 실제 보상 구성은 단일 Player다. 조립 때 그 전제를 검증한다.
+            if (_players.Count == 1) _players[0].State.EarnGold(enemy.Definition.Gold);
+            Hq.GainExp(enemy.Definition.HqExp);
+            _deaths.Add(new DeathRecord(_nextDeathSequence++, enemy));
+            _enemies.Remove(enemy);
         }
 
         // 출현 요청을 받는다. 목록과 ID 발급은 World가 가진다.

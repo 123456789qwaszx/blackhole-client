@@ -14,12 +14,13 @@ namespace BlackHole.Unity
         {
             HudRequest request = HudRequest.None;
 
-            GUILayout.BeginArea(new Rect(16, 16, 340, 240), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(16, 16, 340, 270), GUI.skin.box);
             GUILayout.Label("BLACK HOLE / Reference v2");
             GUILayout.Label($"{session.Phase}  |  {session.Remaining:F1}s remaining");
             GUILayout.Label($"Players {session.World.Players.Count}   Enemies {session.World.Enemies.Count}");
+            GUILayout.Label($"HQ EXP {session.World.Hq.Exp}");
             foreach (Player player in session.World.Players)
-                GUILayout.Label($"{player.Id}  aim {(player.AimPoint.HasValue ? Format(player.AimPoint.Value) : "none")}  ticks {Ticks(player)}");
+                GUILayout.Label($"{player.Id}  Gold {player.State.Gold}  aim {(player.AimPoint.HasValue ? Format(player.AimPoint.Value) : "none")}  ticks {Ticks(player)}");
             GUILayout.Label("Mouse: aim   P: pause/resume   R: restart");
             GUILayout.Space(8);
 

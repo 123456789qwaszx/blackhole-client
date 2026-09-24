@@ -70,7 +70,8 @@ namespace BlackHole.Core
                 EnemyStats? stats = GuardValue(at, into, () => new EnemyStats(item.MaxHealth, item.MoveSpeed, item.Size));
                 if (into.Count > errors) continue;
 
-                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, stats.Value, behavior));
+                EnemyDefinition enemy = Guard(at, into, () =>
+                    new EnemyDefinition(item.Id, stats.Value, behavior, item.Gold, item.HqExp));
                 if (enemy != null) enemies.Add(enemy);
             }
             return enemies;

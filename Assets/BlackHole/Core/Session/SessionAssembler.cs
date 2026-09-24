@@ -19,6 +19,12 @@ namespace BlackHole.Core
             if (content == null) throw new ArgumentNullException(nameof(content));
             if (behaviors == null) throw new ArgumentNullException(nameof(behaviors));
             List<Player> players = CreatePlayers(participants);
+            // 두 Player의 상태/조준점 테스트는 계속 가능하지만, 보상 있는 다인 전투는
+            // 귀속 정책이 정해지기 전에 시작하지 않는다.
+            if (players.Count != 1)
+                foreach (EnemyDefinition enemy in content.Enemies)
+                    if (enemy.Gold != 0 || enemy.HqExp != 0)
+                        throw new InvalidOperationException("보상 있는 다인 전투의 귀속 정책이 없다.");
             foreach (Player player in players) GiveStartingSkills(player, content.StartingSkills);
 
             var spawner = new EnemySpawner(content.Spawn, content.SpawnOrder, behaviors);

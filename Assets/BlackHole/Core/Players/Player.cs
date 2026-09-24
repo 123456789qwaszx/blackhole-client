@@ -45,9 +45,13 @@ namespace BlackHole.Core
     }
 
     // Player 한 명의 진행 상태. Player마다 따로 있다.
-    // 지금은 담을 값이 없다. M4에서 Gold/EXP가 들어온다. Level은 계산하지 않는다(D4).
+    // 구매 재화. HQ 성장 EXP는 HQ의 상태다.
     public sealed class PlayerState
     {
+        public int Gold { get; private set; }
+
         internal PlayerState() { }
+
+        internal void EarnGold(int amount) => Gold = checked(Gold + amount);
     }
 }

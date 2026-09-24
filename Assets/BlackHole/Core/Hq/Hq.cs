@@ -2,8 +2,7 @@ using System;
 
 namespace BlackHole.Core
 {
-    // HQ의 공유 정의. 지금 확정된 것은 위치(월드의 기준점)뿐이다.
-    // HP·파괴·성장은 미정이라 두지 않는다(D1).
+    // HQ의 공유 정의. 성장 곡선과 레벨 구간은 M5에서 정한다.
     public sealed class HqDefinition
     {
         public Point2 Position { get; }
@@ -19,11 +18,14 @@ namespace BlackHole.Core
     public sealed class Hq
     {
         public Point2 Position { get; }
+        public int Exp { get; private set; }
 
         internal Hq(HqDefinition definition)
         {
             if (definition == null) throw new ArgumentNullException(nameof(definition));
             Position = definition.Position;
         }
+
+        internal void GainExp(int amount) => Exp = checked(Exp + amount);
     }
 }

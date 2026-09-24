@@ -38,6 +38,8 @@ namespace BlackHole.Core
         public float MaxHealth;
         public float MoveSpeed;
         public float Size;
+        public int Gold;
+        public int HqExp;
         public EnemyBehaviorData Behavior;
     }
 

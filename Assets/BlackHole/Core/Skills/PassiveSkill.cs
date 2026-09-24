@@ -67,10 +67,10 @@ namespace BlackHole.Core
             _targets.Clear();
             IReadOnlyList<Enemy> enemies = world.Enemies;
             for (int i = 0; i < enemies.Count; i++)
-                if (IsInside(enemies[i], origin, Stats.Radius)) _targets.Add(enemies[i]);
+                if (enemies[i].IsAlive && IsInside(enemies[i], origin, Stats.Radius)) _targets.Add(enemies[i]);
 
             var damage = new Damage(Stats.Damage, _owner.Id);
-            foreach (Enemy target in _targets) target.ApplyDamage(damage);
+            foreach (Enemy target in _targets) world.DealDamage(target, damage);
             _targets.Clear();
         }
 

@@ -20,20 +20,26 @@ namespace BlackHole.Core
         }
     }
 
-    // Enemy 종류 하나의 공유 정의: 기본 수치와 행동 정의.
-    // 보상 Gold/EXP는 지급이 생기는 M4에서 추가한다. 고유 능력·사망 효과는 미정이다.
+    // Enemy 종류 하나의 공유 정의: 기본 수치, 행동, 사망 시 보상.
     public sealed class EnemyDefinition
     {
         public string Id { get; }
         public EnemyStats BaseStats { get; }
         public EnemyBehaviorDefinition Behavior { get; }
+        public int Gold { get; }
+        public int HqExp { get; }
 
-        public EnemyDefinition(string id, EnemyStats baseStats, EnemyBehaviorDefinition behavior)
+        public EnemyDefinition(string id, EnemyStats baseStats, EnemyBehaviorDefinition behavior,
+            int gold = 0, int hqExp = 0)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("ID가 비어 있다.", nameof(id));
+            if (gold < 0) throw new ArgumentOutOfRangeException(nameof(gold));
+            if (hqExp < 0) throw new ArgumentOutOfRangeException(nameof(hqExp));
             Id = id;
             BaseStats = baseStats;
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
+            Gold = gold;
+            HqExp = hqExp;
         }
     }
 

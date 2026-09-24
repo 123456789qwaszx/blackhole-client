@@ -24,6 +24,8 @@ namespace BlackHole.Unity
         private readonly SpriteRenderer _hq;
         private readonly SpriteRenderer _hqGlow;
         private readonly Dictionary<EnemyId, EnemyView> _enemies = new Dictionary<EnemyId, EnemyView>();
+        private readonly List<AbsorbingView> _absorbing = new List<AbsorbingView>();
+        private long _lastDeathSequence;
         private readonly HashSet<EnemyId> _seen = new HashSet<EnemyId>();
         private readonly List<EnemyId> _gone = new List<EnemyId>();
         // Skill은 판 안에서 사라지지 않는다. 판이 바뀌면 Reset이 지운다.
@@ -46,7 +48,7 @@ namespace BlackHole.Unity
         public void Synchronize(World world)
         {
             SynchronizeHq(world.Hq);
-            SynchronizeEnemies(world.Enemies);
+            SynchronizeEnemies(world.Enemies, world.Deaths, world.Hq.Position);
             SynchronizeSkills(world.Players);
         }
 
@@ -55,6 +57,9 @@ namespace BlackHole.Unity
         {
             foreach (EnemyView view in _enemies.Values) Destroy(view.Renderer);
             _enemies.Clear();
+            foreach (AbsorbingView view in _absorbing) Destroy(view.Renderer);
+            _absorbing.Clear();
+            _lastDeathSequence = 0;
             foreach (SkillView view in _skills.Values)
             {
                 Destroy(view.Fill);
@@ -82,7 +87,7 @@ namespace BlackHole.Unity
             _hqGlow.transform.localScale = Vector3.one * (_presentation.HqDisplayDiameter + _presentation.HqGlowExtra);
         }
 
-        private void SynchronizeEnemies(IReadOnlyList<Enemy> enemies)
+        private void SynchronizeEnemies(IReadOnlyList<Enemy> enemies, IReadOnlyList<DeathRecord> deaths, Point2 hq)
         {
             float now = Time.unscaledTime;
             _seen.Clear();
@@ -109,7 +114,42 @@ namespace BlackHole.Unity
                 view.Renderer.color = Color.Lerp(health, _presentation.HitFlashColor, Fade(now - view.HitAt, _presentation.HitFlashSeconds));
             }
 
-            // 목록에서 사라진 Enemy의 View를 지운다. 사망 연출은 M4에서 사망 기록을 읽어 따로 한다.
+            // 사망 기록에는 같은 Advance의 모든 하위 단계가 누적된다. 같은 배치를
+            // 여러 번 읽어도 Sequence로 한 번만 연출을 만든다.
+            for (int i = 0; i < deaths.Count; i++)
+            {
+                DeathRecord death = deaths[i];
+                if (death.Sequence <= _lastDeathSequence) continue;
+                _lastDeathSequence = death.Sequence;
+                SpriteRenderer renderer;
+                if (_enemies.TryGetValue(death.EnemyId, out EnemyView existing))
+                {
+                    renderer = existing.Renderer;
+                    _enemies.Remove(death.EnemyId);
+                }
+                else
+                {
+                    renderer = CreateRenderer(death.EnemyTypeId + " death #" + death.EnemyId.Value,
+                        _disc, _presentation.EnemyColor(death.EnemyTypeId), 2);
+                    renderer.transform.localScale = Vector3.one * death.Size * 2;
+                }
+                renderer.transform.position = SceneSpace.ToScene(death.Position);
+                _absorbing.Add(new AbsorbingView(renderer, death.Position, now));
+            }
+
+            Vector3 destination = SceneSpace.ToScene(hq);
+            for (int i = _absorbing.Count - 1; i >= 0; i--)
+            {
+                AbsorbingView view = _absorbing[i];
+                float progress = Mathf.Clamp01((now - view.StartedAt) / _presentation.AbsorbSeconds);
+                view.Renderer.transform.position = Vector3.Lerp(SceneSpace.ToScene(view.Start), destination, progress);
+                view.Renderer.transform.localScale = view.InitialScale * (1 - progress);
+                if (progress < 1) continue;
+                Destroy(view.Renderer);
+                _absorbing.RemoveAt(i);
+            }
+
+            // 일반적인 목록 제거(전투 정리 등)는 처치 연출을 만들지 않는다.
             _gone.Clear();
             foreach (EnemyId id in _enemies.Keys)
                 if (!_seen.Contains(id)) _gone.Add(id);
@@ -214,6 +254,22 @@ namespace BlackHole.Unity
                 Renderer = renderer;
                 Color = color;
                 LastHealth = health;
+            }
+        }
+
+        private sealed class AbsorbingView
+        {
+            public readonly SpriteRenderer Renderer;
+            public readonly Point2 Start;
+            public readonly float StartedAt;
+            public readonly Vector3 InitialScale;
+
+            public AbsorbingView(SpriteRenderer renderer, Point2 start, float startedAt)
+            {
+                Renderer = renderer;
+                Start = start;
+                StartedAt = startedAt;
+                InitialScale = renderer.transform.localScale;
             }
         }
 

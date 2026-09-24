@@ -25,11 +25,13 @@ namespace BlackHole.Sample
                 new EnemyData
                 {
                     Id = LightEnemyId, MaxHealth = 10, MoveSpeed = 1.5f, Size = 0.3f,
+                    Gold = 2, HqExp = 1,
                     Behavior = new EnemyBehaviorData { Kind = "OrbitHq", Clockwise = false }
                 },
                 new EnemyData
                 {
                     Id = HeavyEnemyId, MaxHealth = 30, MoveSpeed = 0.8f, Size = 0.55f,
+                    Gold = 5, HqExp = 3,
                     Behavior = new EnemyBehaviorData { Kind = "OrbitHq", Clockwise = true }
                 }
             },
