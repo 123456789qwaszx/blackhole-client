@@ -1,71 +1,302 @@
-# Black Hole — System Catalog (시스템화 결과)
+# System Catalog — Reference 예제집
 
-기준: `blackhole-client/dev`, S0~S7 시스템화 이후. 이전 기록인 [REFERENCE_IMPLEMENTATION.md](REFERENCE_IMPLEMENTATION.md)는 `80549cb` 시점의 실험 기록이다. 현재 구조는 이 문서를 기준으로 한다. 단계별 기준 동작과 상수 이동 기록은 [systemization-baseline.md](systemization-baseline.md)에 있다.
+이 레포는 팀 게임의 설계 초안이 아니다. 블랙홀 키우기 게임을 만들 때 생길 만한 시스템을 한 번씩 실제로 만들어 보면서, **이런 종류의 시스템이 어떤 목적·규칙·흐름·책임을 가지는지** 체감하려고 만든 실물 예제집이다.
 
-이 문서는 팀 스프레드시트, 의존 지도(FigJam), 티켓을 만들기 위한 입력이다. 클래스 목록을 확정하는 문서가 아니며, 팀 레포에서는 경계와 계약을 유지한 채 구현을 바꿀 수 있다.
+가져갈 것은 코드나 클래스 구성이 아니라 다음 질문들이다.
 
-## 0. 폴더
+- 이 시스템은 왜 존재하는가?
+- 어떤 상태와 규칙을 다루는가?
+- 어떤 순서로 동작하는가?
+- 다른 시스템과 어디에서 만나는가?
+- 기획이 바뀌면 어느 부분이 달라지는가?
 
-폴더는 아래 시스템 구분과 1:1로 맞췄다. 어셈블리는 `BlackHole.Core`(엔진 참조 없음)와 `BlackHole.Unity`(호스트) 두 개이고, namespace는 폴더와 관계없이 `BlackHole.Core` / `BlackHole.Unity`다.
+아래의 시스템 후보도 "우리 게임의 시스템 목록"이 아니다. "이런 책임 덩어리가 생길 수 있고, Reference에서는 이렇게 한 번 나눠 봤다"는 뜻이다. 실제 기획에 따라 합쳐지거나, 나뉘거나, 사라질 수 있다.
+
+관련 기록: 구현 과정과 기준 동작은 [systemization-baseline.md](systemization-baseline.md), `80549cb` 시점의 최초 실험은 [REFERENCE_IMPLEMENTATION.md](REFERENCE_IMPLEMENTATION.md)에 있다.
+
+## 1. 먼저 읽을 것 — Reference에서 임의로 정한 것
+
+아래는 전부 Reference를 돌리려고 정한 것이다. 기획으로 읽으면 안 된다. 오른쪽 칸은 "이것으로 무엇을 확인하려 했는가"다.
+
+| Reference의 구현 | 확인하려던 것 |
+|---|---|
+| 60초 한 판, 시간 종료만 있음 | 한 판의 시작·종료·결과 확정 흐름 |
+| 대상 shard / heavy와 그 HP·속도·보상 | 같은 규칙의 수치 변형이 데이터만으로 되는가 |
+| Orbit(블랙홀 주위를 돌며 접근) | 이동 규칙을 대상 상태에서 떼어 낼 수 있는가 |
+| Dive(각도 고정 가속 접근, 테스트 전용) | 새 이동 방식을 추가할 때 어디가 바뀌는가 |
+| 살아 있는 대상은 블랙홀에 일정 거리 이상 다가가지 않음 | 모든 대상에 공통인 규칙의 자리 |
+| 사망 후 나선을 그리며 중심으로 낙하 | 사망과 흡수를 다른 사건으로 둘 때의 흐름 |
+| focused-strike(가장 가까운 하나), gravity-pulse(범위 + 당김) | 스킬 = 대상 선택 + 효과 조합이 성립하는가 |
+| 빈 조준은 쿨다운을 쓰지 않음 | 쿨다운을 언제 확정하는가 |
+| 흡수할 때 보상, 죽일 때는 보상 없음 | 보상 확정 시점과 중복 지급 방지 |
+| Mass와 Credits를 따로 지급 | 성장과 재화를 분리할 수 있는가 |
+| power / reach 강화, 비용 = 기본 비용 × 단계 | 구매 흐름과 새 강화의 전파 범위 |
+| 스킬트리 AND 조건, 비순환, 노드 1개 = 강화 1개 | 획득 조건이 추가될 때 우회 경로를 막는 법 |
+| core → focus / horizon → singularity | 분기·합류 그래프 샘플 |
+| 숫자 키 = 스킬 칸, U/I/O = 강화 칸, IMGUI HUD | 입력과 게임 요청의 분리 |
+| 스킬 사용자 한 명 | 협동 전 임시 모델(쿨다운은 사용자, 질량은 월드) |
+| 코드로 쓴 콘텐츠·표현 샘플 | SO 등 저작 방식은 결정하지 않음 |
+
+## 2. Reference에서 얻은 세 가지 관점
+
+**상태의 주인.** 이 값은 누가 갖는가, 누가 바꿀 수 있는가, 다른 시스템은 읽는가 요청하는가. 계산할 수 있는 값(흡수 반경, 공격 배율, 노드 열림)은 저장하지 않고, 원본(질량, 강화 단계)에서 매번 계산했다.
+
+**한 기능을 순서로 보기.** 대부분의 기능이 같은 뼈대를 가졌다.
+
+```text
+요청 → 자격 판정 → 대상(범위) 확정 → 규칙 적용 → 결과 확정 → 표시
+```
+
+거절될 수 있는 판정은 모두 상태를 바꾸기 전에 끝냈다. 화면은 확정된 결과만 보여 준다.
+
+**변화가 어디까지 번지는가.** 새 종류를 추가해 보고 실제로 바뀐 파일을 확인했다. 이것이 티켓을 자를 때의 근거가 된다.
+
+| 추가한 변화 | 바뀐 곳 | 바뀌지 않은 곳 |
+|---|---|---|
+| 수치만 다른 새 스킬·대상 | 콘텐츠 데이터 | 코드 전부 |
+| 피해 없는 범위 당김 | 콘텐츠 데이터(기존 선택 + 기존 효과 조합) | 코드 전부 |
+| 새 이동 방식(Dive) | 이동 정의·규칙, 종류 해석, 로더의 종류 이름 | 대상 상태·목록, 출현, 세션, 화면 |
+| 같은 계산을 바꾸는 새 강화(reach) | 콘텐츠 데이터 | HUD, 입력, 화면, 구매 흐름 |
+| 새 획득 조건(스킬트리) | 구매 흐름의 자격 단계, 세션 요청 하나, 콘텐츠 정의·검증 | 재화, 강화 단계 저장 |
+| 외형이 정의되지 않은 대상 | 없음(기본 외형 + 경고, 코드상 확인) | 화면 코드 |
+| 보상을 질량·재화로 분리 | 대상 정의, 흡수, 성장 상태 전반(구조 변경) | 스킬, 이동, 출현 |
+| 스킬을 선택·효과 조합으로 변경 | 스킬 전반, 효과 요청 경계, 화면 연출 입력 | 대상, 흡수, 성장 |
+
+## 3. 시스템 후보 요약
+
+| 후보 | 목적 | Reference에서 확인한 흐름 | 기획이 정할 규칙 | 합쳐지거나 나뉠 가능성 |
+|---|---|---|---|---|
+| 세션 | 플레이 한 판을 시작하고 끝낸다 | 시작 → 진행(시간 분할) → 종료 판정 → 결과 확정 | 한 판 개념이 있는가, 끝나는 조건, 실패 조건 | 한 판이 없는 구조면 크게 줄어듦 |
+| 출현 | 대상을 적절한 시점·조건으로 등장시킨다 | 시간 경과 → 조건 확인 → 종류·위치 결정 → 생성 요청 | 주기·웨이브·확률, 상한, 위치, 성장 연동 | 대상 시스템에 흡수될 수 있음 |
+| 대상 | 상호작용할 객체와 그 생명주기를 관리한다 | 생성 → 이동 → 피해 → 상태 변화 → 흡수 → 제거 | 적 종류, 공격 여부, 생명주기 단계 | 적 / 이동 / AI / 공격으로 나뉠 수 있음 |
+| 이동 | 대상의 공간 변화를 정한다 | 현재 상태 → 이동 규칙 → 다음 위치 → 공통 제약 적용 | 궤도·직선·추적·AI, 블랙홀과의 거리 규칙 | 대상 안의 규칙으로 남을 수 있음 |
+| 스킬 | 플레이어 능력을 사용한다 | 요청 → 자격 → 대상 확정 → 효과 → 결과 → 쿨다운 | 스킬 종류, 비용, 쿨다운, 조작 방식 | 효과·전투 규칙이 따로 나뉠 수 있음 |
+| 흡수 | 블랙홀의 핵심 상호작용 | 조건 확인 → 흡수 확정 → 보상·성장 → 제거 | 무엇을 흡수하나(죽은 것만? 살아도?), 범위 | 블랙홀·성장과 한 시스템일 수 있음 |
+| 성장·재화 | 플레이로 얻은 변화를 누적한다 | 사건 → 성장값·재화 변경 → 다른 계산에 반영 | 성장 요소, 재화 종류, 판 안/영구 | 기획이 작으면 하나로 충분 |
+| 강화 | 성장 방향을 선택하게 한다 | 요청 → 자격 → 비용 → 획득 확정 → 계산 반영 | 종류, 가격, 단계, 효과 | 스킬트리와 합쳐질 수 있음 |
+| 스킬트리 | 강화에 순서와 선택지를 준다 | 노드 요청 → 선행 조건 → 강화 구매 흐름 | 트리가 있는가, AND/OR, 포인트, 초기화 | 기획에서 사라질 수 있음 |
+| 콘텐츠 정의·검증 | 수치·종류 데이터를 안전하게 공급한다 | 저작 데이터 → 검증(경로별 오류) → 공유 정의 → 판 조립 | 저작 도구, 데이터 형식, 담당 | 각 시스템 안에 흩어질 수 있음 |
+| 표현 | 게임 상태를 화면·입력으로 연결한다 | 입력 → 요청 → (진행) → 상태 읽기 → 화면 갱신 | UX, UI, 아트, 연출 | UI / 월드 뷰 / 입력으로 나뉠 수 있음 |
+
+## 4. 시스템 후보별 정리
+
+각 후보는 같은 틀로 쓴다. 질문의 답에 붙은 표시는 다음과 같다.
+
+- **[구조]**: 구조상 이유가 있는 선택이다. 팀에서 다시 검토할 가치가 있다.
+- **[임의]**: 샘플을 돌리려고 정한 규칙이다. 버려도 된다.
+
+### 세션
+
+- **목적**: 플레이 한 판의 수명을 관리하고, 판이 끝난 뒤의 변경을 막는다.
+- **플레이어 관점**: 시작, 일시정지, 남은 시간, 종료와 결과, 재시작.
+- **핵심 흐름**: 시작(새로 조립) → 프레임마다 진행(작은 단계로 나눔) → 단계마다 "제한을 넘지 않게 자르기 → 진행 → 목표 판정" → 끝나면 결과를 한 번 확정 → 이후 요청은 거절.
+- **Reference가 던진 질문**
+  - 경과 시간은 누가 갖는가? → 진행을 실행하는 쪽이 갖고, 모드는 판정만 한다. 같은 값이 두 곳에 있으면 어긋난다. [구조]
+  - 끝을 판정하는 일과 "제한을 넘겨 진행하지 않는" 일은 같은가? → 다르다. 진행 전에 자르고, 진행 후에 판정한다. [구조]
+  - 종료된 프레임에 들어온 입력은 어떻게 하나? → 진행 뒤에 적용하고, 판이 끝났으면 거절한다. [구조]
+  - 일시정지하면 무엇이 멈추나? → 이동·쿨다운·출현·시간이 모두 멈추고, 요청도 거절한다. [임의]
+  - 재시작은 기존 판을 초기화하는가, 새로 만드는가? → 새로 조립한다. 부분 초기화는 이전 판 상태가 남는 원인이 된다. [구조]
+  - 결과는 언제, 몇 번 확정되는가? → 끝날 때 한 번. [구조]
+  - 프레임 간격이 다르면 결과가 같은가? → 같지 않을 수 있다. 결정론이 필요한지는 따로 정할 문제다. [구조]
+- **기획이 정할 규칙**: 한 판이 있는가, 끝나는 조건(시간·목표·실패), 판 결과가 판 밖으로 무엇을 넘기는가.
+- **다른 시스템과의 접점**: 모든 게임 요청이 여기서 허용 여부를 통과한다. 판 안 시스템은 단계마다 정해진 순서로 호출된다.
+- **바뀌면**: 새 종료 목표(예: 질량 도달)는 모드의 두 경계(진행 전 제한, 진행 후 판정)에 들어가도록 만들었다. 판정 정밀도는 단계 단위다. 두 번째 모드는 만들어 보지 않았으므로 설계상의 예상이다.
+- **구현 참고**: `Core/Session/`
+
+### 출현
+
+- **목적**: 플레이 공간에 대상을 적절한 시점과 조건으로 등장시킨다.
+- **플레이어 관점**: 적이 나타나는 리듬과 밀도.
+- **핵심 흐름**: 시간 경과 → 출현 시점 도달 → 상한 확인 → 종류·위치 결정 → 대상 목록에 생성 요청.
+- **Reference가 던진 질문**
+  - 출현이 대상의 행동까지 책임지는가? → 아니다. 시점·종류·위치만 정하고, 이후는 대상과 이동이 맡는다. [구조]
+  - 상한에 걸려 못 나온 출현은 버리는가, 미뤄 두는가? → 버린다. [임의]
+  - 같은 위치에 겹쳐 나오지 않게 하려면? → 매번 일정 각도를 돌린다. [임의]
+  - 난수를 쓰면 공급원은 어디인가? → Reference는 난수가 없어 테스트가 결정적이다. 난수를 쓰면 공급원을 드러내야 테스트할 수 있다. [구조]
+- **기획이 정할 규칙**: 주기·웨이브·확률, 동시 최대 수, 출현 위치(화면 밖? 원 둘레?), 블랙홀 성장에 따른 변화.
+- **다른 시스템과의 접점**: 대상에게 생성을 요청한다. 대상 종류 정의를 읽는다.
+- **바뀌면**: 웨이브나 난수 배치가 생기면 출현 규칙을 따로 떼어 내야 한다(Reference에서는 아직 하지 않음).
+- **구현 참고**: `Core/Spawn/`
+
+### 대상
+
+- **목적**: 플레이어가 상호작용하는 객체와 그 생명주기를 관리한다.
+- **플레이어 관점**: 적이 맞고, 죽고, 빨려 들어가 사라지는 과정.
+- **핵심 흐름**: 생성(ID 발급) → 이동 → 피해 → 사망 → 흡수 → 규칙상 제거.
+- **Reference가 던진 질문**
+  - 적이 죽는 것과 블랙홀에 먹히는 것은 같은 사건인가? → 다른 사건으로 뒀다(생존 → 사망 → 흡수). 둘을 합치면 보상 시점도 함께 바뀐다. [임의]
+  - 대상 목록과 개별 상태의 주인은 같은가? → 목록·ID는 월드가, HP·위치·상태는 개체가 갖는다. [구조]
+  - 죽은 대상에 피해가 또 들어오면? → 개체가 거절한다. 전이가 가능한지는 상태의 주인이 판정한다. [구조]
+  - 화면에서 사라지는 것과 규칙상 제거는 같은가? → 다르다. 규칙상 제거는 흡수 확정 단계에서 끝나고, 화면은 다음 갱신 때 따라간다. [구조]
+- **기획이 정할 규칙**: 적 종류, 적의 공격 여부, 생명주기 단계(피격 경직? 부활?), 사망 연출과 규칙의 관계.
+- **다른 시스템과의 접점**: 스킬 효과는 대상에 직접 쓰지 않고 요청한다. 흡수는 사망한 대상을 확정한다. 출현은 생성을 요청한다.
+- **바뀌면**: 적이 공격하게 되면 대상이 적 / 이동 / AI / 공격으로 나뉠 가능성이 크다. `Target`을 `Enemy`로 부를지는 그때 정한다.
+- **구현 참고**: `Core/Target/`(TargetState, TargetWorld, TargetDefinition)
+
+### 이동
+
+- **목적**: 대상이 공간에서 어떻게 움직이는지 정한다.
+- **플레이어 관점**: 적이 다가오는 방식과 궤적.
+- **핵심 흐름**: 현재 위치 → (종류별) 이동 규칙이 다음 위치 계산 → 모든 대상 공통 제약(블랙홀 하한, 사망 후 낙하) 적용 → 위치 확정.
+- **Reference가 던진 질문**
+  - 이동 규칙이 위치를 소유하는가, 다음 위치만 계산하는가? → 계산만 한다. 위치 원본은 대상 하나이고, 화면은 읽기만 한다. 원본이 둘이면 어긋난다. [구조]
+  - 적 종류마다 이동이 완전히 다른가, 공통 규칙에 데이터만 다른가? → 둘 다 있었다. shard/heavy는 같은 규칙의 수치 변형이고, Dive는 다른 규칙이다. [구조]
+  - 모든 대상에 공통인 규칙(블랙홀에 너무 붙지 않기, 죽으면 떨어지기)은 이동 규칙에 속하나? → 속하지 않는다. 공통 생명주기 규칙으로 뺐다. [구조]
+  - 외부 효과(당김)가 이동 규칙의 제약을 넘을 수 있나? → 당김은 하한을 무시하고, 다음 이동에서 하한으로 돌아간다. [임의]
+  - 좌표계는? → 블랙홀 중심 극좌표. 이 게임의 규칙이 대부분 "중심까지 거리"로 판정되기 때문이다. [구조]
+- **기획이 정할 규칙**: 궤도·직선·추적·AI 중 무엇인가, 블랙홀과의 거리 규칙, 살아 있는 적이 블랙홀에 닿으면 어떻게 되는가.
+- **다른 시스템과의 접점**: 흡수 반경이 바뀌면 살아 있는 대상의 하한도 같이 바뀐다(아래 "강화" 참고). 스킬의 당김이 위치를 바꾼다.
+- **바뀌면**: 새 이동 방식(Dive)은 이동 정의·규칙·종류 해석과 로더의 종류 이름에만 추가됐다. 대상 상태·출현·세션·화면은 바뀌지 않았다.
+- **구현 참고**: `Core/Target/`(Movement*)
+
+### 스킬
+
+- **목적**: 플레이어가 능력을 사용해 게임 상태에 영향을 준다.
+- **플레이어 관점**: 조준하고, 누르고, 결과를 보고, 다시 쓸 수 있을 때까지 기다린다.
+- **핵심 흐름**
+
+  ```text
+  어떤 스킬을 가지고 있는가 → 지금 쓸 수 있는가(쿨다운·자격)
+  → 누구를 대상으로 하는가(선택 확정) → 무슨 효과를 주는가(효과를 순서대로 적용)
+  → 사용 결과는 무엇인가 → 쿨다운·비용을 언제 확정하는가 → 화면은 무엇을 보여 주는가
+  ```
+
+- **Reference가 던진 질문**
+  - 스킬이란 무엇으로 이루어지는가? → 쿨다운 + 대상 선택 + 효과 목록. 비용과 애니메이션은 넣지 않았다. [구조]
+  - "범위 공격"과 "당기는 공격"은 별도 스킬 클래스인가? → 대상 선택과 효과의 조합이다. 피해 없는 당김도 데이터만으로 만들 수 있었다. [구조]
+  - 빈 조준은 쿨다운을 쓰는가? → 쓰지 않는다. [임의]
+  - 대상은 언제 확정되는가? → 효과를 적용하기 전에. [구조]
+  - 이번 피해로 죽은 대상에게 같은 스킬의 다음 효과(당김)를 적용하는가? → 적용한다. [임의]
+  - 이미 죽은 대상은 고르는가? → 고르지 않는다. [임의]
+  - 화면은 스킬 수치를 다시 읽어 연출하는가? → 아니다. 사용 결과(조준점, 범위, 적용 대상 수)로 연출한다. [구조]
+  - 쿨다운과 공격 배율은 누구의 것인가? → 스킬 사용자의 것이다. 협동으로 가면 사용자가 여럿이 된다. [구조]
+- **기획이 정할 규칙**: 스킬 종류와 수, 비용(쿨다운만? 자원?), 조작 방식, 지속 효과·투사체 여부.
+- **다른 시스템과의 접점**: 대상 목록을 읽고, 대상에게 피해·당김을 요청한다(판정은 대상이 한다). 강화에서 공격 배율을 읽는다. 화면에는 결과를 준다.
+- **바뀌면**: 기존 선택·효과의 조합은 데이터만 바뀌었다. 새 즉시 효과(예: 바깥으로 밀어내기)는 효과 규칙 하나와 대상 쪽의 변경 요청 하나가 추가될 것이다(해 보지 않음). 지속 효과(둔화 등)나 투사체는 "효과는 즉시 끝나고 상태가 없다"는 전제를 깨므로 구조가 커진다.
+- **구현 참고**: `Core/Skill/`, `Core/Combat/`
+
+### 흡수
+
+- **목적**: 블랙홀이 대상을 삼키는 핵심 상호작용과, 그에 따른 결과를 확정한다.
+- **플레이어 관점**: 적이 빨려 들어가 사라지고, 블랙홀이 커지고, 재화가 오른다.
+- **핵심 흐름**: 흡수 조건 확인(범위·상태) → 흡수 확정(한 번만) → 보상·성장 반영 → 규칙상 제거.
+- **Reference가 던진 질문**
+  - 보상은 언제 확정되는가? 죽인 순간인가, 흡수한 순간인가? → 흡수한 순간. [임의] 어느 쪽이든 "한 곳, 한 번"이어야 한다. [구조]
+  - 죽은 것만 흡수하는가, 살아 있어도 흡수하는가? → 죽은 것만. [임의]
+  - 같은 대상이 두 번 흡수되거나 보상이 두 번 나갈 수 있나? → 흡수 전이에 성공한 경우에만 한 번 지급한다. [구조]
+  - 같은 순간에 여럿이 흡수되어 블랙홀이 커지면, 판정 반경도 즉시 커지나? → 그 순간 시작의 반경으로 판정한다. [구조]
+  - 보상을 화면의 "사라짐" 이벤트에서 주면 안 되나? → 안 된다. 화면이 규칙을 결정하게 된다. [구조]
+- **기획이 정할 규칙**: 흡수 대상(죽은 것만? 살아도? 크기 비교?), 흡수 범위, 흡수가 즉시인지 시간이 걸리는지, 보상 내용.
+- **다른 시스템과의 접점**: 대상의 상태를 전이시키고, 성장·재화에 반영하고, 대상 목록에서 제거한다. 강화에서 반경 보정을 읽는다.
+- **바뀌면**: 보상 수치만 바꾸는 것은 콘텐츠 데이터뿐이다. 보상을 질량·재화로 나눴을 때는 대상 정의·흡수·성장 상태가 함께 바뀌었다(구조 변경). "살아 있어도 흡수"로 바뀌면 대상 생명주기부터 다시 봐야 한다.
+- **구현 참고**: `Core/Absorption/`
+
+### 성장·재화
+
+- **목적**: 플레이로 얻은 변화를 누적하고, 다른 계산에 반영한다.
+- **플레이어 관점**: 블랙홀이 커지고, 쓸 수 있는 재화가 쌓인다.
+- **핵심 흐름**: 사건(흡수) → 성장값(질량)과 재화 변경 → 계산값(흡수 반경 등)은 원본에서 매번 다시 계산.
+- **Reference가 던진 질문**
+  - 흡수 때문에 블랙홀이 성장한다면, 그 성장의 주인은 누구인가? → 블랙홀. 재화는 지갑이 갖는다. [구조]
+  - 성장값과 재화는 같은 숫자여야 하나? → 처음엔 같았는데, 분리하니 각각 조정할 수 있었다. [구조]
+  - 흡수 반경 같은 파생값을 저장해 두는가? → 저장하지 않고 원본(질량 + 강화)에서 계산한다. 여러 곳이 파생값을 고치면 원본이 사라진다. [구조]
+  - 성장은 판 안에서 끝나는가, 판 밖에 남는가? → 판 안에서만. [임의]
+- **기획이 정할 규칙**: 성장 요소(질량? 크기? 레벨?), 재화 종류, 판 밖에 남는 것(영구 성장·해금·저장), 성장이 무엇을 바꾸는가.
+- **다른 시스템과의 접점**: 흡수가 쓰고, 강화가 소비하고, 이동·흡수·화면이 계산값을 읽는다.
+- **바뀌면**: 영구 성장이 생기면 "판 결과 → 판 밖 상태 반영 → 다음 판 초기값" 흐름과 저장이 새로 필요하다. Reference는 이 부분을 다루지 않았다.
+- **구현 참고**: `Core/Absorption/`(BlackHoleState), `Core/Economy/`
+
+### 강화
+
+- **목적**: 플레이어가 성장의 방향을 선택하게 한다.
+- **플레이어 관점**: 재화를 내고 더 세지거나 더 크게 흡수한다.
+- **핵심 흐름**: 요청 → 참조 확인 → 자격(최고 단계? 잠김?) → 비용 → 확정(재화 차감 + 단계 상승) → 계산에 반영.
+- **Reference가 던진 질문**
+  - 실패하면 재화나 단계가 일부만 바뀔 수 있나? → 모든 판정을 먼저 끝내고, 실패할 수 없는 변경만 남긴 뒤 확정한다. 부분 변경이 일어나지 않는 이유는 "두 값을 연달아 바꿔서"가 아니라 "앞선 판정이 실패 조건을 모두 소진해서"다. [구조]
+  - 강화는 무엇을 바꾸는가? → 특정 계산(공격 배율, 흡수 반경)의 보정값. 범용 능력치 엔진은 만들지 않았다. [구조]
+  - 강화가 예상 밖의 곳까지 번지나? → 번졌다. 흡수 반경 강화는 살아 있는 대상의 하한까지 밀어낸다(하한이 흡수 반경 기준이라서). 의도한 것인지는 기획이 정해야 한다. [구조]
+  - 가격 공식은? → 기본 비용 × 단계. [임의]
+- **기획이 정할 규칙**: 강화 종류, 가격 곡선, 최대 단계, 강화가 바꾸는 대상, 판 안/영구 여부.
+- **다른 시스템과의 접점**: 재화를 소비한다. 스킬(공격 배율)·흡수(반경)가 보정을 읽는다. 스킬트리가 자격 조건을 더한다.
+- **바뀌면**: 같은 계산을 바꾸는 새 강화는 콘텐츠만 바뀌었다(reach: HUD·입력·화면·구매 흐름 그대로). 새 계산 대상(예: 쿨다운 감소)은 강화 대상 목록, 로더 이름, 그 값을 쓰는 계산 한 곳까지 바뀔 것이다(해 보지 않음).
+- **구현 참고**: `Core/Upgrade/`
+
+### 스킬트리
+
+- **목적**: 강화에 순서와 선택지를 준다.
+- **플레이어 관점**: 어떤 갈래를 먼저 찍을지 고르고, 조건을 채우면 다음 노드가 열린다.
+- **핵심 흐름**: 노드 요청 → 선행 노드 확인 → 노드가 가리키는 강화의 구매 흐름으로 넘김.
+- **Reference가 던진 질문**
+  - 트리가 "획득함" 상태를 따로 가지는가? → 가지지 않고 강화 단계에서 읽는다. 원본이 둘이면 어긋난다. [구조]
+  - 직접 구매로 트리 조건을 우회할 수 있나? → 없다. 모든 구매가 같은 자격 판정을 거친다. [구조]
+  - 선행 조건은 AND인가 OR인가? 순환은 허용하나? → AND, 순환 금지. 최소 검증안이다. [임의]
+  - 노드 하나에 강화 하나인가? 여러 단계 강화는? → 노드 1개 = 강화 1개, 1단계 이상이면 획득으로 봤다. 여러 단계의 의미는 정하지 않았다. [임의]
+  - 화면 좌표와 연결선은 규칙인가? → 아니다. 표현의 일이다. [구조]
+- **기획이 정할 규칙**: 트리가 있는가 자체, AND/OR, 스킬 포인트나 재화, 초기화, 여러 단계 노드.
+- **다른 시스템과의 접점**: 강화 구매 흐름에 자격 조건을 하나 더한다. 강화 단계를 읽는다.
+- **바뀌면**: 트리를 추가할 때 바뀐 곳은 구매 흐름의 자격 단계, 세션 요청 하나, 콘텐츠 정의·검증이었다. 재화와 강화 단계 저장은 그대로였다.
+- **구현 참고**: `Core/SkillTree/`
+
+### 콘텐츠 정의·검증
+
+- **목적**: 수치와 종류 데이터를 시스템에 안전하게 공급한다.
+- **플레이어 관점**: 없다. 기획자·개발자 관점의 시스템이다.
+- **핵심 흐름**: 저작 데이터 → 검증(모든 오류를 위치와 함께 모음) → 오류가 하나라도 있으면 중단 → 공유 정의 묶음 → 판마다 실행 상태를 새로 조립.
+- **Reference가 던진 질문**
+  - 여러 판이 같은 정의를 쓰면 상태가 섞이지 않나? → 정의(공유)와 실행 상태(판마다)를 분리해서 섞이지 않는다. [구조]
+  - 잘못된 데이터는 언제, 어떻게 알리나? → 판을 시작하기 전에 "Skills[gravity-pulse].Effects[1]"처럼 고칠 위치와 이유를 보고한다. 부분적으로 실행하지 않는다. [구조]
+  - 같은 검증 규칙을 로더와 생성자에 두 번 쓰나? → 한 번만 쓰고 양쪽이 호출한다. [구조]
+  - 종류 이름("Orbit", "Damage")은 어디서 해석하나? → 한 곳에서. 종류가 쓰지 않는 칸이 채워져 있으면 오류로 본다. [구조]
+  - 저작 형식(ScriptableObject 등)은? → 정하지 않았다. 코드 샘플로만 채웠다. [임의]
+- **기획이 정할 규칙**: 저작 도구, 데이터 형식, 누가 콘텐츠를 입력하는가, ID 명명 규칙.
+- **다른 시스템과의 접점**: 모든 시스템의 정의가 여기를 거친다. 그래서 정의의 모양이 바뀌면 여기로 모인다.
+- **바뀌면**: 새 종류를 추가할 때마다 로더의 종류 이름 해석이 함께 바뀌었다. 팀 작업이라면 이 파일을 여럿이 동시에 고치게 되므로, ID와 정의 로딩 계약을 가장 먼저 합의해야 한다.
+- **구현 참고**: `Core/Content/`, 샘플 수치는 `Core/Sample/`
+
+### 표현
+
+- **목적**: 게임 상태를 화면에 보여 주고, 입력을 게임 요청으로 바꾼다.
+- **플레이어 관점**: 보이는 것과 조작하는 것 전부.
+- **핵심 흐름**: 입력 장치 → 요청으로 해석 → (진행 뒤) 게임에 요청 → 게임 상태 읽기 → 화면 갱신.
+- **Reference가 던진 질문**
+  - 화면은 상태를 읽는가, 이벤트를 받는가? → 매 프레임 읽는다. 구독이 없으니 재시작 때 누적될 것도 없다. 이벤트를 도입하면 연결·해제 수명을 따로 검증해야 한다. [구조]
+  - 입력은 게임 ID를 아는가? → 모른다. 키는 "몇 번째 칸"일 뿐이다. [구조]
+  - 판을 교체하는 순서는? → 이전 판 종료 → 화면 정리 → 새 판 조립 → 첫 화면. UI는 이 순서를 몰라도 된다. [구조]
+  - 대상 종류별 색·크기는 어디에 두나? → 게임 규칙이 아닌 표현 정의에. 외형이 없는 대상은 기본 외형으로 그리고 경고한다. [구조]
+  - 호스트 컴포넌트가 비활성화되면 판은? → 끝내고, 다시 켜지면 새 판을 시작한다. [임의]
+- **기획이 정할 규칙**: UX 흐름, UI 구성, 아트, 연출, 입력 방식(마우스? 패드? 터치?).
+- **다른 시스템과의 접점**: 게임에는 요청만 보내고, 게임 상태는 읽기만 한다. 연출에는 사용 결과를 쓴다.
+- **바뀌면**: HUD가 스킬·강화를 목록으로 그리게 된 뒤로는 새 강화(reach)가 추가돼도 화면 코드가 바뀌지 않았다. 스킬트리는 처음 도입할 때 HUD에 목록 한 구역이 추가됐다. 새 대상 종류는 표현 정의에 외형 한 줄이 추가된다.
+- **구현 참고**: `Unity/`
+
+## 5. 아직 다루지 않은 것
+
+Reference는 아래를 다루지 않았다. 여기서 얻은 관점이 없으니 새로 생각해야 한다.
+
+- 플레이어 캐릭터, 적의 공격, 실패 조건
+- 판 밖 성장, 저장, 이어하기
+- 지속 효과, 투사체
+- 난수, 웨이브
+- 네트워크 권위, 복제, 예측(4인 협동)
+- 모바일 입력, 성능 예산
+
+## 부록 — 구현 참고
+
+코드를 직접 열어 볼 때만 필요한 정보다. 클래스 이름은 여기에만 둔다.
+
+### 폴더
 
 ```text
 Assets/BlackHole/
-  Core/
-    Content/     저작 데이터, 로더, 콘텐츠 불변식, 카탈로그, 진단, 수치 검사
-    Session/     GameSession, SessionRunner, TimeLimitMode, Playfield(한 단계 순서), SessionAssembler
-    Spawn/       출현 정의와 진행
-    Target/      대상 정의·상태·목록, 이동 정의·규칙·factory
-    Skill/       스킬 정의, 선택·효과 정의와 규칙, factory, SkillLoadout(시전 순서)
-    Combat/      CombatResolver(피해·당김 요청 경계)
-    Absorption/  블랙홀 정의·상태, 흡수 확정과 보상 지급 순서
-    Economy/     보상 정의, 지갑
-    Upgrade/     강화 정의·상태·구매 흐름
-    SkillTree/   트리 정의·그래프 규칙, 판 안 판정
-    Common/      Point2
-    Sample/      ReferenceGame — 임의로 정한 샘플 콘텐츠 수치. 기획 값이 아니다
-  Unity/         호스트(조립·수명·입력·HUD·화면·표현 정의 샘플)
-  Tests/EditMode 계약 테스트(Unity EditMode와 tests/CoreSmoke가 같은 계약을 실행)
+  Core/        엔진 참조 없는 규칙(어셈블리 BlackHole.Core)
+    Content/  Session/  Spawn/  Target/  Skill/  Combat/
+    Absorption/  Economy/  Upgrade/  SkillTree/  Common/
+    Sample/    ReferenceGame — 임의 샘플 콘텐츠
+  Unity/       호스트: 조립·수명·입력·HUD·화면·표현 정의 샘플(어셈블리 BlackHole.Unity)
+  Tests/EditMode  계약 테스트(Unity EditMode와 tests/CoreSmoke가 같은 계약을 실행)
 ```
 
-## 1. 한 판의 흐름
-
-```text
-[조립]  ContentData ─ContentLoader→ ContentCatalog(검증된 공유 정의)
-        ContentCatalog ─SessionAssembler→ GameSession(판마다 새 실행 상태)
-
-[한 프레임, 호스트]  재시작 요청(있으면 새 판만 보이고 끝)
-                     → 일시정지 전환 → Advance(deltaTime) → 시전·강화·노드 요청 → 화면 갱신
-
-[Advance]  SessionRunner가 프레임을 단계(최대 1/30초)로 나눈다
-           단계마다: 진행 전 제한(TimeLimitMode.LimitStep)
-                     → Playfield 한 단계: 쿨다운 → 이동 → 흡수·보상·제거 → 출현
-                     → 진행 후 판정(TimeLimitMode.TryEnd) → 끝이면 GameSession이 결과 확정
-
-[시전]     자격(알 수 없음·쿨다운) → 선택 확정 → 대상별 효과 순서대로 적용 → 적용이 있으면 쿨다운
-[구매]     참조 → 최고 단계 → 트리 선행 조건 → 비용 → 확정(재화 차감, 단계 상승)
-```
-
-요청은 언제나 진행 뒤에 적용한다. 그 진행에서 판이 끝났다면 Session이 `SessionInactive`로 거절한다.
-
-## 2. 시스템 요약
-
-| 시스템 | 책임 | 소유 상태 (수명) | 외부에 주는 것 | 의존 |
-|---|---|---|---|---|
-| Content | 저작 데이터 검증, 공유 정의 묶음 구성 | 읽기 전용 정의 (콘텐츠 수명, 여러 판이 공유) | `ContentLoadResult`(카탈로그 또는 경로별 진단) | 각 시스템의 정의 타입·factory |
-| Session / Mode | 판 시작·일시정지·종료, 요청 허용, 시간 분할, 종료 판정 | 판 상태·결과(GameSession), 경과 시간(SessionRunner) (한 판) | 요청 API, `Phase`·`Remaining`·`Result` | Playfield, TimeLimitMode |
-| Spawn | 언제·무엇을·어디에 출현시키는가 | 출현 타이머·순번 (한 판) | TargetWorld에 출현 요청 | TargetWorld, 대상 정의 |
-| Target / Movement | 대상 목록·ID, HP·위치·생명주기, 이동 규칙 | 대상 목록(TargetWorld), 개체 상태(TargetState) (출현~제거) | 읽기 전용 대상 목록 | 이동 규칙, 대상 공통 규칙 |
-| Skill | 보유 스킬·쿨다운, 대상 선택, 시전 순서 | 스킬별 쿨다운 (한 판, 스킬 사용자 한 명) | `CastResult` + `CastReport` | TargetWorld(읽기), CombatResolver, 공격 배율(Playfield가 강화에서 계산) |
-| Combat / Effect | 피해·당김 요청을 대상 상태 주인에게 전달 | 없음 | 적용 여부(bool) | TargetWorld, TargetState |
-| BlackHole / Absorption | 흡수 판정·확정, 블랙홀 성장 | 질량·흡수 수 (한 판) | 흡수 반경(계산값), `Mass` | Upgrade(반경 보정), Reward |
-| Reward / Economy | 보상 내용(질량·재화), 잔액 | 잔액(WalletState) (한 판) | `Credits` | — |
-| Upgrade | 강화 비용·단계·보정, 구매 흐름 | 강화별 단계 (한 판, 획득 여부의 유일한 원본) | `UpgradeResult`, `Level`·`NextCost`·`Bonus` | Wallet, SkillTree(자격) |
-| SkillTree | 그래프 규칙, 선행 조건, 획득 가능성 | 없음 (그래프는 정의, 획득은 Upgrade) | `NodeStatus`, 구매 자격 | UpgradeState(읽기) |
-| Host / Presentation | 조립, Unity 수명, 입력 해석, 화면·HUD, 표현 정의 | 뷰 객체·연출·메시지 (호스트 수명) | 게임 요청 | GameSession(요청·읽기) |
-
-## 3. Core 내부의 상태 변경 경로
-
-`internal`은 Unity의 직접 변경을 막지만 Core 안의 소유권까지 컴파일러가 강제하지는 않는다. 아래 경로 밖에서 상태를 바꾸는 코드는 리뷰에서 거절한다.
+### 상태와 변경 경로
 
 | 상태 | 주인 | 변경 메서드 | 호출하는 곳 |
 |---|---|---|---|
@@ -82,191 +313,26 @@ Assets/BlackHole/
 | 경과 시간 | SessionRunner | `Advance` | GameSession.Advance |
 | 판 상태·결과 | GameSession | `TogglePause` / `Stop` / 종료 판정 | 호스트 요청 / SessionRunner 결과 |
 
-저장하지 않고 매번 계산하는 값: 공격 배율(`1 + 강화 보정`), 흡수 반경(`BlackHoleDefinition` 공식 + 강화 보정), 노드 상태(강화 단계에서 판정).
+`internal`은 Unity의 직접 변경을 막지만 Core 안의 소유권까지 강제하지는 않는다.
 
-## 4. 시스템 카드
+### 계약 테스트 (`CoreContracts`, 38개)
 
-각 카드의 "완료 조건"은 팀 레포에서 해당 시스템을 제품 수준으로 옮길 때의 최소 기준이다. "규모"는 현재 코드 줄 수와 해당 단계의 변경량이며 작업 시간이 아니다. 시간은 담당자 경험을 반영해 팀이 추정한다.
-
-### Content
-
-- **파일**: `ContentData`, `ContentLoader`, `ContentInvariants`, `ContentCatalog`, `ContentDiagnostic`, `DefinitionGuard`, `ReferenceGame`(샘플)
-- **입력 → 출력**: `ContentData` → `ContentLoadResult { Catalog | Diagnostics }`. 오류가 하나라도 있으면 카탈로그를 만들지 않는다.
-- **규칙의 자리**: 수치 규칙은 각 정의 생성자, 콘텐츠 전체 규칙(ID 유일, 참조 실재, 실행 규칙 해석 가능)은 `ContentInvariants`, 데이터 모양(빈 칸, 종류 이름, 종류가 쓰지 않는 칸)은 로더. 로더와 생성자는 같은 규칙을 호출한다(복제하지 않는다).
-- **선행 작업**: 없음. 다른 모든 시스템의 정의 타입과 함께 움직인다.
-- **위험**: 높음. 모든 시스템이 정의 모양에 기대므로 정의 변경이 여기로 모인다. 팀 작업에서는 ID·정의 로딩 계약을 가장 먼저 합의한다.
-- **병렬**: 시스템별 정의·로더 섹션은 병렬 가능. 로더 파일 하나를 여럿이 고치면 충돌이 잦으므로 섹션 담당을 정한다.
-- **규모**: Core 약 750줄(로더 321). S1 변경 +911/−155.
-- **완료 조건**: SO 등 저작 형식 → `ContentData` 변환. 잘못된 콘텐츠는 판 시작 전에 경로와 이유를 보고. 같은 카탈로그로 만든 두 판이 실행 상태를 공유하지 않음.
-
-### Session / Mode
-
-- **파일**: `GameSession`, `SessionRunner`, `TimeLimitMode`(정의 + 판정), `SessionAssembler`
-- **입력**: `Advance(delta)`, `TryCast`, `TryPurchaseUpgrade`, `TryAcquireNode`, `TogglePause`, `Stop`
-- **출력**: `Phase`, `Elapsed`, `Remaining`, `Result`(종료 시 한 번 확정되는 스냅샷), `Field`(읽기)
-- **새 목표 추가 위치**: 모드의 두 경계, 즉 진행 전 `LimitStep`과 진행 후 `TryEnd`. 판정 정밀도는 실행 단계 단위다. 모드가 둘이 되면 그때 교체 지점(인터페이스)을 만든다.
-- **선행 작업**: Content(판 설정 정의).
-- **위험**: 중간. 종료 프레임 처리와 요청 순서를 바꾸면 여러 계약이 동시에 깨진다.
-- **규모**: 약 200줄. S2 변경 +463/−145(호스트 포함).
-- **완료 조건**: 정지·종료 뒤 상태 변경 없음. 재시작 시 이전 판 상태 없음. 제한 시간 초과 진행 없음.
-
-### Spawn
-
-- **파일**: `SpawnDefinition`, `SpawnSchedule`
-- **입력 → 출력**: 단계 시간 → `TargetWorld.Spawn(정의, 반경, 각도)` 요청.
-- **새 종류 추가 위치**: 지금은 순서·간격·각도 간격 데이터뿐이다. 웨이브나 난수 배치가 필요하면 출현 규칙을 이동 규칙처럼 정의 + factory로 분리한다. 난수는 공급원을 드러낸다(PLAN 4절).
-- **선행 작업**: Target(출현 요청 계약).
-- **위험**: 낮음. **병렬**: 가능.
-- **완료 조건**: 상한·간격·순서가 정의에서 오고, 대상 행동을 소유하지 않음.
-
-### Target / Movement
-
-- **파일**: `TargetDefinition`(+ `RewardDefinition`, `TargetRulesDefinition`), `TargetState`, `TargetWorld`, `MovementDefinition`, `MovementRules`, `MovementRuleFactory`
-- **생명주기**: Alive → Defeated(피해) → Absorbed(흡수 확정, 같은 단계에 목록에서 제거). 사망만으로는 보상이 없다.
-- **이동**: 살아 있는 대상은 정의의 이동 규칙을 따르되 하한(흡수 반경 + 여유) 안으로 들어가지 않는다. 사망한 대상은 이동 규칙의 각도 변화를 유지하고 공통 속도로 낙하한다.
-- **새 이동 방식 추가 위치**: 하위 정의 + `MovementRules`의 규칙 + factory 분기 + 로더 종류 이름. Dive 추가 때 상태·Spawn·Session·화면은 바뀌지 않았다(`f5ba0d2`).
-- **선행 작업**: Content.
-- **위험**: 중간. 위치 원본은 `TargetState` 하나다. Unity Transform이나 물리를 원본으로 만들지 않는다.
-- **병렬**: 이동 규칙 추가는 독립적이다. 생명주기 변경은 Skill·Absorption과 계약을 합의해야 한다.
-- **규모**: 약 300줄. S3 변경 +334/−49, Dive +112/−2.
-- **완료 조건**: 출현·이동·사망·흡수·제거의 주인이 코드에서 드러남. 새 이동 방식이 규칙과 조립 지점에서만 추가됨.
-- **`Target` → `Enemy` 이름 변경**: 적 행동(공격 등)이 도입될 때 결정한다.
-
-### Skill
-
-- **파일**: `SkillDefinition`(+ `SkillState`, `CastResult`, `CastReport`), `SkillPartsDefinition`(선택·효과 정의), `SkillRules`(선택·효과 규칙), `SkillRuleFactory`, `SkillLoadout`
-- **정의**: 쿨다운 + 대상 선택(`NearestInRadius`, `AllInRadius`) + 효과 목록(`Damage`, `Pull`, 적용 순서).
-- **출력**: `CastResult`와 `CastReport`(조준점, 선택 범위, 적용 대상 수). 화면은 스킬 수치 대신 이것으로 연출한다.
-- **새 종류 추가 위치**: 기존 선택·효과의 조합은 데이터만으로 만든다. 예: 피해 없는 범위 당김. 새 선택·효과의 의미는 하위 정의 + 규칙 + factory 분기 + 로더 종류 이름으로 추가한다. Session·HUD에는 종류별 분기가 없다.
-- **선행 작업**: Target 계약(조회·변경 요청), Upgrade(공격 배율).
-- **위험**: 중간. 지속 효과·투사체가 들어오면 "효과는 즉시 적용되고 상태가 없다"는 전제가 바뀐다.
-- **규모**: 약 380줄. S4 변경 +561/−203.
-- **완료 조건**: 쿨다운 확정 시점, 빈 조준, 알 수 없는 스킬의 결과가 계약대로. 사망 대상 제외, 처치 대상에 뒤 효과 적용.
-
-### Combat / Effect
-
-- **파일**: `CombatResolver`. 효과 규칙은 `SkillRules`에 있다.
-- **입력 → 출력**: `Damage(id, amount)`, `Pull(id, distance)` → 적용 여부. 전이 가능 여부는 `TargetState`가 판정한다.
-- **다음 검토 지점**: 방어·저항·시전자 귀속(4인 협동)이 필요해지면 여기서 규칙을 검토한다. 대상 탐색은 선형이다(§8).
-- **위험**: 낮음. **병렬**: Skill과 같은 담당 권장.
-
-### BlackHole / Absorption
-
-- **파일**: `BlackHoleState`(+ `BlackHoleDefinition`), `AbsorptionSystem`
-- **순서(한 흐름)**: 단계 시작 반경으로 판정 → Defeated → Absorbed 전이 → 질량(블랙홀)·재화(지갑) 반영 → 같은 단계에 제거. 뷰 Destroy나 사망 콜백에서 보상을 주지 않는다.
-- **선행 작업**: Target(흡수 전이), Upgrade(반경 보정).
-- **위험**: 중간. 보상 중복 방지가 이 순서에 달려 있다.
-- **완료 조건**: 보상은 한 번. 질량과 재화 증가량을 독립적으로 바꿀 수 있음.
-
-### Reward / Economy
-
-- **파일**: `RewardDefinition`(TargetDefinition.cs), `WalletState`
-- **경로**: 지급은 흡수 확정, 소비는 구매 확정으로만 일어난다.
-- **미정**: 영구 재화와 판 밖 성장은 아직 없다(§6).
-
-### Upgrade
-
-- **파일**: `UpgradeState.cs`(`UpgradeDefinition`, `UpgradeState`, `UpgradePurchase`, `UpgradeResult`, `UpgradeStat`)
-- **정의**: n단계 비용 = BaseCost × n, 최대 단계, 대상 계산(`DamageMultiplier` | `AbsorptionRadius`), 단계당 보정.
-- **구매 흐름**: 참조 → 최고 단계 → 트리 잠금 → 비용 → 확정. 확정 구간에 I/O나 콜백이 없다. 원자성의 근거는 앞선 판정이 실패 조건을 모두 소진했다는 데 있다.
-- **새 종류 추가 위치**: 같은 계산에 대한 강화는 데이터만으로 추가한다(`reach`, `3cf8d3f`: 콘텐츠와 테스트만 변경). 새 계산 대상(예: 쿨다운 감소)은 `UpgradeStat` 값 + 그 값을 쓰는 계산 한 곳 + 로더 이름으로 추가한다. 범용 능력치 엔진은 만들지 않았다.
-- **선행 작업**: Wallet, SkillTree(자격).
-- **완료 조건**: 실패 시 잔액·단계가 모두 그대로. 성공한 강화가 실제 피해·흡수 판정에 반영됨.
-
-### SkillTree
-
-- **파일**: `SkillTreeDefinition`(+ `SkillTreeNodeDefinition`, `SkillTreeInvariants`), `SkillTree`
-- **규칙(최소 검증안)**: 비순환, 선행 노드 전부 획득(AND), 루트는 무조건. 노드 하나는 강화 하나를 참조하고, 한 강화는 한 노드만 참조한다. 노드 획득 = 참조 강화 1단계 이상.
-- **경로**: 노드 요청(`TryAcquireNode`)은 참조 강화의 구매로 바뀐다. 직접 구매도 같은 자격 판정을 거치므로 트리 조건을 우회할 수 없다.
-- **화면**: 좌표와 연결선은 규칙에 없다. 현재 HUD는 목록으로 표시한다.
-- **선행 작업**: Upgrade 구매 흐름.
-- **규모**: 약 210줄. 변경 +468/−15(Core), +104/−34(샘플·HUD).
-- **완료 조건**: 분기·합류 그래프를 데이터로 표현. 중복·누락·순환 거부. 잠김·중복 획득·재화 부족에서 상태 보존.
-
-### Host / Presentation (Unity)
-
-- **파일**: `ReferenceGameController`(조립 루트, 수명, 프레임 순서), `SessionLauncher`(판 시작·교체·종료), `ReferenceInput`(장치 → 요청), `ReferenceHud`(읽기 표시 + 버튼 요청), `ReferenceWorldView`(뷰 객체·연출), `ReferencePresentation`(표현 정의)
-- **수명 정책**: 비활성화하면 판을 끝내고, 재활성화하면 새 판을 시작한다. 최초 활성화도 같은 `OnEnable` 경로다.
-- **읽기 방향**: 화면·HUD는 판 상태를 매 프레임 읽는다. 월드를 복사하지 않는다. 이벤트 구독이 없으므로 재시작 때 구독이 누적될 곳도 없다. 이벤트가 도입되면 연결·해제 수명을 검증한다.
-- **표현 정의**: 콘텐츠 ID별 외형(색·크기·범례 이름)과 화면 설정. 외형이 없는 대상은 기본 외형으로 그리고, 조립 시 경고한다.
-- **입력**: 숫자 키 = 보유 스킬 칸, U/I/O = HUD 강화 목록 칸(트리 강화 제외), 마우스 = 조준.
-- **위험**: 중간. 현재 HUD는 IMGUI 샘플이다. 제품 UI는 새로 만들되 요청 경로(GameSession API)와 읽기 방향은 유지한다.
-- **완료 조건**: UI가 초기화 순서를 모른 채 시작·재시작 가능. 정지·종료 뒤 변경 없음. 재시작에 뷰가 누적되지 않음.
-
-## 5. 의존 관계
-
-화살표는 "호출하거나 읽는다"는 뜻이다. 모든 정의는 Content가 검증하고 SessionAssembler가 조립한다.
-
-```mermaid
-graph TD
-  Host[Host / Presentation] -->|요청·읽기| Session[GameSession]
-  Host -->|조립| Assembler[SessionAssembler]
-  Assembler -->|카탈로그| Content[Content]
-  Session --> Runner[SessionRunner]
-  Runner --> Mode[TimeLimitMode]
-  Runner --> Field[Playfield]
-  Field --> Loadout[Skill: SkillLoadout]
-  Field --> World[Target: TargetWorld]
-  Field --> Absorb[AbsorptionSystem]
-  Field --> Spawn[SpawnSchedule]
-  Field --> Purchase[UpgradePurchase]
-  Loadout --> Combat[CombatResolver]
-  Field -.공격 배율 읽기.-> Upgrades[UpgradeState]
-  Combat --> World
-  Spawn --> World
-  Absorb --> World
-  Absorb --> BlackHole[BlackHoleState]
-  Absorb --> Wallet[WalletState]
-  BlackHole -.반경 보정 읽기.-> Upgrades
-  Purchase --> Wallet
-  Purchase --> Upgrades
-  Purchase --> Tree[SkillTree]
-  Tree -.획득 읽기.-> Upgrades
-```
-
-작업 순서(선행 → 후행): Content 계약 → Session → Target → (Skill, Spawn 병렬) → BlackHole·Reward → Upgrade → SkillTree. Host·Presentation은 각 단계의 읽기 계약이 정해지면 병렬로 진행할 수 있다.
-
-## 6. 미정 기획과 확인이 필요한 가정
-
-**팀 기획이 정해야 하는 것**
-
-- 플레이어 캐릭터, 적의 공격, 실패 조건. 현재는 시간 종료와 수동 종료만 있다.
-- 판 밖에 남는 것: 영구 재화, 해금, 강화, 저장 범위, 이어하기.
-- 트리: OR 조건, 여러 단계를 가진 강화를 노드에 넣었을 때의 의미, 스킬 포인트, 초기화 비용.
-- 모드: 시간제 외 목표(질량 도달 등)와 종료 보상.
-- 목표 화면 내 대상 수와 PC 성능 예산.
-- 콘텐츠 저작 방식(SO 전환 시점)과 ID 명명 규칙.
-
-**구현하며 둔 가정(기획 확인 필요)**
-
-| 가정 | 위치 |
-|---|---|
-| 빈 조준은 쿨다운을 소비하지 않는다 | `SkillLoadout.TryCast` |
-| 사망한 대상은 이동 각도를 유지한 채 낙하한다(나선) | `TargetState.Move` |
-| Dive: 각도 고정, 속도 = 초기 속도 + 가속도 × 나이(검증용 콘텐츠) | `DiveMovement` |
-| 보상 질량·재화는 0 이상(0 허용) | `RewardDefinition` |
-| 강화 비용은 선형(n단계 = BaseCost × n) | `UpgradeDefinition` |
-| 트리: 노드 1개 = 강화 1개, 획득 = 1단계 이상, AND, 비순환 | `SkillTree` |
-| 모든 성장·재화는 한 판 수명 | `WalletState`, `UpgradeState` |
-
-## 7. 검증 단위와 측정
-
-**자동 계약 (`CoreContracts`, 38개)**: Unity EditMode와 .NET 실행기(`tests/CoreSmoke`, CI `Core contracts`)가 같은 계약을 실행한다.
-
-| 시스템 | 계약 |
+| 후보 | 계약 |
 |---|---|
 | 기준 동작 | `BaselineAtCoarseFixedStep`, `BaselineAtFrameFixedStep`, `ReferenceLoopReachesGrowthUpgradeAndEnd` |
-| Content | `DefinitionsRejectInvalidData`, `SharedCatalogKeepsSessionStateIsolated`, `LoaderReportsEveryDefinitionErrorWithPath`, `LoaderReportsReferenceErrorsWithPath`, `CatalogConstructorEnforcesSameInvariants` |
-| Session | `PauseFreezesAllSimulationState`, `EndRejectsCommandsAndFreezesResult`, `RestartHasFreshState`, `FinalFrameIsClippedToTimeLimit`, `EndingFrameRejectsSameFrameRequests` |
-| Target / Movement | `TargetCapacityAndTwoDefinitionsAreUsed`, `TargetLifecycleRulesComeFromDefinition`, `NewMovementRuleUsesSharedLifecycle`, `LoaderReportsMovementAndTargetRuleErrors`, `LoaderRejectsFieldsUnusedByMovementKind` |
-| Skill / Combat | `StrikeSelectsOneAndPulseHitsMany`, `PulsePullsWithoutOwningReward`, `CooldownAndNoTargetHaveDistinctResults`, `CooldownExpiresBeforeSameFrameRequest`, `NewSkillNeedsOnlyDefinition`, `DamagelessAreaPullIsOnlyComposition`, `CastReportCarriesAppliedArea`, `AreaSkipsDefeatedAndPullsWhatItKills`, `LoaderReportsSkillCompositionErrors` |
-| BlackHole / Reward | `DeathDoesNotRewardUntilAbsorption`, `AbsorptionRewardsExactlyOnce`, `AbsorptionHappensInStepReachingRadius`, `RewardMassAndCreditsAreIndependent` |
-| Upgrade | `UpgradeFailureIsAtomicAndSuccessChangesDamage`, `RejectedPurchaseChangesNothing`, `AbsorptionRadiusUpgradeAppliesToAbsorption`, `LoaderReportsGrowthAndUpgradeErrors` |
-| SkillTree | `SkillTreeBranchAndMergeRequireAll`, `RejectedTreeRequestsPreserveState`, `SkillTreeRejectsBrokenGraph` |
+| 콘텐츠 | `DefinitionsRejectInvalidData`, `SharedCatalogKeepsSessionStateIsolated`, `LoaderReportsEveryDefinitionErrorWithPath`, `LoaderReportsReferenceErrorsWithPath`, `CatalogConstructorEnforcesSameInvariants` |
+| 세션 | `PauseFreezesAllSimulationState`, `EndRejectsCommandsAndFreezesResult`, `RestartHasFreshState`, `FinalFrameIsClippedToTimeLimit`, `EndingFrameRejectsSameFrameRequests` |
+| 대상·이동 | `TargetCapacityAndTwoDefinitionsAreUsed`, `TargetLifecycleRulesComeFromDefinition`, `NewMovementRuleUsesSharedLifecycle`, `LoaderReportsMovementAndTargetRuleErrors`, `LoaderRejectsFieldsUnusedByMovementKind` |
+| 스킬 | `StrikeSelectsOneAndPulseHitsMany`, `PulsePullsWithoutOwningReward`, `CooldownAndNoTargetHaveDistinctResults`, `CooldownExpiresBeforeSameFrameRequest`, `NewSkillNeedsOnlyDefinition`, `DamagelessAreaPullIsOnlyComposition`, `CastReportCarriesAppliedArea`, `AreaSkipsDefeatedAndPullsWhatItKills`, `LoaderReportsSkillCompositionErrors` |
+| 흡수·성장 | `DeathDoesNotRewardUntilAbsorption`, `AbsorptionRewardsExactlyOnce`, `AbsorptionHappensInStepReachingRadius`, `RewardMassAndCreditsAreIndependent` |
+| 강화 | `UpgradeFailureIsAtomicAndSuccessChangesDamage`, `RejectedPurchaseChangesNothing`, `AbsorptionRadiusUpgradeAppliesToAbsorption`, `LoaderReportsGrowthAndUpgradeErrors` |
+| 스킬트리 | `SkillTreeBranchAndMergeRequireAll`, `RejectedTreeRequestsPreserveState`, `SkillTreeRejectsBrokenGraph` |
 
-**자동화되지 않은 것**: Unity 호스트(입력, HUD, 화면, 재시작·재활성화 수명)는 각 단계마다 사람이 플레이해서 확인했다. PlayMode 테스트는 없다. CI의 Core 컴파일 성공은 호스트 컴파일·입력·바인딩 검증이 아니다.
+Unity 호스트(입력, HUD, 화면, 재시작·재활성화)는 단계마다 사람이 플레이해서 확인했다. PlayMode 테스트는 없다.
 
-**Core 규모 측정** (.NET, net8.0 대상, 개발 PC 1대, 스크립트 입력 + 1/60초 진행, 대상 HP를 크게 해 목록 유지):
+### 규모 측정 (Core만)
+
+.NET(net8.0 대상), 개발 PC 1대. 스크립트 입력 + 1/60초 진행, 대상 HP를 크게 해 목록을 유지했다.
 
 | 대상 수 | Core 시간 (μs/프레임) | 할당 (B/프레임) |
 |---|---|---|
@@ -274,14 +340,4 @@ graph TD
 | 256 | 20.4 | 1.2 |
 | 1024 | 72.9 | 6.0 |
 
-Unity(Mono/IL2CPP)의 Core 비용, 화면(SpriteRenderer 대상당 1개), IMGUI HUD 비용은 포함하지 않는다. 제품 규모의 성능은 목표 대상 수를 정한 뒤 Unity에서 다시 측정한다.
-
-## 8. 알려진 한계
-
-- `CombatResolver`의 대상 탐색이 선형(`Find`)이다. 범위 효과 비용은 선택 수 × 전체 대상 수다. 대상이 많아지면 ID → 인덱스 맵을 둔다.
-- 출현마다 이동 규칙 객체를 하나 할당한다. 규칙은 상태가 없으므로 정의별로 공유할 수 있다.
-- `TargetWorld.RemoveAbsorbed`는 `RemoveAt` 기반이다(O(n²) 최악). 대규모에서는 교환 제거로 바꾼다.
-- 화면은 대상마다 GameObject를 만들고 지운다(풀링 없음).
-- `CoreContracts.cs`가 한 파일(약 1,000줄)이다. 팀 레포에서는 시스템별 파일로 나누면 병렬 편집 충돌이 줄어든다.
-- 콘텐츠와 표현 정의는 코드 샘플(`ReferenceGame`, `ReferencePresentation`)이다. SO 전환 시 코드 샘플을 지우고 한 곳에서만 관리한다.
-- 네트워크 권위, 복제, 예측은 없다. 스킬 사용자는 논리적으로 한 명이고, 쿨다운은 사용자에게, 질량은 월드에 속한다. 협동으로 가면 시전자 식별과 상태 변경 권위를 이 경계에 추가한다.
+Unity 위의 Core 비용, 화면(대상마다 GameObject), IMGUI HUD 비용은 포함하지 않았다. 대상이 많아지면 대상 탐색(선형), 출현마다의 이동 규칙 할당, 흡수 제거(`RemoveAt`), 화면 풀링 부재가 먼저 문제가 된다.
