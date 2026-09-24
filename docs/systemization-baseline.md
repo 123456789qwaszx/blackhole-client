@@ -37,7 +37,7 @@
 | 빈 조준은 쿨다운을 소비하지 않음 | `SkillLoadout.TryCast` | 규칙 정책 | Skill | S4 |
 | 최대 진행 단계 `1/30초` | `GameSession` | 실행 설정 | 실행 흐름 | S2 |
 | 시전 연출 반경 `0.9`, `2.4` / 연출 시간 `0.18` | `ReferenceGameController` | 표현(규칙 값 복제 포함) | 스킬 정의 참조 → 발동 결과 | S2 → S4 |
-| 대상 크기·색, 카메라 크기·배경 | `ReferenceWorldView`, `ReferenceGameController` | 표현 | 표현 정의 | S7 |
+| 대상 크기·색, 카메라 크기·배경 | `ReferenceWorldView`, `ReferenceGameController` | 표현 | 표현 정의(`ReferencePresentation`) | S7 |
 
 ## 단계별 반영
 
@@ -49,3 +49,4 @@
 | S4 | 스킬을 대상 선택(`NearestInRadius`/`AllInRadius`) + 효과 목록(`Damage`/`Pull`) 조합으로 분리. 호스트 연출은 발동 결과(`CastReport`)의 실제 범위로 표시. 빈 조준 정책은 `SkillLoadout.TryCast`의 확정 단계에 명시 | — |
 | S5 | `GrowthState`를 `BlackHoleState`(질량·흡수 수) / `WalletState`(잔액) / `UpgradeState`(획득 단계) / `UpgradePurchase`(구매 흐름)로 분리. 흡수 반경 공식을 `BlackHoleDefinition`으로, 강화 비용 증가 방식을 `UpgradeDefinition`(n단계 비용 = BaseCost × n)으로 이동. 보상을 질량·재화로 분리 | — |
 | S6 | 스킬 트리(비순환·AND·루트 무조건)를 `SkillTreeDefinition`/`SkillTree`로 추가. 획득 원본은 `UpgradeState`이며 모든 구매 요청이 `UpgradePurchase`의 같은 자격 판정을 거침. 샘플 트리 core → focus, horizon → singularity | OR 조건·노드별 최대 단계·스킬 포인트는 기획 확정 후 |
+| S7 | 대상 외형·화면 색·카메라·연출 시간을 `ReferencePresentation`(호스트 표현 정의)으로 이동. 화면의 대상 종류 분기와 HUD의 콘텐츠 범례 문구 제거. 매 단계 경로의 열거자 할당 제거 | 표현 정의 SO 전환(콘텐츠 SO와 같은 시점) |

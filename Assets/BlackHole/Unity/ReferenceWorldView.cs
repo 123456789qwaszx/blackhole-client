@@ -7,11 +7,11 @@ using Object = UnityEngine.Object;
 namespace BlackHole.Unity
 {
     // 화면 객체와 연출 상태(시전 표시)만 소유한다. Destroy와 보상/사망 판정은 연결하지 않는다.
-    // 매 프레임 판 상태를 읽어 맞춘다. 판이 바뀌면 SessionLauncher가 Reset을 먼저 부른다.
+    // 매 프레임 판 상태를 읽어 맞춘다(월드를 복사하지 않는다). 판이 바뀌면 SessionLauncher가 Reset을 먼저 부른다.
+    // 외형은 표현 정의에서 읽는다. 대상 종류별 분기를 여기에 두지 않는다.
     internal sealed class ReferenceWorldView : IDisposable
     {
-        private const float CastFlashSeconds = 0.18f;
-
+        private readonly ReferencePresentation _presentation;
         private readonly Transform _root;
         private readonly Sprite _disc;
         private readonly Texture2D _texture;
@@ -23,15 +23,16 @@ namespace BlackHole.Unity
         private readonly List<int> _removed = new List<int>();
         private float _castRemaining;
 
-        public ReferenceWorldView(Transform parent)
+        public ReferenceWorldView(Transform parent, ReferencePresentation presentation)
         {
+            _presentation = presentation;
             _root = new GameObject("Reference Visuals").transform;
             _root.SetParent(parent, false);
             _texture = CreateDiscTexture();
             _disc = Sprite.Create(_texture, new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f), 64);
-            _halo = CreateDisc("Accretion Glow", new Color(0.38f, 0.18f, 0.8f), 0);
-            _hole = CreateDisc("Black Hole", new Color(0.005f, 0.005f, 0.012f), 1);
-            _cast = CreateDisc("Cast Area", new Color(0.4f, 0.7f, 1, 0.2f), 3);
+            _halo = CreateDisc("Accretion Glow", presentation.HaloColor, 0);
+            _hole = CreateDisc("Black Hole", presentation.HoleColor, 1);
+            _cast = CreateDisc("Cast Area", presentation.CastColor, 3);
         }
 
         // 성공한 시전의 조준점과 범위를 잠시 표시한다.
@@ -39,20 +40,23 @@ namespace BlackHole.Unity
         {
             _cast.transform.position = new Vector3(aim.X, aim.Y, 0);
             _cast.transform.localScale = Vector3.one * radius * 2;
-            _castRemaining = CastFlashSeconds;
+            _castRemaining = _presentation.CastFlashSeconds;
         }
 
         public void Synchronize(Playfield field, float deltaTime)
         {
             float diameter = field.BlackHole.AbsorptionRadius * 2;
             _hole.transform.localScale = Vector3.one * diameter;
-            _halo.transform.localScale = Vector3.one * (diameter + 0.22f);
+            _halo.transform.localScale = Vector3.one * (diameter + _presentation.HaloExtra);
             _castRemaining = Mathf.Max(0, _castRemaining - deltaTime);
             _cast.enabled = _castRemaining > 0;
             _seen.Clear();
 
-            foreach (TargetState target in field.Targets)
+            // 매 프레임 경로: IReadOnlyList를 foreach로 돌면 열거자가 할당되므로 인덱스로 돈다.
+            IReadOnlyList<TargetState> targets = field.Targets;
+            for (int i = 0; i < targets.Count; i++)
             {
+                TargetState target = targets[i];
                 _seen.Add(target.Id);
                 if (!_targets.TryGetValue(target.Id, out SpriteRenderer view))
                 {
@@ -61,13 +65,12 @@ namespace BlackHole.Unity
                 }
                 Point2 position = target.Position;
                 view.transform.position = new Vector3(position.X, position.Y, 0);
-                // 표현 메타데이터는 이번 두 콘텐츠를 위한 샘플이다. 게임 규칙에는 들어가지 않는다.
-                bool heavy = target.Definition.Id == "heavy";
-                view.transform.localScale = Vector3.one * (heavy ? 0.55f : 0.32f);
-                Color baseColor = heavy ? new Color(1, 0.55f, 0.23f) : new Color(0.2f, 0.9f, 0.95f);
+                TargetAppearance appearance = _presentation.Target(target.Definition.Id);
+                view.transform.localScale = Vector3.one * appearance.Size;
                 view.color = target.Phase == TargetPhase.Defeated
-                    ? new Color(0.42f, 0.44f, 0.5f)
-                    : Color.Lerp(baseColor * 0.4f, baseColor, target.Health / target.Definition.MaxHealth);
+                    ? _presentation.DefeatedColor
+                    : Color.Lerp(appearance.Color * _presentation.DamagedBrightness, appearance.Color,
+                        target.Health / target.Definition.MaxHealth);
             }
 
             _removed.Clear();

@@ -23,17 +23,19 @@ namespace BlackHole.Unity
 
         private void Awake()
         {
-            Camera camera = ConfigureCamera();
-            _view = new ReferenceWorldView(transform);
+            ReferencePresentation presentation = ReferencePresentation.CreateSample();
+            Camera camera = ConfigureCamera(presentation);
+            _view = new ReferenceWorldView(transform, presentation);
 
             if (!TryLoadContent(out ContentCatalog catalog))
             {
                 enabled = false;
                 return;
             }
+            presentation.Report(catalog, message => Debug.LogWarning("[표현] " + message, this));
 
             _input = new ReferenceInput(camera);
-            _hud = new ReferenceHud();
+            _hud = new ReferenceHud(presentation, catalog);
             _launcher = new SessionLauncher(catalog, _view);
         }
 
@@ -119,7 +121,7 @@ namespace BlackHole.Unity
 
         #region 조립
 
-        private Camera ConfigureCamera()
+        private Camera ConfigureCamera(ReferencePresentation presentation)
         {
             Camera camera = Camera.main;
             if (camera == null)
@@ -131,9 +133,9 @@ namespace BlackHole.Unity
             }
             camera.transform.position = new Vector3(0, 0, -10);
             camera.orthographic = true;
-            camera.orthographicSize = 7.5f;
+            camera.orthographicSize = presentation.CameraSize;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.025f, 0.035f, 0.065f);
+            camera.backgroundColor = presentation.Background;
             return camera;
         }
 

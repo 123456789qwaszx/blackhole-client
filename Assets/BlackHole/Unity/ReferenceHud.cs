@@ -11,7 +11,18 @@ namespace BlackHole.Unity
     // 스킬·강화·트리 노드는 목록으로 그린다. 새 항목이 추가돼도 여기는 바뀌지 않는다.
     internal sealed class ReferenceHud
     {
+        // 범례는 콘텐츠 순서와 표현 정의로 한 번 만든다. 콘텐츠 ID를 HUD에 적지 않는다.
+        private readonly string _legend;
         private string _message = string.Empty;
+
+        public ReferenceHud(ReferencePresentation presentation, ContentCatalog catalog)
+        {
+            var parts = new List<string>();
+            foreach (TargetDefinition target in catalog.Targets)
+                parts.Add($"{presentation.Target(target.Id).ColorName}: {target.Id}");
+            parts.Add($"{presentation.DefeatedColorName}: defeated");
+            _legend = string.Join("   ", parts);
+        }
 
         public void Show(string message) => _message = message;
 
@@ -50,7 +61,7 @@ namespace BlackHole.Unity
                 SkillState skill = field.Skills[i];
                 GUILayout.Label($"{i + 1}  {skill.Definition.Id}: {skill.RemainingCooldown:F1}s");
             }
-            GUILayout.Label("Cyan: shard   Orange: heavy   Gray: defeated");
+            GUILayout.Label(_legend);
             GUILayout.Label("Defeated targets fall inward. Absorption grants rewards.");
 
             GUILayout.Space(8);
