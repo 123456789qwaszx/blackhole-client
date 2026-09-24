@@ -1,6 +1,6 @@
 # Reference v2 — 전체 PLAN
 
-작성일: 2026-09-24 · 상태: M0 완료, M1 진행 중
+작성일: 2026-09-24 · 상태: M0·M1 완료, M2 진행 중
 
 ## 1. 목적
 
@@ -65,7 +65,7 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../v1/SYSTEM_CATALOG.md)
 돌아가는 Reference를 만들려면 미정 항목 일부를 채워야 한다. 원칙은 다음과 같다.
 
 1. **없어도 돌아가면 채우지 않는다.** 예: EXP와 Gold는 쌓이기만 하고 어디에도 쓰지 않는다.
-2. **없으면 안 돌아가면 가장 단순한 값을 [임시]로 채운다.** [임시] 값은 샘플 콘텐츠 한 곳(이름부터 샘플임을 드러낸다. 예: `SampleContent`)과 아래 표에만 둔다. 코드 곳곳에 흩어 놓지 않는다.
+2. **없으면 안 돌아가면 가장 단순한 값을 [임시]로 채운다.** [임시] 값은 별도 어셈블리 `BlackHole.Sample`의 `SampleContent` 한 곳과 아래 표에만 둔다. Core는 이 어셈블리를 참조할 수 없다. 코드 곳곳에 흩어 놓지 않는다.
 3. **[임시]는 규칙 결정이 아니다.** 기획이 정해지면 바뀐다.
 
 | [임시] 항목 | 필요한 이유 | 들어가는 마일스톤 |
@@ -96,8 +96,8 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../v1/SYSTEM_CATALOG.md)
 | 마일스톤 | 내용 | 검증 경계 | 문서 | 상태 |
 |---|---|---|---|---|
 | M0 | v1 정리와 빈 뼈대 | — | [M0-cleanup.md](M0-cleanup.md) | 완료 |
-| M1 | 월드 뼈대: Session, Content, HQ, Player | B1, B2, B8, B9 | [M1-world.md](M1-world.md) | 진행 중 |
-| M2 | Enemy: 정의, Runtime Stat, 출현, Orbit 행동 | B2, B3, B4, B9 | [M2-enemy.md](M2-enemy.md) | 계획 |
+| M1 | 월드 뼈대: Session, Content, HQ, Player | B1, B2, B8, B9 | [M1-world.md](M1-world.md) | 완료 |
+| M2 | Enemy: 정의, Runtime Stat, 출현, Orbit 행동 | B2, B3, B4, B9 | [M2-enemy.md](M2-enemy.md) | 진행 중 |
 | M3 | 첫 Passive Skill(Player 1의 AimPoint 기준) | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 계획 |
 | M4 | Death → Reward와 흡수 연출(사망 기록을 화면이 읽음) | B1, B6, B7 | [M4-death-reward.md](M4-death-reward.md) | 계획 |
 | M5 | 변화 실험과 정리 | 전체 | [M5-review.md](M5-review.md) | 계획 |
@@ -150,3 +150,4 @@ docs/
 |---|---|---|---|
 | 2026-09-24 | 계획 검토 | D1~D4 승인. 보상 귀속과 입력 소유 관계를 지어내던 부분 발견 | B1·B5·B6 문구 수정, 보상 수령자 [임시] 삭제, PlayerCharacter 코드 제외, D3를 테스트 Fake로 변경 |
 | 2026-09-24 | M0 | 완료 기준 충족(원격 CI 실행만 push 후 확인). 임의 규칙 없음. 뼈대에 v1 가정 없음(GameHost와 계약 실행 구조뿐) | 없음. M1 계획 그대로 진행 |
+| 2026-09-24 | M1 | 완료 기준 충족. 새 게임 규칙 없음(참가자 검증은 조립 규칙). 원점 가정이 카메라에 남아 있던 것을 발견해 제거. 시간 분할은 M2에서야 관찰 가능 | [임시] 정책 2번을 Sample 어셈블리로 갱신. M2 완료 기준에 "긴 프레임도 단계로 나뉘어 이동" 추가 |

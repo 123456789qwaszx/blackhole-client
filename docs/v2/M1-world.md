@@ -1,6 +1,6 @@
 # M1 — 월드 뼈대: Session, Content, HQ, Player
 
-상태: 계획 · 선행: M0 · 결정 D1·D2 승인
+상태: 완료(2026-09-24) · 선행: M0 · 결정 D1·D2 승인
 
 ## 목표
 
@@ -62,4 +62,35 @@
 
 ## 결과
 
-(완료 후 작성)
+완료: 2026-09-24
+
+**한 일**
+
+- Core
+  - `Content/`: ContentData(저작 형식) → ContentLoader(경로별 진단, 부분 통과 금지) → GameContent. 정의 생성자의 규칙을 로더가 그대로 호출한다(DefinitionGuard).
+  - `Session/`: GameSession(판 상태·결과·요청 허용), SessionRunner(경과 시간, 시간 분할), TimeLimitDefinition·TimeLimitRule(진행 전 LimitStep, 진행 후 TryEnd), SessionAssembler(조립 진입점).
+  - `Hq/`: HqDefinition·Hq(위치만).
+  - `Players/`: PlayerId, Player, PlayerState(비어 있음).
+  - `World/`: World(HQ, Player 목록, 한 단계의 처리 순서 — 지금은 비어 있음).
+- Sample: 별도 어셈블리 `BlackHole.Sample`의 SampleContent. [임시] 값(60초, HQ (0, 0))은 여기에만 있다.
+- Unity: GameHost(조립 루트·수명·프레임 순서), SessionLauncher(판 교체, 참가자 목록을 받음), HostInput(R/P), Hud(IMGUI), WorldView(HQ 원판, 카메라가 HQ를 봄), SamplePresentation(표현 값).
+- 계약 12개: Harness 1, Content 3, Session 5, World 3.
+
+**검증**
+
+- CoreSmoke 12개 통과. 진행 전 제한을 일부러 제거하면 `Session.NeverAdvancesPastTimeLimit`가 실패하는 것을 확인했다.
+- Unity와 같은 경계로 나눈 컴파일(Core, Sample, Tests, Unity): 경고 0, 오류 0.
+- 사용자 플레이 확인: HUD 표시, 일시정지, 종료·결과, 재시작, 컴포넌트 재활성화, EditMode 12개 통과, Console 오류 없음.
+
+**발견**
+
+- 카메라가 월드 원점에 고정되어 있었다. 원점 가정이 화면 쪽에 남아 있던 것이다. 가이드 5절("HQ = 게임의 시각적 중심")에 맞게 WorldView가 카메라를 HQ 위치에 맞추도록 고쳤다.
+- 누가 참가하는지는 콘텐츠가 아니라 판 설정이다. SessionAssembler가 참가 Player 목록을 인자로 받고, 호스트(GameHost)가 로컬 1명을 넘긴다. 비었거나 중복된 참가자는 조립 오류다.
+- 게임 코드와 호스트 코드에 `[0]`이나 "첫 Player"로 고르는 곳이 없다. Player는 Id로 찾는다(`World.TryGetPlayer`).
+- 시간 분할은 지금 관찰할 대상이 없다(World.Step이 비어 있음). 경과 시간 잘라내기만 계약으로 확인된다. 단계 분할의 효과는 M2의 Enemy 이동에서 확인한다.
+- PlayerState는 비어 있다. 사용자 지시대로 `Player └─ PlayerState` 구조를 두었고, M4에서 Gold/EXP가 들어온다.
+
+**계획과 달라진 점**
+
+- 샘플 분리를 이름·폴더가 아니라 **별도 어셈블리**로 강제했다(D2 강화). Core가 샘플 값을 참조하면 컴파일되지 않는다.
+- 카메라가 HQ를 보도록 했다(계획에 없던 원점 가정 제거).

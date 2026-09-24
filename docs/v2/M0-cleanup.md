@@ -61,8 +61,7 @@ v1 코드를 보존한 채 작업 트리에서 치우고, v2가 올라갈 빈 �
 |---|---|
 | 태그 `reference-v1` (`165fb44`) | v1 코드가 남아 있는 마지막 커밋. 원격에 올렸다 |
 | `5d3acb3` | v1 문서 3개를 `docs/v1/`로 이동, 링크 정리. GAME_RULES 4절을 "v1 Reference와 다른 점"으로 변경 |
-| `aec452c` | v1 코드 삭제. 어셈블리 정의 3개는 GUID와 함께 유지. 계약 등록부(`Contracts`), 판정 도우미(`Expect`), 실행기 자체 확인 계약 1개, EditMode 래퍼(`ContractTests`), 빈 호스트(`GameHost`), CoreSmoke 경로 갱신 |
-| (이 커밋) | 사용자가 에디터에서 v1 누락 스크립트를 지우고 `GameHost`를 붙여 저장한 씬 |
+| `b8fcbb2` | v1 코드 삭제. 어셈블리 정의 3개는 GUID와 함께 유지. 계약 등록부(`Contracts`), 판정 도우미(`Expect`), 실행기 자체 확인 계약 1개, EditMode 래퍼(`ContractTests`), 빈 호스트(`GameHost`), CoreSmoke 경로 갱신. 사용자가 에디터에서 v1 누락 스크립트를 지우고 `GameHost`를 붙인 씬과 Unity가 만든 ProjectSettings 파일을 이 커밋에 합쳤다(amend) |
 
 **검증**
 
@@ -76,6 +75,6 @@ v1 코드를 보존한 채 작업 트리에서 치우고, v2가 올라갈 빈 �
 
 - 스크립트가 없는 어셈블리(`BlackHole.Core`)는 Unity가 빌드하지 않지만, 참조하는 어셈블리에 오류를 내지 않았다.
 - 씬 저장 때 Unity 6이 씬을 새 형식으로 다시 직렬화해 차이가 크다(126줄). 내용상 변경은 컴포넌트 교체와 이름뿐이다.
-- Unity가 `ProjectSettings/SceneTemplateSettings.json`을 새로 만들었다. 이번 작업과 무관해 커밋하지 않았다.
+- Unity가 `ProjectSettings/SceneTemplateSettings.json`을 새로 만들었다. 사용자가 씬과 함께 커밋했다.
 
 **계획과 달라진 점**: 없음.
