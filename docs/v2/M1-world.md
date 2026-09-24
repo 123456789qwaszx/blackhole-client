@@ -1,5 +1,8 @@
 # M1 — 월드 뼈대: Session, Content, HQ, Player
 
+> 2026-09-24 규칙 갱신: 아래 본문과 결과는 완료 당시 기록이다. 현재 지시는 [PLAN](PLAN.md)과 [GAME_RULES](../GAME_RULES.md)를 따른다. HQ 위치만/매번 새 Player는 M1 당시 구현이다. HQ EXP/Level은 M4/M5, 구매 상태의 전투 간 유지는 M6에서 확장한다. D1 성장 제외는 최신 PLAN에서 대체됐다.
+
+
 상태: 완료(2026-09-24) · 선행: M0 · 결정 D1·D2 승인
 
 ## 목표

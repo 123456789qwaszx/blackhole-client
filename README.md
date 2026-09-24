@@ -1,48 +1,49 @@
 # Black Hole Client
 
-6인 팀의 시스템 분배에 앞서 책임·상태 소유권·확장 경계를 확인하는 Reference Implementation입니다.
-게임 규칙과 수치는 실험용이며 최종 팀 기획이 아닙니다.
+6인 팀의 시스템 분배에 앞서 책임·상태 소유권·변경 영향을 확인하는 개인 Reference Implementation입니다. 팀에 이식할 완성본은 아닙니다.
+
+## 현재 상태
+
+dev의 M0~M3가 완료됐습니다(구현 기준 `85e34bc`). 최신 게임 규칙을 문서에 반영했으며 M4 이후는 재계획 상태입니다.
+현재 실행에는 주기적 적 생성·HQ 공전·마우스 조준 패시브 공격이 있습니다. HP가 0인 적은 아직 남습니다. 사망·Gold/HQ EXP·성장·구매·흡수 연출은 후속 구현입니다.
 
 ## 실행
 
-1. **Unity 6000.6.2f1**로 프로젝트를 엽니다.
-2. `Assets/Scenes/SampleScene.unity`를 열고 Play 합니다.
-3. Game 창에 포커스를 두고 마우스를 대상 위에 올립니다.
+Unity 6000.6.2f1로 열고 `Assets/Scenes/SampleScene.unity`를 Play 합니다.
 
-| 입력 | 동작 |
+| 입력 | 현재 동작 |
 |---|---|
-| `1` | 조준점 주변 가장 가까운 대상 하나에 집중 공격 |
-| `2` | 조준점 주변 범위 피해 + 중심 방향 당김 |
-| `U` / Upgrade 버튼 | 흡수한 재화를 소비해 공격력 강화 |
-| `P` / Pause 버튼 | 진행·출현·쿨다운을 함께 정지 / 재개 |
-| `R` / Restart 버튼 | 이전 판을 종료하고 새로운 판 생성 |
-| End session 버튼 | 결과를 확정하고 진행 종료 |
+| 마우스 | 첫 패시브 스킬의 조준점. 범위 공격은 자동 |
+| P | 일시정지/재개 |
+| R | 전투를 새로 조립하는 테스트용 재시작 |
 
-한 판은 60초입니다. 청록색 파편과 주황색 중량 대상이 서로 다른 속도로 공전합니다.
-HP가 0이 되면 회색으로 바뀌어 중심으로 떨어지고, 블랙홀에 흡수된 순간 재화와 질량을 얻습니다.
-질량은 흡수 반경을 키우며 재화는 공격력 강화에 사용합니다. 재시작하면 모두 초기화됩니다.
+현재 화면 수치는 샘플입니다. 다음 전투에서 구매 상태를 유지하는 흐름은 아직 없습니다.
+
+## 문서
+
+1. [게임 규칙](docs/GAME_RULES.md)
+2. [전체 PLAN](docs/v2/PLAN.md)
+3. [실제 코드와 규칙의 차이](docs/v2/RULES_ALIGNMENT.md)
+4. [현재 인계](docs/v2/HANDOFF.md)
+5. [다음 M4](docs/v2/M4-death-reward.md)
+
+v1 코드는 `reference-v1` 태그, 문서는 [docs/v1](docs/v1/SYSTEM_CATALOG.md)에 보존합니다.
 
 ## 코드 읽는 순서
 
-1. `Assets/BlackHole/Core/ReferenceGame.cs`: 실험용 콘텐츠와 조립
-2. `GameSession.cs`: 한 판의 수명과 요청 허용 여부
-3. `Playfield.cs`: 생성·이동·흡수와 스킬 요청 연결
-4. `SkillLoadout.cs`, `FocusedStrike.cs`, `GravityPulse.cs`: 발동과 실제 확장점
-5. `TargetState.cs`, `CombatResolver.cs`, `AbsorptionSystem.cs`, `GrowthState.cs`: 상태 변경과 확정 순서
-6. `Assets/BlackHole/Unity`: 입력·화면 연결
-
-설계 판단, 남은 질문, 팀 분배 후보는 [구현 결과 문서](docs/REFERENCE_IMPLEMENTATION.md)에 있습니다.
+- `Assets/BlackHole/Sample/SampleContent.cs`: 임시 콘텐츠.
+- `Assets/BlackHole/Core/Session/SessionAssembler.cs`: 전투 조립.
+- `Assets/BlackHole/Core/Session/GameSession.cs`, `SessionRunner.cs`: 수명과 시간.
+- `Assets/BlackHole/Core/World/World.cs`: 이동 → Skill → 출현.
+- `Assets/BlackHole/Core/Skills/PassiveSkill.cs`, `Enemies/Enemy.cs`: 피해와 상태.
+- `Assets/BlackHole/Unity/SessionLauncher.cs`, `WorldView.cs`: 전환과 화면.
 
 ## 검증
 
-Unity: **Window → General → Test Runner → EditMode → Run All**.
-
-Unity 없이 순수 규칙을 확인하려면 .NET 8 SDK로 다음을 실행합니다.
+Unity EditMode와 .NET 8 CoreSmoke가 같은 계약을 실행합니다.
 
 ```sh
-dotnet run --project tests/CoreSmoke/CoreSmoke.csproj --configuration Release
+dotnet run --project tests/CoreSmoke/CoreSmoke.csproj -c Release
 ```
 
-두 경로는 같은 13개 계약 테스트를 실행합니다. 별도 NuGet 테스트 패키지는 필요 없습니다.
-GitHub Actions의 `Core contracts`도 위 명령을 사용합니다.
-이 검증은 Unity 호스트 컴파일·렌더링·입력 실행을 대체하지 않습니다.
+M3 작업 기록은 31개 계약 통과입니다. 이번 문서 반영에서 게임 테스트를 새로 실행한 결과는 아닙니다. CoreSmoke는 Unity 호스트·입력·렌더링 검증을 대체하지 않습니다.
