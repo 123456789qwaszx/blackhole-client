@@ -21,11 +21,16 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(NewSkillNeedsOnlyComposition), NewSkillNeedsOnlyComposition);
             yield return Case(nameof(TargetCapacityAndTwoDefinitionsAreUsed), TargetCapacityAndTwoDefinitionsAreUsed);
             yield return Case(nameof(ReferenceLoopReachesGrowthUpgradeAndEnd), ReferenceLoopReachesGrowthUpgradeAndEnd);
+            yield return Case(nameof(BaselineAtCoarseFixedStep), BaselineAtCoarseFixedStep);
+            yield return Case(nameof(BaselineAtFrameFixedStep), BaselineAtFrameFixedStep);
+            yield return Case(nameof(FinalFrameIsClippedToTimeLimit), FinalFrameIsClippedToTimeLimit);
+            yield return Case(nameof(CooldownExpiresBeforeSameFrameRequest), CooldownExpiresBeforeSameFrameRequest);
+            yield return Case(nameof(AbsorptionHappensInStepReachingRadius), AbsorptionHappensInStepReachingRadius);
         }
 
         public static void DeathDoesNotRewardUntilAbsorption()
         {
-            GameSession game = ReferenceGame.CreateSession();
+            GameSession game = Reference();
             TargetState target = game.Field.Targets[0];
             Equal(CastResult.Cast, game.TryCast(ReferenceGame.StrikeId, target.Position));
             Equal(TargetPhase.Defeated, target.Phase);
@@ -36,7 +41,7 @@ namespace BlackHole.Core.Tests
 
         public static void AbsorptionRewardsExactlyOnce()
         {
-            GameSession game = ReferenceGame.CreateSession();
+            GameSession game = Reference();
             TargetState target = game.Field.Targets[0];
             game.TryCast(ReferenceGame.StrikeId, target.Position);
             game.Advance(2);
@@ -67,7 +72,7 @@ namespace BlackHole.Core.Tests
 
         public static void PulsePullsWithoutOwningReward()
         {
-            GameSession game = ReferenceGame.CreateSession();
+            GameSession game = Reference();
             TargetState target = game.Field.Targets[0];
             float radius = target.Radius;
             game.TryCast(ReferenceGame.PulseId, target.Position);
@@ -79,7 +84,7 @@ namespace BlackHole.Core.Tests
 
         public static void CooldownAndNoTargetHaveDistinctResults()
         {
-            GameSession game = ReferenceGame.CreateSession();
+            GameSession game = Reference();
             Equal(CastResult.UnknownSkill, game.TryCast("missing", new Point2(0, 0)));
             Equal(CastResult.NoTarget, game.TryCast(ReferenceGame.StrikeId, new Point2(100, 100)));
             Near(0, game.Field.Skills[0].RemainingCooldown);
@@ -120,7 +125,7 @@ namespace BlackHole.Core.Tests
 
         public static void PauseFreezesAllSimulationState()
         {
-            GameSession game = ReferenceGame.CreateSession();
+            GameSession game = Reference();
             TargetState target = game.Field.Targets[0];
             game.TryCast(ReferenceGame.PulseId, target.Position);
             float radius = target.Radius;
@@ -140,7 +145,7 @@ namespace BlackHole.Core.Tests
 
         public static void EndRejectsCommandsAndFreezesResult()
         {
-            GameSession game = ReferenceGame.CreateSession(0.1f);
+            GameSession game = Reference(0.1f);
             game.Advance(100);
             Equal(SessionPhase.Ended, game.Phase);
             Equal(SessionEndReason.TimeExpired, game.Result.Reason);
@@ -159,11 +164,11 @@ namespace BlackHole.Core.Tests
 
         public static void RestartHasFreshState()
         {
-            GameSession old = ReferenceGame.CreateSession();
+            GameSession old = Reference();
             old.TryCast(ReferenceGame.StrikeId, old.Field.Targets[0].Position);
             old.Advance(2);
             old.Stop();
-            GameSession next = ReferenceGame.CreateSession();
+            GameSession next = Reference();
             Equal(0, next.Field.Growth.Mass);
             Near(0, next.Elapsed);
             Near(0, next.Field.Skills[0].RemainingCooldown);
@@ -182,8 +187,8 @@ namespace BlackHole.Core.Tests
             Throws<ArgumentException>(() => new SkillLoadout(new[] { skill, skill }));
             var target = new TargetDefinition("same", 1, 1, 1, 1);
             Throws<ArgumentException>(() => new SpawnSchedule(new[] { target, target }, 1, 5, 10));
-            Throws<ArgumentOutOfRangeException>(() => ReferenceGame.CreateSession().Advance(float.NaN));
-            Throws<ArgumentOutOfRangeException>(() => ReferenceGame.CreateSession(-1));
+            Throws<ArgumentOutOfRangeException>(() => Reference().Advance(float.NaN));
+            Throws<ArgumentOutOfRangeException>(() => Reference(-1));
         }
 
         public static void NewSkillNeedsOnlyComposition()
@@ -200,7 +205,7 @@ namespace BlackHole.Core.Tests
 
         public static void TargetCapacityAndTwoDefinitionsAreUsed()
         {
-            GameSession game = ReferenceGame.CreateSession();
+            GameSession game = Reference();
             game.Advance(50);
             Equal(32, game.Field.Targets.Count);
             var types = new HashSet<string>();
@@ -211,9 +216,96 @@ namespace BlackHole.Core.Tests
 
         public static void ReferenceLoopReachesGrowthUpgradeAndEnd()
         {
-            GameSession game = ReferenceGame.CreateSession(20);
+            GameSession game = Reference(20);
+            bool upgraded = RunScriptedLoop(game, 0.1f);
+            Check(upgraded, "핵심 흐름에서 강화에 도달해야 한다.");
+            Check(game.Result.Mass > 0 && game.Result.AbsorbedCount > 0, "핵심 흐름에서 성장해야 한다.");
+            Equal(SessionEndReason.TimeExpired, game.Result.Reason);
+        }
+
+        // 기준 수치는 "같은 콘텐츠·같은 입력·같은 Advance 간격"에서만 보장된다.
+        // 간격이 다르면 생성·이동·입력 적용 시점이 달라져 결과가 달라질 수 있다(6초 시점 HP 합계).
+        // 최종 수치는 생성량에 묶여 두 간격이 같으므로, 강화 비용이 드러나는 6초 시점도 함께 본다.
+        // 구조 변경에서 이 값이 바뀌면 의도한 규칙 변경인지 먼저 확인한다.
+        public static void BaselineAtCoarseFixedStep()
+        {
+            // 0.1초 간격은 MaxStep(1/30초)보다 커서 한 번의 Advance가 여러 단계로 나뉜다.
+            GameSession game = Reference();
+            RunScriptedLoop(game, 0.1f, 60);
+            ExpectSnapshot(game, new Snapshot(23, 5, 7, 2, 1, 6.2f));
+            RunScriptedLoop(game, 0.1f);
+            ExpectFinal(game, new Snapshot(259, 169, 74, 5, 2, 0));
+        }
+
+        public static void BaselineAtFrameFixedStep()
+        {
+            // 1/60초 간격은 분할 없이 한 단계로 진행된다.
+            GameSession game = Reference();
+            RunScriptedLoop(game, 1f / 60f, 360);
+            ExpectSnapshot(game, new Snapshot(23, 5, 7, 2, 1, 0));
+            RunScriptedLoop(game, 1f / 60f);
+            ExpectFinal(game, new Snapshot(259, 169, 74, 5, 2, 0));
+        }
+
+        public static void FinalFrameIsClippedToTimeLimit()
+        {
+            // 0.8초에 두 번째 대상이 생성된다. 0.75초 제한을 넘겨 진행하면 대상이 2개가 된다.
+            GameSession overshoot = Reference(0.75f);
+            overshoot.Advance(0.5f);
+            overshoot.Advance(0.5f);
+            GameSession exact = Reference(0.75f);
+            exact.Advance(0.5f);
+            exact.Advance(0.25f);
+
+            Equal(SessionPhase.Ended, overshoot.Phase);
+            Equal(SessionPhase.Ended, exact.Phase);
+            Near(0.75f, overshoot.Elapsed);
+            Equal(1, overshoot.Field.Targets.Count);
+            Near(exact.Field.Targets[0].Angle, overshoot.Field.Targets[0].Angle);
+            Near(exact.Field.Targets[0].Radius, overshoot.Field.Targets[0].Radius);
+        }
+
+        public static void CooldownExpiresBeforeSameFrameRequest()
+        {
+            // 한 프레임은 Advance 뒤에 요청을 적용한다. 쿨다운은 Advance 안에서 먼저 줄어든다.
+            GameSession game = Reference();
+            Equal(CastResult.Cast, game.TryCast(ReferenceGame.StrikeId, game.Field.Targets[0].Position));
+            game.Advance(0.3f);
+            Near(0.05f, game.Field.Skills[0].RemainingCooldown);
+            Equal(CastResult.CoolingDown, game.TryCast(ReferenceGame.StrikeId, new Point2(100, 100)));
+            game.Advance(0.1f);
+            // 쿨다운 판정이 대상 선택보다 먼저이므로 NoTarget은 쿨다운이 끝났다는 뜻이다.
+            Equal(CastResult.NoTarget, game.TryCast(ReferenceGame.StrikeId, new Point2(100, 100)));
+        }
+
+        public static void AbsorptionHappensInStepReachingRadius()
+        {
+            // 사망한 shard는 반경 5.5에서 초당 4씩 떨어지고, 질량 0의 흡수 반경은 0.65다.
+            GameSession game = Reference();
+            TargetState target = game.Field.Targets[0];
+            Equal(CastResult.Cast, game.TryCast(ReferenceGame.StrikeId, target.Position));
+            game.Advance(1.2f);
+            Equal(TargetPhase.Defeated, target.Phase);
+            Near(0.7f, target.Radius);
+            Equal(0, game.Field.Growth.Mass);
+            game.Advance(0.05f);
+            Equal(TargetPhase.Absorbed, target.Phase);
+            Equal(2, game.Field.Growth.Mass);
+            foreach (TargetState current in game.Field.Targets)
+                Check(current.Id != target.Id, "흡수한 단계에서 목록 제거까지 끝나야 한다.");
+        }
+
+        // ── 공통 준비 ───────────────────────────────────────────────────────
+
+        private static GameSession Reference(float duration = 60) =>
+            ReferenceGame.CreateSession(duration);
+
+        // 매 프레임: 첫 번째 궤도 대상에 두 스킬 요청 → 가능하면 강화 → 진행.
+        // 판이 끝나거나 frames만큼 진행하면 멈춘다.
+        private static bool RunScriptedLoop(GameSession game, float step, int frames = int.MaxValue)
+        {
             bool upgraded = false;
-            while (game.Phase != SessionPhase.Ended)
+            for (int frame = 0; frame < frames && game.Phase != SessionPhase.Ended; frame++)
             {
                 foreach (TargetState target in game.Field.Targets)
                 {
@@ -223,11 +315,50 @@ namespace BlackHole.Core.Tests
                     break;
                 }
                 if (game.TryUpgrade() == UpgradeResult.Purchased) upgraded = true;
-                game.Advance(0.1f);
+                game.Advance(step);
             }
-            Check(upgraded, "핵심 흐름에서 강화에 도달해야 한다.");
-            Check(game.Result.Mass > 0 && game.Result.AbsorbedCount > 0, "핵심 흐름에서 성장해야 한다.");
+            return upgraded;
+        }
+
+        // 80549cb 구현을 실행해 기록한 값.
+        private readonly struct Snapshot
+        {
+            public readonly int Mass, Credits, Absorbed, PowerLevel, Targets;
+            public readonly float TotalHealth;
+
+            public Snapshot(int mass, int credits, int absorbed, int powerLevel, int targets, float totalHealth)
+            {
+                Mass = mass;
+                Credits = credits;
+                Absorbed = absorbed;
+                PowerLevel = powerLevel;
+                Targets = targets;
+                TotalHealth = totalHealth;
+            }
+        }
+
+        private static void ExpectSnapshot(GameSession game, Snapshot expected)
+        {
+            Near(6, game.Elapsed);
+            Equal(expected.Mass, game.Field.Growth.Mass);
+            Equal(expected.Credits, game.Field.Growth.Credits);
+            Equal(expected.Absorbed, game.Field.Growth.AbsorbedCount);
+            Equal(expected.PowerLevel, game.Field.Growth.PowerLevel);
+            Equal(expected.Targets, game.Field.Targets.Count);
+            float health = 0;
+            foreach (TargetState target in game.Field.Targets) health += target.Health;
+            Near(expected.TotalHealth, health);
+        }
+
+        private static void ExpectFinal(GameSession game, Snapshot expected)
+        {
             Equal(SessionEndReason.TimeExpired, game.Result.Reason);
+            Near(60, game.Result.PlayedSeconds);
+            Equal(expected.Mass, game.Result.Mass);
+            Equal(expected.Absorbed, game.Result.AbsorbedCount);
+            Equal(expected.Credits, game.Field.Growth.Credits);
+            Equal(expected.PowerLevel, game.Field.Growth.PowerLevel);
+            Equal(expected.Targets, game.Field.Targets.Count);
         }
 
         private static GameSession CreateCrowdedSession(float health = 100)
