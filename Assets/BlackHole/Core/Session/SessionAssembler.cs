@@ -82,7 +82,7 @@ namespace BlackHole.Core
 
             for (int i = 0; i < players.Count; i++)
             {
-                GiveStartingSkills(players[i], content.StartingSkills, modifiers[i]);
+                GiveSkills(players[i], content.StartingSkills, modifiers[i]);
             }
 
             // 공유 대상에 대한 구매 효과는 지금 실제 구성인 단일 Player의 것이다. 위 검사로 그 전제를 지킨다.
@@ -105,15 +105,20 @@ namespace BlackHole.Core
             return new GameSession(world, timeLimit);
         }
 
-        // 모든 Player가 같은 시작 구성을 받는다(Character 1종, 고정 구성). Skill 획득 구조가 아니다.
-        // 실행 수치는 여기서 한 번 계산한다: 기본 수치 + 그 Player가 산, 이 Skill을 대상으로 한 보정.
-        // Skill 순서는 시작 구성의 순서다. Step 안에서 이 순서로 실행된다.
-        private static void GiveStartingSkills(
+        // 이 전투의 Skill = 모든 Player가 받는 시작 구성(Character 1종, 고정 구성) + 그 Player가 산 해금 노드의 Skill.
+        // 획득 상태는 PlayerState의 산 노드 ID이고, Skill 목록은 전투마다 거기서 다시 조립한다(Skill 목록을 저장하지 않는다).
+        // Skill 순서는 시작 구성, 그 뒤 해금 Skill(콘텐츠의 노드 순서)이다. Step 안에서 이 순서로 실행된다.
+        private static void GiveSkills(
             Player player,
             IReadOnlyList<PassiveSkillDefinition> startingSkills,
             UpgradeModifiers modifiers)
         {
             foreach (PassiveSkillDefinition definition in startingSkills)
+            {
+                player.AddSkill(PassiveSkills.Create(definition, player, modifiers));
+            }
+
+            foreach (PassiveSkillDefinition definition in modifiers.UnlockedSkills())
             {
                 player.AddSkill(PassiveSkills.Create(definition, player, modifiers));
             }

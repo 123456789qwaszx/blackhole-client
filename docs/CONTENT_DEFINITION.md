@@ -234,9 +234,9 @@ CA-003은 중심 판정을 그대로 두었다. Enemy 크기를 더할지는 [�
 |---|---|---|---:|---|---|---|---|
 | breaker-damage | 기본 공격 강화 | 없음 | 10 | 피해 +2 | Skill `sample-aura` | 전투 조립 | 있음 |
 | breaker-radius | 공격 범위 확장 | breaker-damage | 15 | 반경 +0.3 | Skill `sample-aura` | 전투 조립 | 있음 |
-| laser-unlock | 관통 레이저 | breaker-damage | 30 | 해금 | Skill `sample-laser` | 전투 조립 | 코드 |
+| laser-unlock | 관통 레이저 | breaker-damage | 30 | 해금 | Skill `sample-laser` | 전투 조립 | 있음 (CA-004) |
 | growth-supply | 성장 공급 강화 | breaker-radius | 25 | Milestone 공급 수 +2 | Enemy `sample-light` | 공급 요청 | 있음 |
-| laser-width | 레이저 굵기 | laser-unlock | 20 | 폭 +0.2 | Skill `sample-laser` | 전투 조립 | 코드 |
+| laser-width | 레이저 굵기 | laser-unlock | 20 | 폭 +0.2 | Skill `sample-laser` | 전투 조립 | 있음 (CA-004) |
 
 - 앞의 네 개가 Skill 강화 / Skill 전용 수치 / Skill 해금 / Skill과 무관한 노드를 하나씩 보여 준다.
 - `laser-width`는 확인용으로 더했다. 해금한 뒤에만 의미가 있는 강화이고, Breaker에 없는 수치를 바꾼다(6절 P1·P9).
@@ -248,6 +248,13 @@ CA-003은 중심 판정을 그대로 두었다. Enemy 크기를 더할지는 [�
 - 시작 구성에 이미 있는 Skill을 해금하는 노드는 콘텐츠 오류다.
 - 해금 전 Skill을 대상으로 하는 강화 노드는, 선행을 따라가면 그 Skill의 해금 노드에 닿아야 한다. 닿지 않으면 콘텐츠 오류다. 산 강화가 효과 없이 남는 일을 막는다.
 - 획득 상태는 PlayerState의 구매 기록이다. Skill 실행은 구매 여부를 모른다(CONTENT_AUTHORING_PLAN 4절).
+
+**CA-004 반영.** 위 규칙을 그대로 구현했고, 두 가지를 더했다.
+
+- 해금은 값이 없는 효과 `SkillUnlock`이다. 값을 적으면 콘텐츠 오류다.
+- [임시] 한 Skill의 해금 노드는 하나다. 여러 경로로 여는 해금은 아직 없다.
+
+PlayerState에는 Skill 목록을 저장하지 않는다. 산 노드 ID가 진행 상태이고, 전투 조립이 `시작 구성 + 산 해금 노드의 Skill`로 Skill 목록을 매번 다시 만든다. 레이저 강화는 `LaserDamageAdd`, `LaserIntervalMultiply`, `LaserWidthAdd` 셋이다. 6절 P1의 첫 방향(수치마다 효과 종류)을 택했고, Breaker 효과(`Skill…`)와 이름을 합치지 않았다.
 
 ### 3.4 구매 흐름
 
@@ -263,6 +270,8 @@ UI: 결과(구매됨 / 잠김 / Gold 부족 / 이미 보유)로 표시를 갱신
 ```
 
 실패하면 Gold와 구매 기록을 바꾸지 않고, 기록은 ID로 남는다(현재 구현). 다만 현재 구매 화면은 NodeId가 아니라 노드 정의 객체를 넘긴다(`Hud.cs`의 `ShopRequest` → `SessionLauncher.Purchase`). CA-004의 "UI는 NodeId와 구매 결과만으로 동작" 조건에서 바꿀 자리이며, CA-002에서는 고치지 않는다.
+
+**CA-004 반영.** `ShopRequest`는 `NodeId`만 담는다. 구매는 `UpgradePurchase.TryPurchase(state, content, nodeId)`가 노드를 찾고 조건을 본다. 콘텐츠에 없는 ID는 `UnknownNode`이며 Gold와 기록을 바꾸지 않는다.
 
 ### 3.5 F01 착수 전 결정 항목의 상태
 
@@ -444,7 +453,7 @@ P1을 푸는 두 방향 (선택은 CA-003·CA-004에서):
 | 수치마다 효과 종류 (현재) | Kind `SkillWidthAdd`, Target `laser` | 지금 코드를 그대로 쓴다 | Skill마다 효과 종류가 는다. 대상 Skill에 그 수치가 있는지 따로 검사해야 한다 |
 | 효과 종류 + 수치 이름 | Kind `SkillStat`, Target `laser`, Stat `Width`, Op `Add` | 도구가 대상 Skill의 수치 목록을 보여 줄 수 있다 | Skill 종류마다 수치 이름 목록이 필요하다 |
 
-Skill이 두 개인 지금은 첫 방향으로도 충분하다. CA-003의 "미래 Skill을 예상한 수십 개의 enum 금지"와 두 방향 모두 충돌하지 않는다.
+Skill이 두 개인 지금은 첫 방향으로도 충분하다. CA-003의 "미래 Skill을 예상한 수십 개의 enum 금지"와 두 방향 모두 충돌하지 않는다. CA-004는 첫 방향을 택해 레이저 효과 셋(`LaserDamageAdd`, `LaserIntervalMultiply`, `LaserWidthAdd`)을 더했다.
 
 예상 불편이 CONTENT_AUTHORING_PLAN 8절의 어느 단계에 해당하는지만 적어 둔다. 첫 Editor 기능은 CA-006에서 실제 비용으로 고른다.
 
@@ -466,7 +475,7 @@ Skill이 두 개인 지금은 첫 방향으로도 충분하다. CA-003의 "미�
 | 원작 레이저와 레이저 별의 관계 | 원작 확인 | 2.3 |
 | 치명타 | 원작 확인 후 기획 | 2.2 |
 | 같은 수치에 더하기·곱하기가 섞일 때의 순서 | F01 | 3.5 |
-| P1의 방향 | CA-003·CA-004 | 6절 |
+| P1의 방향 (CA-004에서 수치마다 효과 종류로 정함. Skill이 늘어 실제 반복이 생기면 다시 본다) | 결정됨 | 6절 |
 | 재생 정책의 값 | CA-005, 리소스 연결 시 | 5.3 |
 
 ## 8. 다음 티켓과의 연결

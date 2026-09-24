@@ -70,6 +70,85 @@ namespace BlackHole.Core
             }
         }
 
+        // Skill 해금의 규칙(CONTENT_DEFINITION 3.3). 노드 사이의 규칙(선행 실재, 순환 없음)이 통과한 뒤에 본다.
+        // - 시작 구성에 있는 Skill은 해금하지 않는다.
+        // - 한 Skill의 해금 노드는 하나다([임시]: 여러 경로로 여는 해금은 아직 없다).
+        // - 시작 구성에 없는 Skill을 바꾸는 효과는, 그 노드에서 선행을 따라가면(자기 자신 포함) 그 Skill의 해금 노드에 닿아야 한다.
+        //   닿지 않으면 사도 효과가 없는 노드가 된다.
+        public static void CollectSkillUnlocks(
+            IReadOnlyList<UpgradeNodeDefinition> upgrades,
+            IReadOnlyList<string> startingSkills,
+            ICollection<ContentDiagnostic> into)
+        {
+            var starting = new HashSet<string>(startingSkills, StringComparer.Ordinal);
+            var unlockNodeBySkill = new Dictionary<string, string>(StringComparer.Ordinal);
+            var byId = new Dictionary<string, UpgradeNodeDefinition>(StringComparer.Ordinal);
+
+            foreach (UpgradeNodeDefinition node in upgrades)
+                byId[node.Id] = node;
+
+            foreach (UpgradeNodeDefinition node in upgrades)
+            {
+                for (int j = 0; j < node.Effects.Count; j++)
+                {
+                    UpgradeEffect effect = node.Effects[j];
+
+                    if (effect.Kind != UpgradeEffectKind.SkillUnlock)
+                        continue;
+
+                    string at = $"Upgrades[{node.Id}].Effects[{j}]";
+                    string skill = effect.Skill.Id;
+
+                    if (starting.Contains(skill))
+                        into.Add(new ContentDiagnostic(at, $"시작 구성에 있는 Skill '{skill}'는 해금하지 않는다."));
+                    else if (unlockNodeBySkill.TryGetValue(skill, out string other))
+                        into.Add(new ContentDiagnostic(at, $"Skill '{skill}'의 해금 노드가 '{other}'와 둘이다."));
+                    else
+                        unlockNodeBySkill.Add(skill, node.Id);
+                }
+            }
+
+            foreach (UpgradeNodeDefinition node in upgrades)
+            {
+                for (int j = 0; j < node.Effects.Count; j++)
+                {
+                    UpgradeEffect effect = node.Effects[j];
+
+                    if (!UpgradeEffect.TargetsSkill(effect.Kind)
+                        || effect.Kind == UpgradeEffectKind.SkillUnlock
+                        || starting.Contains(effect.Skill.Id))
+                        continue;
+
+                    string skill = effect.Skill.Id;
+
+                    if (!unlockNodeBySkill.TryGetValue(skill, out string unlock) || !ChainContains(node, unlock, byId))
+                        into.Add(new ContentDiagnostic(
+                            $"Upgrades[{node.Id}].Effects[{j}]",
+                            $"시작 구성에 없는 Skill '{skill}'를 바꾼다. 선행을 따라가면 이 Skill의 해금 노드에 닿아야 한다."));
+                }
+            }
+        }
+
+        // node에서 선행을 따라가며(자기 자신 포함) targetId 노드를 만나는가. 순환이 없음은 먼저 확인됐다.
+        private static bool ChainContains(
+            UpgradeNodeDefinition node,
+            string targetId,
+            Dictionary<string, UpgradeNodeDefinition> byId)
+        {
+            UpgradeNodeDefinition current = node;
+
+            for (int steps = 0; steps <= byId.Count; steps++)
+            {
+                if (current.Id == targetId)
+                    return true;
+
+                if (current.Requires == null || !byId.TryGetValue(current.Requires, out current))
+                    return false;
+            }
+
+            return false;
+        }
+
         private static bool ReachesRoot(UpgradeNodeDefinition node, Dictionary<string, UpgradeNodeDefinition> byId)
         {
             UpgradeNodeDefinition current = node;

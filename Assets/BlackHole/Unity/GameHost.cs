@@ -115,7 +115,7 @@ namespace BlackHole.Unity
             switch (request.Kind)
             {
                 case ShopRequestKind.Purchase:
-                    _launcher.Purchase(request.State, request.Node);
+                    _launcher.Purchase(request.State, request.NodeId);
                     break;
 
                 case ShopRequestKind.NextBattle:

@@ -69,8 +69,9 @@ namespace BlackHole.Unity
             InShop = true;
         }
 
-        public PurchaseResult Purchase(PlayerState state, UpgradeNodeDefinition node) =>
-            UpgradePurchase.TryPurchase(state, node);
+        // 구매는 노드 ID로 요청한다. 정의 조회·조건 검사·기록은 UpgradePurchase가 한다.
+        public PurchaseResult Purchase(PlayerState state, string nodeId) =>
+            UpgradePurchase.TryPurchase(state, _content, nodeId);
 
         // 교체 순서: 화면 정리 → 새 전투 조립 → 첫 화면 동기화.
         // 전투마다 seed를 새로 정한다. 같은 전투를 재현할 방법(seed 기록·지정)은 아직 없다.

@@ -9,6 +9,7 @@ namespace BlackHole.Core
     // [1] Enemy·Skill ID가 유일하다.
     // [2] 시작 Skill ID가 실재하고 중복되지 않는다.
     // [3] 업그레이드 노드 ID가 유일하고, 선행 노드가 실재하며, 선행을 따라가면 시작 노드에 닿는다.
+    // [4] 해금 노드는 시작 구성에 없는 Skill을 Skill마다 하나씩 연다. 시작 구성에 없는 Skill을 바꾸는 노드는 선행을 따라가면 그 해금 노드에 닿는다.
     // 전투 시작 배치와 성장 노드는 Enemy를 정의 객체로 참조한다(ContentLoader가 ID를 해석하며 진단한다).
     // 오류가 있는 콘텐츠의 경로별 보고는 ContentLoader가 맡는다.
     public sealed class GameContent
@@ -54,6 +55,9 @@ namespace BlackHole.Core
             var diagnostics = new List<ContentDiagnostic>();
             ContentInvariants.Collect(Enemies, Skills, starting, diagnostics, out _enemiesById, out _skillsById);
             ContentInvariants.CollectUpgrades(Upgrades, diagnostics, out _upgradesById);
+
+            if (diagnostics.Count == 0)
+                ContentInvariants.CollectSkillUnlocks(Upgrades, starting, diagnostics);
 
             if (diagnostics.Count > 0)
                 throw new ArgumentException(diagnostics[0].ToString());

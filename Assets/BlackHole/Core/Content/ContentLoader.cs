@@ -55,6 +55,12 @@ namespace BlackHole.Core
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
+            // 해금 규칙은 선행 사슬이 올바를 때 본다.
+            ContentInvariants.CollectSkillUnlocks(upgrades, startingSkills, diagnostics);
+
+            if (diagnostics.Count > 0)
+                return Fail(diagnostics);
+
             var content = new GameContent(
                 timeLimit,
                 hq,

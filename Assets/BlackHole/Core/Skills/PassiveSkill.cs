@@ -21,17 +21,17 @@ namespace BlackHole.Core
     }
 
     // Skill 정의 → 실행 상태. 종류마다 한 갈래다(EnemyBehaviors.Standard와 같은 자리).
+    // 실행 수치는 여기서 한 번 계산한다: 기본 수치 + 소유 Player가 산, 이 Skill을 대상으로 한 보정.
     internal static class PassiveSkills
     {
-        public static PassiveSkill Create(PassiveSkillDefinition definition, Player owner, IBreakerStatModifier modifier)
+        public static PassiveSkill Create(PassiveSkillDefinition definition, Player owner, UpgradeModifiers modifiers)
         {
             switch (definition)
             {
                 case BreakerSkillDefinition breaker:
-                    return new BreakerSkill(breaker, BreakerStatCalculator.Compute(breaker, new[] { modifier }), owner);
+                    return new BreakerSkill(breaker, BreakerStatCalculator.Compute(breaker, new IBreakerStatModifier[] { modifiers }), owner);
                 case PiercingLaserDefinition laser:
-                    // 레이저 수치를 바꾸는 구매 효과는 아직 없다. 실행 수치 = 기본 수치.
-                    return new PiercingLaserSkill(laser, laser.BaseStats, owner);
+                    return new PiercingLaserSkill(laser, modifiers.Apply(laser, laser.BaseStats), owner);
                 default:
                     throw new ArgumentException(
                         $"실행 규칙이 연결되지 않은 Skill 종류 '{definition?.GetType().Name}'.", nameof(definition));

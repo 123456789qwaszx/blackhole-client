@@ -198,4 +198,34 @@ L2(종류 `Breaker`에 반경 0.2)는 여전히 로드된다. 이제는 종류�
 |---|---|---|---|---|---|
 | AP8 | Skill 종류에 맞는 칸만 채우기 | `SkillData` 칸 8개 중 Breaker는 5개, 레이저는 7개를 읽는다 | Breaker에 `Width`를 적거나 레이저에 `Radius`를 적어도 진단 없이 무시된다 (코드 읽기로 확인) | 플레이로 발견해야 한다 | 종류를 고르면 그 종류의 칸만 보이는 편집 |
 
-AP1 보강 관찰: CA-003 작업 중 Unity Editor가 열린 채로 편집 뒤 재컴파일이 한 번 기록됐다. 여러 파일을 한꺼번에 바꾼 뒤였고, Core·Sample·Tests·Unity 네 어셈블리가 다시 컴파일됐다. `Tundra build success (3.32 seconds)`, `Domain Reload Profiling: 3942ms`. 한 번의 관찰이므로 대표값으로 쓰지 않는다.
+AP1 보강 관찰(CA-003): Unity Editor가 열린 채로 편집 뒤 재컴파일이 한 번 기록됐다. 여러 파일을 한꺼번에 바꾼 뒤였고, Core·Sample·Tests·Unity 네 어셈블리가 다시 컴파일됐다. `Tundra build success (3.32 seconds)`, `Domain Reload Profiling: 3942ms`. 한 번의 관찰이므로 대표값으로 쓰지 않는다.
+
+## 8. CA-004 뒤 재측정
+
+같은 시험 프로그램에 CA-004의 정직한 입력을 더해 다시 돌렸다. 해금은 값 없는 `SkillUnlock`이고, 굵기는 `LaserWidthAdd`에 선행 `laser-unlock`이다. 노드는 ID로 샀다. 2~7절은 그대로 둔다.
+
+| 항목 | CA-003 뒤 | CA-004 뒤 | 근거 |
+|---|---|---|---|
+| laser-unlock | 불가능 | **가능하지만 불편** | U1: 로드된다. `breaker-damage`와 `laser-unlock`을 ID로 사면 다음 전투의 Skill이 `sample-aura`, `laser`(주기 1.5, 피해 5, 굵기 0.4)가 된다. 저작은 여전히 C#이다 |
+| laser-width | 불가능 | **가능하지만 불편** | W1: 로드된다. 세 노드를 사면 다음 전투의 레이저 굵기가 0.4에서 0.6이 된다 |
+| 레이저 예고·발사 표현 | 불가능 | 불가능 (CA-005) | 바뀌지 않았다 |
+| Loader 진단 T1~T10 | — | 같음 | T4의 "가능한 값" 목록에 새 효과 종류 넷이 붙은 것 말고는 같다 |
+
+흉내와 잘못된 입력이 받는 진단:
+
+```text
+U1b  Upgrades[laser-unlock].Effects[0]: SkillUnlock는 값을 받지 않는다. 값을 비워 둬야 한다. (Parameter 'value')
+W1b  Upgrades[laser-width].Effects[0]: 시작 구성에 없는 Skill 'laser'를 바꾼다. 선행을 따라가면 이 Skill의 해금 노드에 닿아야 한다.
+U3   Upgrades[laser-unlock].Effects[0]: SkillDamageAdd는 Breaker 종류의 Skill만 대상으로 한다. 'laser'는 PiercingLaserDefinition이다. (Parameter 'skill')
+W2   Upgrades[laser-width].Effects[0]: SkillRadiusAdd는 Breaker 종류의 Skill만 대상으로 한다. 'laser'는 PiercingLaserDefinition이다. (Parameter 'skill')
+```
+
+U1b는 CA-002의 입력(해금에 값 1)을 그대로 넣은 것이다. W1b는 굵기 노드의 선행을 해금 노드가 아닌 `breaker-damage`로 둔 것이다. U2(시작 구성에 레이저를 넣기)는 여전히 통과한다. 이는 "처음부터 레이저를 가진다"는 올바른 콘텐츠이고, 해금의 흉내로 쓸 이유가 없어졌다.
+
+샘플 트리(`SampleContent`)에는 해금·레이저 강화 노드를 넣지 않았다. 레이저 표현이 없어, 사면 보이지 않는 공격이 생기기 때문이다. 표현이 생기는 CA-005에서 넣는다.
+
+### 추가된 불편
+
+| # | 작업 | 반복 횟수 | 실수 가능성 | 확인 비용 | 자동화하면 줄어드는 비용 |
+|---|---|---|---|---|---|
+| AP9 | 값이 없는 효과(해금) 쓰기 | 해금 노드마다 | `UpgradeEffectData.Value`가 float라 "값 없음"을 0으로 적는다. 샘플의 도우미 `Effect(kind, value, target)`도 값을 요구해 0을 직접 적게 된다. 1을 적으면 Loader가 잡는다 | Loader가 경로와 함께 보고한다 | 종류를 고르면 값 칸이 사라지는 편집 |

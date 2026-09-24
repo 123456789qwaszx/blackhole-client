@@ -8,21 +8,21 @@ namespace BlackHole.Unity
 
     internal enum ShopRequestKind { None, Purchase, NextBattle, NewRun }
 
-    // 구매 화면의 요청. 구매일 때만 State와 Node가 있다.
+    // 구매 화면의 요청. 구매일 때만 State와 NodeId가 있다. 노드 정의는 넘기지 않는다 — 게임이 ID로 찾는다.
     internal readonly struct ShopRequest
     {
         public ShopRequestKind Kind { get; }
         public PlayerState State { get; }
-        public UpgradeNodeDefinition Node { get; }
+        public string NodeId { get; }
 
         public ShopRequest(
             ShopRequestKind kind,
             PlayerState state = null,
-            UpgradeNodeDefinition node = null)
+            string nodeId = null)
         {
             Kind = kind;
             State = state;
-            Node = node;
+            NodeId = nodeId;
         }
     }
 
@@ -85,7 +85,7 @@ namespace BlackHole.Unity
                     GUI.enabled = check == PurchaseResult.Purchased;
 
                     if (GUILayout.Button(ButtonText(check, node), GUILayout.Width(110)))
-                        request = new ShopRequest(ShopRequestKind.Purchase, state, node);
+                        request = new ShopRequest(ShopRequestKind.Purchase, state, node.Id);
 
                     GUI.enabled = true;
                     GUILayout.EndHorizontal();
@@ -133,6 +133,10 @@ namespace BlackHole.Unity
                     case UpgradeEffectKind.GoldMultiply: parts.Add($"gold x{effect.Value} ({target})"); break;
                     case UpgradeEffectKind.HqExpMultiply: parts.Add($"HQ EXP x{effect.Value} ({target})"); break;
                     case UpgradeEffectKind.GrowthSupplyAdd: parts.Add($"growth supply +{effect.Value} ({target})"); break;
+                    case UpgradeEffectKind.SkillUnlock: parts.Add($"unlock {target}"); break;
+                    case UpgradeEffectKind.LaserDamageAdd: parts.Add($"damage +{effect.Value} ({target})"); break;
+                    case UpgradeEffectKind.LaserIntervalMultiply: parts.Add($"interval x{effect.Value} ({target})"); break;
+                    case UpgradeEffectKind.LaserWidthAdd: parts.Add($"width +{effect.Value} ({target})"); break;
                     default: parts.Add(effect.Kind.ToString()); break;
                 }
             }

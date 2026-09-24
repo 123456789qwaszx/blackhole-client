@@ -79,6 +79,48 @@ namespace BlackHole.Core
             return current;
         }
 
+        // 관통 레이저 실행 수치(전투 조립 때).
+        public PiercingLaserStats Apply(PiercingLaserDefinition definition, PiercingLaserStats current)
+        {
+            foreach (UpgradeEffect effect in _effects)
+            {
+                if (effect.Skill != definition)
+                    continue;
+
+                switch (effect.Kind)
+                {
+                    case UpgradeEffectKind.LaserDamageAdd:
+                        current = new PiercingLaserStats(current.Interval, current.Damage + effect.Value, current.Width, current.TelegraphDuration);
+                        break;
+
+                    case UpgradeEffectKind.LaserIntervalMultiply:
+                        current = new PiercingLaserStats(current.Interval * effect.Value, current.Damage, current.Width, current.TelegraphDuration);
+                        break;
+
+                    case UpgradeEffectKind.LaserWidthAdd:
+                        current = new PiercingLaserStats(current.Interval, current.Damage, current.Width + effect.Value, current.TelegraphDuration);
+                        break;
+                }
+            }
+
+            return current;
+        }
+
+        // 산 해금 노드가 주는 Skill(콘텐츠의 노드 순서). 전투 조립 때 시작 구성 뒤에 붙는다.
+        // 한 Skill의 해금 노드는 하나이고 시작 구성과 겹치지 않는다(ContentInvariants).
+        public IReadOnlyList<PassiveSkillDefinition> UnlockedSkills()
+        {
+            var skills = new List<PassiveSkillDefinition>();
+
+            foreach (UpgradeEffect effect in _effects)
+            {
+                if (effect.Kind == UpgradeEffectKind.SkillUnlock)
+                    skills.Add(effect.Skill);
+            }
+
+            return skills;
+        }
+
         // 적 실행 수치(출현 때).
         public EnemyStats Apply(EnemyDefinition definition, EnemyStats current)
         {
