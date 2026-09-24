@@ -61,7 +61,8 @@ namespace BlackHole.Core.Tests
             game.Advance(1.08f);
             game.World.TryGetPlayer(TestContent.First, out Player player);
             Expect.Equal(2, game.World.Deaths.Count);
-            Expect.True(game.World.Deaths[1].Sequence > game.World.Deaths[0].Sequence);
+            Expect.True(game.World.Deaths[1].Sequence > game.World.Deaths[0].Sequence,
+                "사망 기록의 순번은 증가해야 한다.");
             Expect.Equal(14, player.State.Gold);
             Expect.Equal(22, game.World.Hq.Exp);
 
@@ -89,7 +90,7 @@ namespace BlackHole.Core.Tests
             ContentData data = Arena();
             data.Enemies[0].Gold = -1;
             ContentLoadResult result = ContentLoader.Load(data);
-            Expect.True(!result.Succeeded);
+            Expect.True(!result.Succeeded, "음수 보상은 콘텐츠 오류여야 한다.");
             TestContent.HasDiagnostic(result, "Enemies[test-enemy]", "gold");
             data.Enemies[0].Gold = 1;
             data.Enemies[0].HqExp = -1;
