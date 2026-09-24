@@ -9,8 +9,10 @@ namespace BlackHole.Core.Tests
         public static readonly PlayerId First = new PlayerId(1);
         public static readonly PlayerId Second = new PlayerId(2);
         public const string EnemyId = "test-enemy";
+        public const string SkillId = "test-skill";
 
         // 기본: Enemy 1종(HP 10, 속도 1, 크기 0.3, 반시계 공전), 1초마다 HQ에서 거리 3에 출현, 최대 10.
+        // 시작 Skill 1개(조준점 기준, 반경 1, 0.5초마다, 피해 1). 조준점을 넣지 않으면 아무도 맞지 않는다.
         public static ContentData Data(float timeLimit = 60, float hqX = 0, float hqY = 0) => new ContentData
         {
             Session = new SessionData { TimeLimit = timeLimit },
@@ -20,8 +22,28 @@ namespace BlackHole.Core.Tests
             {
                 Interval = 1, MaxAlive = 10, Distance = 3, AngleStep = 1,
                 Order = new List<string> { EnemyId }
-            }
+            },
+            Skills = new List<SkillData> { Skill(SkillId, radius: 1, interval: 0.5f, damage: 1) },
+            StartingSkills = new List<string> { SkillId }
         };
+
+        // Skill 계약용: 거의 움직이지 않는 Enemy(HP 100)가 0.1초 간격으로 HQ(0, 0)에서 거리 3에 나온다.
+        // 각도 간격이 π라 첫째는 (3, 0), 둘째는 (-3, 0)이다.
+        public static ContentData SkillArena(int enemies, float radius, float interval, float damage)
+        {
+            ContentData data = Data();
+            data.Enemies = new List<EnemyData> { Enemy(EnemyId, 100, 0.0001f, 0.3f) };
+            data.Spawn = new SpawnData
+            {
+                Interval = 0.1f, MaxAlive = enemies, Distance = 3, AngleStep = (float)System.Math.PI,
+                Order = new List<string> { EnemyId }
+            };
+            data.Skills = new List<SkillData> { Skill(SkillId, radius, interval, damage) };
+            return data;
+        }
+
+        public static SkillData Skill(string id, float radius, float interval, float damage) =>
+            new SkillData { Id = id, Origin = "OwnerAimPoint", Radius = radius, Interval = interval, Damage = damage };
 
         public static EnemyData Enemy(string id, float health, float speed, float size, bool clockwise = false) =>
             new EnemyData

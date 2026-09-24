@@ -23,12 +23,15 @@ namespace BlackHole.Core
             HqDefinition hq = LoadHq(data.Hq, diagnostics);
             List<EnemyDefinition> enemies = LoadEnemies(data.Enemies, diagnostics);
             SpawnDefinition spawn = LoadSpawn(data.Spawn, diagnostics);
+            List<PassiveSkillDefinition> skills = LoadSkills(data.Skills, diagnostics);
+            IReadOnlyList<string> startingSkills = (IReadOnlyList<string>)data.StartingSkills ?? Array.Empty<string>();
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            ContentInvariants.Collect(enemies, spawn, diagnostics, out _);
+            ContentInvariants.Collect(enemies, spawn, skills, startingSkills, diagnostics, out _, out _);
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            return new ContentLoadResult(new GameContent(timeLimit, hq, enemies, spawn), diagnostics);
+            var content = new GameContent(timeLimit, hq, enemies, spawn, skills, startingSkills);
+            return new ContentLoadResult(content, diagnostics);
         }
 
         // ── 판 설정 ─────────────────────────────────────────────────────────
@@ -94,6 +97,46 @@ namespace BlackHole.Core
             if (item == null) return Missing<SpawnDefinition>("Spawn", into);
             return Guard("Spawn", into, () =>
                 new SpawnDefinition(item.Interval, item.MaxAlive, item.Distance, item.AngleStep, item.Order));
+        }
+
+        // ── Passive Skill ───────────────────────────────────────────────────
+
+        private static List<PassiveSkillDefinition> LoadSkills(List<SkillData> items, List<ContentDiagnostic> into)
+        {
+            var skills = new List<PassiveSkillDefinition>();
+            if (items == null) return skills;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                SkillData item = items[i];
+                string at = At("Skills", i, item?.Id);
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "Skill 데이터가 null이다."));
+                    continue;
+                }
+
+                int errors = into.Count;
+                SkillOrigin? origin = ParseOrigin(item.Origin, at + ".Origin", into);
+                PassiveSkillStats? stats = GuardValue(at, into, () => new PassiveSkillStats(item.Radius, item.Interval, item.Damage));
+                if (into.Count > errors) continue;
+
+                PassiveSkillDefinition skill = Guard(at, into, () => new PassiveSkillDefinition(item.Id, origin.Value, stats.Value));
+                if (skill != null) skills.Add(skill);
+            }
+            return skills;
+        }
+
+        // Enum.TryParse는 숫자 문자열도 통과시킨다. 명시 목록이면 가능한 값을 진단에 그대로 싣는다.
+        private static SkillOrigin? ParseOrigin(string name, string at, List<ContentDiagnostic> into)
+        {
+            switch (name)
+            {
+                case "OwnerAimPoint": return SkillOrigin.OwnerAimPoint;
+                default:
+                    into.Add(new ContentDiagnostic(at, $"알 수 없는 기준점 종류 '{name}'. 가능한 값: OwnerAimPoint."));
+                    return null;
+            }
         }
 
         // ── 공통 ────────────────────────────────────────────────────────────

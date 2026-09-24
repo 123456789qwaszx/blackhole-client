@@ -1,6 +1,6 @@
 # M3 — 첫 Passive Skill
 
-상태: 진행 중 · 선행: M2
+상태: 완료 · 선행: M2
 
 ## 목표
 
@@ -91,4 +91,64 @@ Host/Input(마우스 위치) → Player 1의 AimPoint → Passive Skill
 
 ## 결과
 
-(완료 후 작성)
+완료: 2026-09-24
+
+**한 일**
+
+- `Skills/`
+  - PassiveSkillDefinition(Id, 기준점 종류 `SkillOrigin`, 기본 수치). `SkillOrigin`의 값은 `OwnerAimPoint` 하나다.
+  - PassiveSkillStats(반경, 주기, 피해량), PassiveSkillStatCalculator와 IPassiveSkillModifier. 실행 수치 = 기본 + 보정이며, M2 Enemy와 같은 방식이다.
+  - PassiveSkill(실행 상태)
+    - 연속 타이머. 첫 틱은 0초이고, 긴 단계에서는 지나간 틱을 모두 처리한다.
+    - `TryGetOrigin`(기준점을 찾는 유일한 자리). `IsInside`(원 안 판정의 유일한 자리).
+    - `TickCount`(읽기 전용).
+- `Combat/Damage.cs`: 피해량과 출처 Player. 출처는 기록일 뿐이다.
+- Enemy: `ApplyDamage`는 HP를 줄이고 0 아래로는 내려가지 않는다. `LastDamageSource`는 기록만 한다.
+- Player와 GameSession
+  - Player: `AimPoint`(`Point2?`)와 `Skills`.
+  - `GameSession.SetAimPoint(PlayerId, Point2?)`: 참가하지 않은 Player면 거부(false)한다.
+- World: 단계 순서는 이동 → Skill(Player 순서, Skill 순서) → 출현.
+- Content
+  - Skill 정의와 시작 Skill 목록, 그리고 로더 섹션.
+  - ContentInvariants: Enemy와 Skill의 ID 유일성을 같은 코드(`Index<T>`)로 검사한다. 시작 Skill의 실재·중복도 검사한다.
+- SessionAssembler: 시작 Skill을 모든 Player에게 같은 구성으로 준다. 획득 구조가 아니다.
+- Sample: `sample-aura`(반경 1.2, 0.5초, 피해 3)를 시작 Skill로 둔다.
+- Unity
+  - HostInput: 마우스를 규칙 좌표 `Aim`으로 바꾼다. 장치가 없거나 화면 밖이면 null이다.
+  - GameHost: `MouseAimPlayer = LocalPlayers[0]`로 배선한다. 프레임 순서는 입력 → 재시작 → 일시정지 → AimPoint → 진행 → 화면이다.
+  - SceneSpace: 규칙 좌표와 장면 좌표를 오가는 변환의 유일한 자리. 화면과 입력이 같이 쓴다.
+  - WorldView
+    - 범위 원: 기준점은 `TryGetOrigin`, 크기는 `Stats.Radius`에서 온다. 틱마다 안쪽이 번쩍인다.
+    - Enemy: 남은 HP 비율로 색이 바뀌고, 맞으면 잠깐 번쩍인다.
+  - HUD: Player별 조준점과 틱 수.
+- 계약 9개 추가(Skill 8, Content 1). 합계 31개.
+
+**검증**
+
+- CoreSmoke 31개 통과.
+- 변이 검사: 아래를 하나씩 깨뜨리면 해당 계약이 실패한다. 코드는 복원했다.
+  - 첫 틱을 0초에서 주기 뒤로 옮김
+  - 빈 틱을 보류함
+  - 범위와 상관없이 전원을 맞힘
+  - 피해 출처를 Player 1로 고정함
+- Unity와 같은 경계로 나눈 컴파일: 경고 0, 오류 0.
+- Core에 "Mouse"가 나오지 않는다. 마우스는 Unity 호스트의 HostInput과 GameHost 배선에만 있다.
+- 사용자 플레이 확인
+  - Unity 재컴파일 시 오류 0건, EditMode 31개
+  - 원이 마우스를 따라감, 원의 크기, 빈 틱 표시, 피격 표시
+  - HP 0인 Enemy가 남음(M4 전 임시 상태)
+  - 화면 밖 조준, 일시정지, 재시작
+
+**발견**
+
+- 첫 틱 0초는 피해로 관찰할 수 없다. 판 시작 때는 Enemy가 없기 때문이다. 그래서 틱 수(`TickCount`)를 읽기 전용으로 열었다. 계약은 이 값으로 첫 틱을 확인하고, 화면은 이 값으로 빈 틱까지 표시한다.
+- 실행 중인 Skill이 보정된 수치를 쓰는지는 판을 거쳐 확인할 수 없다. 판에 보정의 출처가 없기 때문이다(미정). 계산기 단위로 확인했다. M2 Enemy와 같은 한계이며, 보정을 실제로 연결하는 실험은 M5에서 한다.
+- 단계 안에서 출현이 Skill 뒤에 있다. 그래서 막 나온 Enemy는 다음 단계부터 맞는다. 단계는 1/30초 이하라 체감되지 않지만, M4에서 Death 판정을 단계 어디에 둘지 정할 때 같은 순서 문제가 생긴다.
+- 같은 단계에서 여러 Skill이 차례로 피해를 준다. 앞 Skill이 HP를 0으로 만든 Enemy도 뒤 Skill이 또 때릴 수 있다. M3에서는 HP만 기록하므로 문제가 없고, M4의 "Death와 보상은 한 번"과 함께 정한다.
+- 원 크기(표시)와 판정은 같은 반경을 쓴다. 다만 판정은 Enemy 중심 기준이라 원 가장자리에 걸친 큰 Enemy는 맞지 않을 수 있다. 크기 포함 판정으로 바꾸면 `IsInside` 한 곳만 바뀐다.
+
+**계획과 달라진 점**
+
+- `PassiveSkill.TickCount`와 `SceneSpace`를 추가했다. 둘 다 새 규칙이 아니다. 앞의 것은 관찰용이고, 뒤의 것은 변환을 한 곳에 모은 것이다.
+- 일시정지 중에도 조준점은 갱신된다(원이 마우스를 따라감). 게임 진행이 멈춰 있어 규칙 효과는 없다.
+- 새 [임시] 규칙: "원 안" = Enemy 중심 기준. 조준점이 없으면 그 틱은 빈 틱. PLAN 5절 표에 반영했다.

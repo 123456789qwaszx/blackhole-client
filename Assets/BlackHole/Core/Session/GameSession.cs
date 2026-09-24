@@ -46,6 +46,15 @@ namespace BlackHole.Core
                 End(reason);
         }
 
+        // 호스트가 Player의 조준점을 넣는다(매 프레임, 진행 전). 누가 채우는지는 Core가 모른다.
+        // 조준점은 입력 상태일 뿐 게임 상태를 바꾸지 않으므로 일시정지·종료 중에도 받는다.
+        public bool SetAimPoint(PlayerId player, Point2? aimPoint)
+        {
+            if (!World.TryGetPlayer(player, out Player target)) return false;
+            target.SetAimPoint(aimPoint);
+            return true;
+        }
+
         public void TogglePause()
         {
             if (Phase == SessionPhase.Ended) return;

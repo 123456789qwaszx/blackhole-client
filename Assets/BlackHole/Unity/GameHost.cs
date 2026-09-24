@@ -8,12 +8,15 @@ namespace BlackHole.Unity
     // - Awake: 콘텐츠 로드·검증, 화면·입력·HUD·판 시작 흐름 조립. 판은 만들지 않는다.
     // - OnEnable / OnDisable: 판 시작 / 종료. 최초 활성화와 재활성화가 같은 경로를 쓴다.
     //
-    // 한 프레임(Update): 재시작 요청(있으면 새 판을 보이고 그 프레임 끝) → 일시정지 전환 → 진행 → 화면 갱신.
+    // 한 프레임(Update): 입력 읽기 → 재시작 요청(있으면 새 판을 보이고 그 프레임 끝) → 일시정지 전환
+    //   → AimPoint 갱신 → 진행 → 화면 갱신.
     // HUD 버튼 요청은 OnGUI, 곧 그 프레임의 진행 뒤에 적용된다.
     public sealed class GameHost : MonoBehaviour
     {
         // 판에 참가하는 로컬 Player. 지금은 1명이다(Players.Count == 1일 뿐 전역 Player가 아니다).
         private static readonly PlayerId[] LocalPlayers = { new PlayerId(1) };
+        // 마우스 조준이 채우는 AimPoint의 주인. 마우스와 Player를 묶는 것은 이 호스트의 배선이다(Player는 마우스를 모른다).
+        private static readonly PlayerId MouseAimPlayer = LocalPlayers[0];
 
         private WorldView _view;
         private HostInput _input;
@@ -34,7 +37,7 @@ namespace BlackHole.Unity
                 return;
             }
 
-            _input = new HostInput();
+            _input = new HostInput(camera);
             _hud = new Hud();
             _launcher = new SessionLauncher(content, LocalPlayers, _view);
         }
@@ -63,6 +66,7 @@ namespace BlackHole.Unity
 
             GameSession session = _launcher.Current;
             if (_input.TogglePause) session.TogglePause();
+            session.SetAimPoint(MouseAimPlayer, _input.Aim);
 
             session.Advance(Time.deltaTime);
 

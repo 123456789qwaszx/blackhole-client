@@ -30,6 +30,8 @@ namespace BlackHole.Core
         public EnemyStats Stats { get; }
         public float Health { get; private set; }
         public Point2 Position { get; private set; }
+        // 마지막으로 피해를 준 Player. 기록일 뿐이며 보상 귀속 규칙으로 쓰지 않는다(귀속 정책은 미정).
+        public PlayerId? LastDamageSource { get; private set; }
 
         internal Enemy(EnemyId id, EnemyDefinition definition, EnemyStats stats, Point2 position, IEnemyBehavior behavior)
         {
@@ -44,6 +46,14 @@ namespace BlackHole.Core
         internal void Move(float delta, Point2 hqPosition)
         {
             Position = _behavior.NextPosition(new EnemyBehaviorInput(Position, Stats, hqPosition), delta);
+        }
+
+        // 피해 요청을 받는다. HP의 주인은 Enemy다.
+        // M3에서는 HP만 줄인다. HP 0에서의 Death 전이는 M4에서 연결한다(그때까지 HP 0인 Enemy가 남는 것은 임시 상태).
+        internal void ApplyDamage(Damage damage)
+        {
+            Health = Math.Max(0, Health - damage.Amount);
+            LastDamageSource = damage.Source;
         }
     }
 }

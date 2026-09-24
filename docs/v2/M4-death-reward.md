@@ -29,7 +29,7 @@ Presentation:  DeathRecord 읽기 → 죽은 Enemy의 View를 블랙홀로 빨�
 ## 범위
 
 - Enemy 생명주기: Alive → Dead. Death 확정은 Enemy(상태의 주인)가 판정한다.
-- 보상: Enemy 종류의 보상 Gold/EXP(M2에서 정의만 해 둔 값)를 현재 단일 Player의 PlayerState에 더한다.
+- 보상: Enemy 종류 정의에 보상 Gold/EXP를 이번에 추가하고(M2에서는 쓰이지 않아 미뤘다), 현재 단일 Player의 PlayerState에 더한다.
 - 게임 규칙상 제거: Death 확정 단계에 Enemy 목록에서 뺀다.
 - DeathRecord: 이번 단계에 죽은 Enemy의 식별자, 종류, 사망 위치. 화면이 매 프레임 읽는다. 화면이 읽는 방향(v1 패턴)을 유지하고, 이벤트 구독은 만들지 않는다.
 - 흡수 연출: 사망 위치 → HQ, 일정 시간, 끝나면 View 제거. 연출 값은 표현 정의에만 둔다.
@@ -52,6 +52,11 @@ Presentation:  DeathRecord 읽기 → 죽은 Enemy의 View를 블랙홀로 빨�
 
 - **DeathRecord의 수명**: "이번 단계"의 기록인지 "이번 프레임"의 기록인지 정한다. 한 프레임에 여러 단계가 진행되면(시간 분할) 화면이 중간 단계의 사망을 놓치지 않아야 한다. 후보: 프레임(Advance 한 번) 동안 누적하고, 다음 Advance 시작 때 비운다.
 - **여러 Player 판의 처리**: 위 B1의 "드러내는 방식".
+  - 주의: 2명 판을 만드는 계약이 이미 있다. M1 `World.PlayersAreAListNotASingleton`과 M3 `Skill.AimPointBelongsToPlayer`, `Skill.EachPlayerHasOwnSkills`다. 이 계약들은 보상과 무관한 경계(Player 구별, 조준점 소유)를 본다. "판 조립 시 거부"를 택하면 이 계약들과 충돌한다. 노출 시점을 보상 지급 순간으로 둘지, 계약을 바꿀지 함께 정한다.
+- **단계 안에서 Death 판정의 위치**(M3 재점검에서 추가): 지금 단계 순서는 이동 → Skill(Player 순서, Skill 순서) → 출현이다.
+  - 후보 1: 피해를 받는 즉시 Enemy가 Death를 확정한다.
+  - 후보 2: 모든 Skill이 끝난 뒤 한 번에 확정한다.
+  - 어느 쪽이든 같은 단계의 뒤 Skill이 이미 HP 0인 Enemy를 또 때릴 수 있는지가 함께 정해진다. "Death와 보상은 한 번"과 "Dead Enemy는 피해 대상이 아니다"를 둘 다 만족해야 한다.
 
 ## 작업 순서
 

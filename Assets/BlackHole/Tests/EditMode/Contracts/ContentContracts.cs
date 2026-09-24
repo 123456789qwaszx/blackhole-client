@@ -13,6 +13,29 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsMissingSections", ReportsMissingSections);
             yield return new Contract("Content.ReportsEnemyAndSpawnErrorsWithPath", ReportsEnemyAndSpawnErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
+            yield return new Contract("Content.ReportsSkillErrorsWithPath", ReportsSkillErrorsWithPath);
+        }
+
+        private static void ReportsSkillErrorsWithPath()
+        {
+            ContentData shape = TestContent.Data();
+            shape.Skills[0].Radius = 0;
+            shape.Skills.Add(TestContent.Skill("character-aura", 1, 1, 1));
+            shape.Skills[1].Origin = "CharacterCenter";
+            ContentLoadResult result = ContentLoader.Load(shape);
+            Expect.Equal(2, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Skills[test-skill]", "radius");
+            TestContent.HasDiagnostic(result, "Skills[character-aura].Origin", "CharacterCenter");
+
+            ContentData references = TestContent.Data();
+            references.Skills.Add(TestContent.Skill(TestContent.SkillId, 1, 1, 1));
+            references.StartingSkills.Add("ghost");
+            references.StartingSkills.Add(TestContent.SkillId);
+            result = ContentLoader.Load(references);
+            Expect.Equal(3, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Skills[1]", TestContent.SkillId);
+            TestContent.HasDiagnostic(result, "StartingSkills[1]", "ghost");
+            TestContent.HasDiagnostic(result, "StartingSkills[2]", "중복");
         }
 
         private static void ReportsEnemyAndSpawnErrorsWithPath()

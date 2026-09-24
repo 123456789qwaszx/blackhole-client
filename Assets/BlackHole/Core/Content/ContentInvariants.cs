@@ -11,26 +11,31 @@ namespace BlackHole.Core
         public static void Collect(
             IReadOnlyList<EnemyDefinition> enemies,
             SpawnDefinition spawn,
+            IReadOnlyList<PassiveSkillDefinition> skills,
+            IReadOnlyList<string> startingSkills,
             ICollection<ContentDiagnostic> into,
-            out Dictionary<string, EnemyDefinition> enemiesById)
+            out Dictionary<string, EnemyDefinition> enemiesById,
+            out Dictionary<string, PassiveSkillDefinition> skillsById)
         {
-            enemiesById = IndexEnemies(enemies, into);
+            enemiesById = Index(enemies, "Enemies", "Enemy", e => e.Id, into);
+            skillsById = Index(skills, "Skills", "Skill", s => s.Id, into);
             VerifySpawn(spawn, enemiesById, into);
+            VerifyStartingSkills(startingSkills, skillsById, into);
         }
 
-        private static Dictionary<string, EnemyDefinition> IndexEnemies(
-            IReadOnlyList<EnemyDefinition> enemies, ICollection<ContentDiagnostic> into)
+        private static Dictionary<string, T> Index<T>(IReadOnlyList<T> items, string section, string label,
+            Func<T, string> idOf, ICollection<ContentDiagnostic> into) where T : class
         {
-            var byId = new Dictionary<string, EnemyDefinition>(StringComparer.Ordinal);
-            for (int i = 0; i < enemies.Count; i++)
+            var byId = new Dictionary<string, T>(StringComparer.Ordinal);
+            for (int i = 0; i < items.Count; i++)
             {
-                EnemyDefinition enemy = enemies[i];
-                if (enemy == null)
-                    into.Add(new ContentDiagnostic($"Enemies[{i}]", "Enemy 정의가 null이다."));
-                else if (byId.ContainsKey(enemy.Id))
-                    into.Add(new ContentDiagnostic($"Enemies[{i}]", $"Enemy ID '{enemy.Id}'가 중복됐다."));
+                T item = items[i];
+                if (item == null)
+                    into.Add(new ContentDiagnostic($"{section}[{i}]", $"{label} 정의가 null이다."));
+                else if (byId.ContainsKey(idOf(item)))
+                    into.Add(new ContentDiagnostic($"{section}[{i}]", $"{label} ID '{idOf(item)}'가 중복됐다."));
                 else
-                    byId.Add(enemy.Id, enemy);
+                    byId.Add(idOf(item), item);
             }
             return byId;
         }
@@ -46,6 +51,22 @@ namespace BlackHole.Core
             for (int i = 0; i < spawn.Order.Count; i++)
                 if (!enemiesById.ContainsKey(spawn.Order[i]))
                     into.Add(new ContentDiagnostic($"Spawn.Order[{i}]", $"정의되지 않은 Enemy ID '{spawn.Order[i]}'."));
+        }
+
+        // 시작 Skill은 실재해야 하고, 같은 Skill을 두 번 가질 수 없다.
+        private static void VerifyStartingSkills(IReadOnlyList<string> startingSkills,
+            Dictionary<string, PassiveSkillDefinition> skillsById, ICollection<ContentDiagnostic> into)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < startingSkills.Count; i++)
+            {
+                string id = startingSkills[i];
+                string at = $"StartingSkills[{i}]";
+                if (id == null || !skillsById.ContainsKey(id))
+                    into.Add(new ContentDiagnostic(at, $"정의되지 않은 Skill ID '{id}'."));
+                else if (!seen.Add(id))
+                    into.Add(new ContentDiagnostic(at, $"시작 Skill '{id}'가 중복됐다."));
+            }
         }
     }
 }

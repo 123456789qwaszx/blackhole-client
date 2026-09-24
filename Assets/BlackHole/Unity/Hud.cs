@@ -14,11 +14,13 @@ namespace BlackHole.Unity
         {
             HudRequest request = HudRequest.None;
 
-            GUILayout.BeginArea(new Rect(16, 16, 320, 200), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(16, 16, 340, 240), GUI.skin.box);
             GUILayout.Label("BLACK HOLE / Reference v2");
             GUILayout.Label($"{session.Phase}  |  {session.Remaining:F1}s remaining");
             GUILayout.Label($"Players {session.World.Players.Count}   Enemies {session.World.Enemies.Count}");
-            GUILayout.Label("P: pause/resume   R: restart");
+            foreach (Player player in session.World.Players)
+                GUILayout.Label($"{player.Id}  aim {(player.AimPoint.HasValue ? Format(player.AimPoint.Value) : "none")}  ticks {Ticks(player)}");
+            GUILayout.Label("Mouse: aim   P: pause/resume   R: restart");
             GUILayout.Space(8);
 
             GUI.enabled = session.Phase != SessionPhase.Ended;
@@ -34,6 +36,15 @@ namespace BlackHole.Unity
                 GUILayout.Label($"Result: {session.Result.Reason}, {session.Result.PlayedSeconds:F1}s");
             GUILayout.EndArea();
             return request;
+        }
+
+        private static string Format(Point2 point) => $"({point.X:F1}, {point.Y:F1})";
+
+        private static int Ticks(Player player)
+        {
+            int ticks = 0;
+            foreach (PassiveSkill skill in player.Skills) ticks += skill.TickCount;
+            return ticks;
         }
     }
 }

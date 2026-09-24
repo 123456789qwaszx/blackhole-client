@@ -19,11 +19,23 @@ namespace BlackHole.Core
             if (content == null) throw new ArgumentNullException(nameof(content));
             if (behaviors == null) throw new ArgumentNullException(nameof(behaviors));
             List<Player> players = CreatePlayers(participants);
+            foreach (Player player in players) GiveStartingSkills(player, content.StartingSkills);
 
             var spawner = new EnemySpawner(content.Spawn, content.SpawnOrder, behaviors);
             var world = new World(new Hq(content.Hq), players, spawner);
             var timeLimit = new TimeLimitRule(content.TimeLimit);
             return new GameSession(world, timeLimit);
+        }
+
+        // 모든 Player가 같은 시작 구성을 받는다(Character 1종, 고정 구성). Skill 획득 구조가 아니다.
+        // 실행 수치는 여기서 한 번 계산한다. 보정의 출처가 미정이라 지금은 보정이 없다.
+        private static void GiveStartingSkills(Player player, IReadOnlyList<PassiveSkillDefinition> startingSkills)
+        {
+            foreach (PassiveSkillDefinition definition in startingSkills)
+            {
+                PassiveSkillStats stats = PassiveSkillStatCalculator.Compute(definition, Array.Empty<IPassiveSkillModifier>());
+                player.AddSkill(new PassiveSkill(definition, stats, player));
+            }
         }
 
         private static List<Player> CreatePlayers(IReadOnlyList<PlayerId> participants)

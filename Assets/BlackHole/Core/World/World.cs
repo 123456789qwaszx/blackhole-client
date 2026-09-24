@@ -38,11 +38,19 @@ namespace BlackHole.Core
 
         // 한 단계. 순서가 중요한 처리는 여기에 문장 순서대로 쓴다.
         // 1. 이동: 이미 있는 Enemy가 행동에 따라 움직인다.
-        // 2. 출현: 새 Enemy가 나온다. 이번 단계에 나온 Enemy는 다음 단계부터 움직인다.
+        // 2. Passive Skill: Player 목록 순서, 각 Player의 Skill 순서로 주기를 진행한다. 이동한 위치를 공격한다.
+        // 3. 출현: 새 Enemy가 나온다. 이번 단계에 나온 Enemy는 다음 단계부터 움직이고 맞는다.
         internal void Step(float delta)
         {
             Point2 hq = Hq.Position;
             for (int i = 0; i < _enemies.Count; i++) _enemies[i].Move(delta, hq);
+
+            for (int p = 0; p < _players.Count; p++)
+            {
+                IReadOnlyList<PassiveSkill> skills = _players[p].Skills;
+                for (int s = 0; s < skills.Count; s++) skills[s].Advance(delta, this);
+            }
+
             _spawner.Advance(delta, this);
         }
 

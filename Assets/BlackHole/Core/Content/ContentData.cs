@@ -12,6 +12,9 @@ namespace BlackHole.Core
         public HqData Hq;
         public List<EnemyData> Enemies = new List<EnemyData>();
         public SpawnData Spawn;
+        public List<SkillData> Skills = new List<SkillData>();
+        // 모든 Player가 판 시작 때 가지는 Skill ID(Character 1종, 고정 구성). 획득 구조가 아니다.
+        public List<string> StartingSkills = new List<string>();
     }
 
     [Serializable]
@@ -46,6 +49,17 @@ namespace BlackHole.Core
         public string Kind;
         // OrbitHq
         public bool Clockwise;
+    }
+
+    [Serializable]
+    public sealed class SkillData
+    {
+        public string Id;
+        // 이름 문자열. 가능한 값은 ContentLoader의 해석 목록에 있다.
+        public string Origin;
+        public float Radius;
+        public float Interval;
+        public float Damage;
     }
 
     [Serializable]

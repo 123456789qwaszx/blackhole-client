@@ -10,6 +10,7 @@ namespace BlackHole.Sample
     {
         public const string LightEnemyId = "sample-light";
         public const string HeavyEnemyId = "sample-heavy";
+        public const string AuraSkillId = "sample-aura";
 
         // 호출마다 새 데이터를 만든다. 호출자가 고쳐도 다른 호출에 영향이 없다.
         public static ContentData Create() => new ContentData
@@ -37,7 +38,13 @@ namespace BlackHole.Sample
             {
                 Interval = 1, MaxAlive = 20, Distance = 4.5f, AngleStep = 2.399963f,
                 Order = new List<string> { LightEnemyId, HeavyEnemyId }
-            }
+            },
+            // [임시] 첫 Passive Skill: 소유 Player의 조준점 주변 반경 1.2, 0.5초마다 피해 3.
+            Skills = new List<SkillData>
+            {
+                new SkillData { Id = AuraSkillId, Origin = "OwnerAimPoint", Radius = 1.2f, Interval = 0.5f, Damage = 3 }
+            },
+            StartingSkills = new List<string> { AuraSkillId }
         };
     }
 }

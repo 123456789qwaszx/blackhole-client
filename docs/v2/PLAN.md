@@ -1,6 +1,6 @@
 # Reference v2 — 전체 PLAN
 
-작성일: 2026-09-24 · 상태: M0~M2 완료, M3 진행 중
+작성일: 2026-09-24 · 상태: M0~M3 완료, M4 계획
 
 ## 1. 목적
 
@@ -77,6 +77,8 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../v1/SYSTEM_CATALOG.md)
 | Orbit: HQ로부터 거리 유지(해석), 회전 방향(행동 정의 값). 이동 속도는 Enemy 수치 | 행동이 있어야 한다 | M2 |
 | Runtime Stat 계산 시점(출현 때 1회) | 계산 시점을 정해야 계산할 수 있다 | M2 |
 | 첫 Skill의 반경·공격 주기·피해량 | Skill이 있어야 한다 | M3 |
+| "원 안" 판정: Enemy 중심이 원 안에 있는가(크기 미포함) | 범위 선택에 판정이 있어야 한다 | M3 |
+| 조준점이 없으면(장치 없음, 화면 밖) 그 틱은 아무 일 없이 지나감 | 조준점이 늘 있는 것은 아니다 | M3 |
 | Enemy 종류별 보상 Gold/EXP | 지급할 값이 있어야 한다 | M4 |
 | 흡수 연출의 길이·경로 | 연출이 있어야 한다(Presentation 전용 값) | M4 |
 
@@ -98,7 +100,7 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../v1/SYSTEM_CATALOG.md)
 | M0 | v1 정리와 빈 뼈대 | — | [M0-cleanup.md](M0-cleanup.md) | 완료 |
 | M1 | 월드 뼈대: Session, Content, HQ, Player | B1, B2, B8, B9 | [M1-world.md](M1-world.md) | 완료 |
 | M2 | Enemy: 정의, Runtime Stat, 출현, Orbit 행동 | B2, B3, B4, B9 | [M2-enemy.md](M2-enemy.md) | 완료 |
-| M3 | 첫 Passive Skill(Player 1의 AimPoint 기준) | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 진행 중 |
+| M3 | 첫 Passive Skill(Player 1의 AimPoint 기준) | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 완료 |
 | M4 | Death → Reward와 흡수 연출(사망 기록을 화면이 읽음) | B1, B6, B7 | [M4-death-reward.md](M4-death-reward.md) | 계획 |
 | M5 | 변화 실험과 정리 | 전체 | [M5-review.md](M5-review.md) | 계획 |
 
@@ -152,3 +154,4 @@ docs/
 | 2026-09-24 | M0 | 완료 기준 충족(원격 CI 실행만 push 후 확인). 임의 규칙 없음. 뼈대에 v1 가정 없음(GameHost와 계약 실행 구조뿐) | 없음. M1 계획 그대로 진행 |
 | 2026-09-24 | M1 | 완료 기준 충족. 새 게임 규칙 없음(참가자 검증은 조립 규칙). 원점 가정이 카메라에 남아 있던 것을 발견해 제거. 시간 분할은 M2에서야 관찰 가능 | [임시] 정책 2번을 Sample 어셈블리로 갱신. M2 완료 기준에 "긴 프레임도 단계로 나뉘어 이동" 추가 |
 | 2026-09-24 | M2 | 완료 기준 충족. 새 [임시] 규칙(Orbit 거리 유지, 출현 건너뜀)을 5절 표로 옮김. 보상 필드는 쓰일 때(M4) 추가. 행동 교체 자리는 조립 시 해석기 | M3 확인 질문에 "원 안"의 판정(중심 vs 크기 포함) 추가 |
+| 2026-09-24 | M3 | 완료 기준 충족. 새 [임시] 규칙(원 안 = 중심 기준, 조준점 없음 = 빈 틱)을 5절 표로 옮김. Core에 마우스 개념 없음, 피해 출처는 기록뿐(읽는 곳은 계약뿐). 첫 틱 0초는 피해로 관찰할 수 없어 틱 수를 읽기 전용으로 공개 | M4 "정할 것"에 단계 안 Death 판정 위치(같은 단계의 중복 피해 포함)와, 2명 판을 쓰는 기존 계약과 "정책 없음" 노출 방식의 관계 추가. M4 범위의 보상 필드 문구 정정(M2에서 미룸). GAME_RULES Passive Skill 미정에 판정 기준 추가 |
