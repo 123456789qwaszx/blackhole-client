@@ -22,7 +22,7 @@ namespace BlackHole.Core
             float best = _aimRadius * _aimRadius;
             foreach (TargetState target in targets)
             {
-                if (target.Phase != TargetPhase.Orbiting) continue;
+                if (target.Phase != TargetPhase.Alive) continue;
                 float distance = target.Position.DistanceSquared(aim);
                 if (distance > best || (nearest != null && distance == best)) continue;
                 nearest = target;

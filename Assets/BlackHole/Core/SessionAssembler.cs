@@ -11,7 +11,7 @@ namespace BlackHole.Core
         {
             if (catalog == null) throw new ArgumentNullException(nameof(catalog));
 
-            var world = new TargetWorld();
+            var world = new TargetWorld(catalog.TargetRules);
             var spawn = new SpawnSchedule(catalog.Spawn, catalog.SpawnOrder);
             var loadout = new SkillLoadout(catalog.Skills);
             var growth = new GrowthState(catalog.Growth);

@@ -13,10 +13,12 @@ namespace BlackHole.Core
         public static ContentData CreateContent() => new ContentData
         {
             TimeLimit = 60,
+            TargetRules = new TargetRulesData { AliveMargin = 0.8f, FallSpeed = 4 },
+            // 두 대상은 같은 궤도 규칙의 수치 변형이다.
             Targets = new List<TargetData>
             {
-                new TargetData { Id = "shard", MaxHealth = 12, AngularSpeed = 0.6f, InwardSpeed = 0.25f, Reward = 2 },
-                new TargetData { Id = "heavy", MaxHealth = 30, AngularSpeed = -0.28f, InwardSpeed = 0.13f, Reward = 5 }
+                new TargetData { Id = "shard", MaxHealth = 12, Reward = 2, Movement = Orbit(0.6f, 0.25f) },
+                new TargetData { Id = "heavy", MaxHealth = 30, Reward = 5, Movement = Orbit(-0.28f, 0.13f) }
             },
             Skills = new List<SkillData>
             {
@@ -29,8 +31,12 @@ namespace BlackHole.Core
                 TargetOrder = new List<string> { "shard", "heavy" },
                 Interval = 0.8f,
                 Radius = 5.5f,
+                AngleStep = 2.399963f,
                 Capacity = 32
             }
         };
+
+        private static MovementData Orbit(float angularSpeed, float inwardSpeed) =>
+            new MovementData { Kind = "Orbit", AngularSpeed = angularSpeed, InwardSpeed = inwardSpeed };
     }
 }

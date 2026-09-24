@@ -21,6 +21,7 @@ namespace BlackHole.Core
 
             TimeLimitDefinition timeLimit = Guard("TimeLimit", diagnostics,
                 () => new TimeLimitDefinition(data.TimeLimit));
+            TargetRulesDefinition targetRules = LoadTargetRules(data.TargetRules, diagnostics);
             List<TargetDefinition> targets = LoadTargets(data.Targets, diagnostics);
             List<SkillDefinition> skills = LoadSkills(data.Skills, diagnostics);
             GrowthDefinition growth = LoadGrowth(data.Growth, diagnostics);
@@ -30,11 +31,21 @@ namespace BlackHole.Core
             ContentInvariants.Collect(targets, skills, spawn, diagnostics, out _);
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            var catalog = new ContentCatalog(timeLimit, targets, skills, growth, spawn);
+            var catalog = new ContentCatalog(timeLimit, targetRules, targets, skills, growth, spawn);
             return new ContentLoadResult(catalog, diagnostics);
         }
 
         // ── 대상 ────────────────────────────────────────────────────────────
+
+        private static TargetRulesDefinition LoadTargetRules(TargetRulesData item, List<ContentDiagnostic> into)
+        {
+            if (item == null)
+            {
+                into.Add(new ContentDiagnostic("TargetRules", "대상 공통 규칙 데이터가 없다."));
+                return null;
+            }
+            return Guard("TargetRules", into, () => new TargetRulesDefinition(item.AliveMargin, item.FallSpeed));
+        }
 
         private static List<TargetDefinition> LoadTargets(List<TargetData> items, List<ContentDiagnostic> into)
         {
@@ -51,11 +62,34 @@ namespace BlackHole.Core
                     continue;
                 }
 
+                MovementDefinition movement = LoadMovement(item.Movement, at + ".Movement", into);
+                if (movement == null) continue;
+
                 TargetDefinition target = Guard(at, into, () => new TargetDefinition(
-                    item.Id, item.MaxHealth, item.AngularSpeed, item.InwardSpeed, item.Reward));
+                    item.Id, item.MaxHealth, movement, item.Reward));
                 if (target != null) targets.Add(target);
             }
             return targets;
+        }
+
+        // 종류 이름을 하위 정의로 바꾼다.
+        private static MovementDefinition LoadMovement(MovementData item, string at, List<ContentDiagnostic> into)
+        {
+            if (item == null)
+            {
+                into.Add(new ContentDiagnostic(at, "이동 데이터가 없다."));
+                return null;
+            }
+
+            switch (item.Kind)
+            {
+                case "Orbit":
+                    return Guard(at, into, () => new OrbitMovementDefinition(item.AngularSpeed, item.InwardSpeed));
+                default:
+                    into.Add(new ContentDiagnostic(at + ".Kind",
+                        $"알 수 없는 이동 종류 '{item.Kind}'. 가능한 값: Orbit."));
+                    return null;
+            }
         }
 
         // ── 스킬 ────────────────────────────────────────────────────────────
@@ -120,7 +154,7 @@ namespace BlackHole.Core
                 return null;
             }
             return Guard("Spawn", into, () =>
-                new SpawnDefinition(item.TargetOrder, item.Interval, item.Radius, item.Capacity));
+                new SpawnDefinition(item.TargetOrder, item.Interval, item.Radius, item.AngleStep, item.Capacity));
         }
 
         // ── 공통 ────────────────────────────────────────────────────────────

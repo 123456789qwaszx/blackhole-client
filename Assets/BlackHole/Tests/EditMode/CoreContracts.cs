@@ -31,6 +31,51 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(LoaderReportsReferenceAndKindErrorsWithPath), LoaderReportsReferenceAndKindErrorsWithPath);
             yield return Case(nameof(CatalogConstructorEnforcesSameInvariants), CatalogConstructorEnforcesSameInvariants);
             yield return Case(nameof(EndingFrameRejectsSameFrameRequests), EndingFrameRejectsSameFrameRequests);
+            yield return Case(nameof(TargetLifecycleRulesComeFromDefinition), TargetLifecycleRulesComeFromDefinition);
+            yield return Case(nameof(LoaderReportsMovementAndTargetRuleErrors), LoaderReportsMovementAndTargetRuleErrors);
+        }
+
+        // 하한 여유와 낙하 속도는 모든 대상에 공통인 정의다. 사망한 대상은 이동 규칙의 각도 변화를 유지한다.
+        public static void TargetLifecycleRulesComeFromDefinition()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.TargetRules.AliveMargin = 2;
+            data.TargetRules.FallSpeed = 2;
+            GameSession game = Assemble(data);
+
+            TargetState alive = game.Field.Targets[0];
+            game.Advance(30);
+            // 질량 0의 흡수 반경 0.65 + 여유 2.
+            Near(2.65f, alive.Radius);
+            Equal(TargetPhase.Alive, alive.Phase);
+
+            float angle = alive.Angle;
+            Equal(CastResult.Cast, game.TryCast(ReferenceGame.StrikeId, alive.Position));
+            Equal(TargetPhase.Defeated, alive.Phase);
+            game.Advance(0.5f);
+            Near(1.65f, alive.Radius);
+            Near(angle + 0.6f * 0.5f, alive.Angle);
+        }
+
+        public static void LoaderReportsMovementAndTargetRuleErrors()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.TargetRules = null;
+            data.Targets[0].Movement = null;
+            data.Targets[1].Movement.Kind = "Teleport";
+            data.Targets.Add(new TargetData
+            {
+                Id = "still", MaxHealth = 1, Reward = 1,
+                Movement = new MovementData { Kind = "Orbit", AngularSpeed = 0, InwardSpeed = 0 }
+            });
+
+            ContentLoadResult result = ContentLoader.Load(data);
+            Check(!result.Succeeded, "이동 정의 오류가 있으면 로드에 실패해야 한다.");
+            Equal(4, result.Diagnostics.Count);
+            HasDiagnostic(result, "TargetRules", string.Empty);
+            HasDiagnostic(result, "Targets[shard].Movement", string.Empty);
+            HasDiagnostic(result, "Targets[heavy].Movement.Kind", "Teleport");
+            HasDiagnostic(result, "Targets[still].Movement", "inwardSpeed");
         }
 
         // 호스트는 Advance 뒤에 요청을 적용한다. 그 Advance에서 판이 끝났으면 요청은 판을 바꾸지 않는다.
@@ -40,7 +85,7 @@ namespace BlackHole.Core.Tests
             TargetState target = game.Field.Targets[0];
             game.Advance(0.6f);
             Equal(SessionPhase.Ended, game.Phase);
-            Equal(TargetPhase.Orbiting, target.Phase);
+            Equal(TargetPhase.Alive, target.Phase);
             Near(0, game.Remaining);
 
             Equal(CastResult.SessionInactive, game.TryCast(ReferenceGame.StrikeId, target.Position));
@@ -99,7 +144,7 @@ namespace BlackHole.Core.Tests
             game.TryCast(ReferenceGame.PulseId, target.Position);
             Near(radius - 0.8f, target.Radius);
             Near(3, target.Health);
-            Equal(TargetPhase.Orbiting, target.Phase);
+            Equal(TargetPhase.Alive, target.Phase);
             Equal(0, game.Field.Growth.Mass);
         }
 
@@ -197,8 +242,8 @@ namespace BlackHole.Core.Tests
 
         public static void DefinitionsRejectInvalidData()
         {
-            Throws<ArgumentException>(() => new TargetDefinition("", 1, 1, 1, 1));
-            Throws<ArgumentOutOfRangeException>(() => new TargetDefinition("a", float.NaN, 1, 1, 1));
+            Throws<ArgumentException>(() => new TargetDefinition("", 1, new OrbitMovementDefinition(1, 1), 1));
+            Throws<ArgumentOutOfRangeException>(() => new TargetDefinition("a", float.NaN, new OrbitMovementDefinition(1, 1), 1));
             Throws<ArgumentOutOfRangeException>(() => new SkillDefinition("a", SkillKind.GravityPulse, 1, 1, -1, 1));
             Throws<ArgumentOutOfRangeException>(() => new Point2(float.PositiveInfinity, 0));
 
@@ -386,19 +431,20 @@ namespace BlackHole.Core.Tests
 
         public static void CatalogConstructorEnforcesSameInvariants()
         {
-            var target = new TargetDefinition("shard", 12, 0, 1, 2);
+            var target = new TargetDefinition("shard", 12, new OrbitMovementDefinition(0, 1), 2);
             var skill = new SkillDefinition("strike", SkillKind.FocusedStrike, 1, 1, 1, 0);
             var growth = new GrowthDefinition(1, 1, 1);
-            var spawn = new SpawnDefinition(new[] { "shard" }, 1, 5, 4);
+            var spawn = new SpawnDefinition(new[] { "shard" }, 1, 5, 0, 4);
             var limit = new TimeLimitDefinition(10);
-            new ContentCatalog(limit, new[] { target }, new[] { skill }, growth, spawn);
+            var rules = new TargetRulesDefinition(0.8f, 4);
+            new ContentCatalog(limit, rules, new[] { target }, new[] { skill }, growth, spawn);
 
             Throws<ArgumentException>(() => new ContentCatalog(
-                limit, new[] { target }, new[] { skill, skill }, growth, spawn));
+                limit, rules, new[] { target }, new[] { skill, skill }, growth, spawn));
             Throws<ArgumentException>(() => new ContentCatalog(
-                limit, new[] { target }, new[] { skill }, growth, new SpawnDefinition(new[] { "ghost" }, 1, 5, 4)));
+                limit, rules, new[] { target }, new[] { skill }, growth, new SpawnDefinition(new[] { "ghost" }, 1, 5, 0, 4)));
             Throws<ArgumentException>(() => new ContentCatalog(
-                limit, new[] { target }, new[] { new SkillDefinition("pulse", SkillKind.GravityPulse, 1, 1, 1, 0) },
+                limit, rules, new[] { target }, new[] { new SkillDefinition("pulse", SkillKind.GravityPulse, 1, 1, 1, 0) },
                 growth, spawn));
         }
 
@@ -424,6 +470,7 @@ namespace BlackHole.Core.Tests
             GrowthData growth, SpawnData spawn, float duration = 60) => new ContentData
         {
             TimeLimit = duration,
+            TargetRules = new TargetRulesData { AliveMargin = 0.8f, FallSpeed = 4 },
             Targets = new List<TargetData>(targets),
             Skills = new List<SkillData>(skills),
             Growth = growth,
@@ -431,7 +478,10 @@ namespace BlackHole.Core.Tests
         };
 
         private static TargetData Target(string id, float health, float angular, float inward, int reward) =>
-            new TargetData { Id = id, MaxHealth = health, AngularSpeed = angular, InwardSpeed = inward, Reward = reward };
+            new TargetData { Id = id, MaxHealth = health, Reward = reward, Movement = Orbit(angular, inward) };
+
+        private static MovementData Orbit(float angular, float inward) =>
+            new MovementData { Kind = "Orbit", AngularSpeed = angular, InwardSpeed = inward };
 
         private static SkillData Strike(string id, float cooldown, float damage, float aimRadius) =>
             new SkillData { Id = id, Kind = "FocusedStrike", Cooldown = cooldown, Damage = damage, Radius = aimRadius };
@@ -443,7 +493,11 @@ namespace BlackHole.Core.Tests
             new GrowthData { UpgradeCost = cost, MaxPowerLevel = maxLevel, PowerPerLevel = perLevel };
 
         private static SpawnData Spawn(float interval, float radius, int capacity, params string[] order) =>
-            new SpawnData { TargetOrder = new List<string>(order), Interval = interval, Radius = radius, Capacity = capacity };
+            new SpawnData
+            {
+                TargetOrder = new List<string>(order), Interval = interval, Radius = radius,
+                AngleStep = 2.399963f, Capacity = capacity
+            };
 
         private static void Fails(ContentData data, string path)
         {
@@ -469,7 +523,7 @@ namespace BlackHole.Core.Tests
             {
                 foreach (TargetState target in game.Field.Targets)
                 {
-                    if (target.Phase != TargetPhase.Orbiting) continue;
+                    if (target.Phase != TargetPhase.Alive) continue;
                     game.TryCast(ReferenceGame.StrikeId, target.Position);
                     game.TryCast(ReferenceGame.PulseId, target.Position);
                     break;

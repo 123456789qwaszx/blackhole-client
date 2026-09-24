@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // 콘텐츠 전체의 규칙: ID는 유일하고, 참조는 실재하며, 모든 스킬은 실행 규칙으로 해석된다.
+    // 콘텐츠 전체의 규칙: ID는 유일하고, 참조는 실재하며, 모든 스킬과 대상 이동은 실행 규칙으로 해석된다.
     // ContentCatalog 생성자(첫 오류로 생성 실패)와 ContentLoader(경로별 진단 수집)가 함께 쓴다.
     // 개별 정의의 수치 규칙은 각 정의 생성자에 있다 — 여기서 다시 보지 않는다.
     internal static class ContentInvariants
@@ -35,6 +35,9 @@ namespace BlackHole.Core
                     into.Add(new ContentDiagnostic($"Targets[{i}]", "대상 정의가 null이다."));
                     continue;
                 }
+                if (!MovementRuleFactory.TryCreate(target.Movement, out _))
+                    into.Add(new ContentDiagnostic($"Targets[{target.Id}].Movement",
+                        $"실행 규칙이 연결되지 않은 이동 종류 '{target.Movement.GetType().Name}'."));
                 if (byId.ContainsKey(target.Id))
                 {
                     into.Add(new ContentDiagnostic($"Targets[{i}]", $"대상 ID '{target.Id}'가 중복됐다."));

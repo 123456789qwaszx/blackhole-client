@@ -45,3 +45,4 @@
 |---|---|---|
 | S1 | 시전 연출 반경을 호스트 상수 대신 스킬 정의(`SkillDefinition.Radius`)에서 읽음 | 실제 적용 범위를 발동 결과로 전달(S4) |
 | S2 | 최대 진행 단계와 경과 시간을 `SessionRunner`로, 제한 시간을 `TimeLimitDefinition`/`TimeLimitMode`로 이동 | — |
+| S3 | 궤도 계산을 `OrbitMovement`(이동 규칙)로, 하한 여유·낙하 속도를 `TargetRulesDefinition`으로, 출현 각도 간격을 `SpawnDefinition.AngleStep`으로 이동. 생존 상태 이름 `Orbiting` → `Alive` | — |

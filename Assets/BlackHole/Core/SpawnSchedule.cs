@@ -26,9 +26,9 @@ namespace BlackHole.Core
             {
                 if (world.Targets.Count < _definition.Capacity)
                 {
-                    // 황금각 배치로 같은 위치에 겹쳐서 태어나는 것을 피한다.
+                    // 출현마다 각도를 AngleStep만큼 돌려 같은 위치에 겹쳐 태어나는 것을 피한다.
                     world.Spawn(_order[_spawned % _order.Count],
-                        _definition.Radius, (_spawned * 2.399963f) % ((float)Math.PI * 2));
+                        _definition.Radius, (_spawned * _definition.AngleStep) % ((float)Math.PI * 2));
                     _spawned++;
                 }
                 _remaining += _definition.Interval;

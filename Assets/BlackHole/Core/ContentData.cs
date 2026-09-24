@@ -10,6 +10,7 @@ namespace BlackHole.Core
     public sealed class ContentData
     {
         public float TimeLimit;
+        public TargetRulesData TargetRules;
         public List<TargetData> Targets = new List<TargetData>();
         public List<SkillData> Skills = new List<SkillData>();
         public GrowthData Growth;
@@ -17,13 +18,30 @@ namespace BlackHole.Core
     }
 
     [Serializable]
+    public sealed class TargetRulesData
+    {
+        public float AliveMargin;
+        public float FallSpeed;
+    }
+
+    [Serializable]
     public sealed class TargetData
     {
         public string Id;
         public float MaxHealth;
+        public int Reward;
+        public MovementData Movement;
+    }
+
+    // 이동 종류마다 쓰는 칸이 다르다. 쓰지 않는 칸은 0이어야 한다(ContentLoader가 확인).
+    [Serializable]
+    public sealed class MovementData
+    {
+        // 이름 문자열. 가능한 값은 ContentLoader의 해석 목록에 있다.
+        public string Kind;
+        // Orbit
         public float AngularSpeed;
         public float InwardSpeed;
-        public int Reward;
     }
 
     [Serializable]
@@ -52,6 +70,7 @@ namespace BlackHole.Core
         public List<string> TargetOrder = new List<string>();
         public float Interval;
         public float Radius;
+        public float AngleStep;
         public int Capacity;
     }
 }
