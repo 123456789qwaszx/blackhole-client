@@ -1,6 +1,6 @@
 # Reference v2 — 전체 PLAN
 
-작성일: 2026-09-24 · 상태: 계획 확정 전 (M0 착수 전)
+작성일: 2026-09-24 · 상태: 계획 승인(D1~D4), M0 진행 중
 
 ## 1. 목적
 
@@ -36,12 +36,12 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../SYSTEM_CATALOG.md)(v1
 
 | # | 경계 | 확인할 것 | 근거 |
 |---|---|---|---|
-| B1 | Player 단위 | Players.Count = 1이지만 Player가 전역이 아니다. Skill·PlayerState·입력이 Player에 속한다. | 가이드 2, 3, 14절 |
+| B1 | Player 단위 | `SinglePlayerGame`이 아니라 `Players.Count == 1`인 게임이다. Player가 전역이 아니고, Skill·PlayerState·조준점(AimPoint)이 Player에 속한다. PlayerCharacter·Character는 지금 게임플레이 책임이 없으므로 코드에 두지 않는다. | 가이드 2, 3, 14절 |
 | B2 | HQ 기준점 | 출현과 Enemy 행동이 원점을 가정하지 않고 HQ를 참조한다. HQ와 Player는 다른 존재다. | 가이드 5절 |
 | B3 | Enemy 행동 분리 | Orbit Around HQ가 Enemy 본체 밖에 있다. Enemy를 고치지 않고 행동을 바꿔 끼울 수 있다. 상태 기계는 만들지 않는다. | 가이드 7절 |
 | B4 | Runtime Stat 분리 | Enemy의 기본 정의와 실행 수치가 다른 개념이다. 보정이 들어갈 자리가 있다. | 가이드 8절 |
-| B5 | Passive Skill 실행 | 자기 주기로 자동 실행된다. 기준점(첫 Skill은 소유 Player의 마우스)을 외부에서 받는다. 실행 구조와 획득 구조가 분리되어 있다. | 가이드 9, 10절 |
-| B6 | Death → Reward | HP <= 0에서 Death가 확정되고, 그 순간 Gold/EXP가 수령 Player에게 한 번 지급된다. | 가이드 11절 |
+| B5 | Passive Skill 실행 | 자기 주기로 자동 실행된다. 기준점을 외부에서 받는다. 첫 Skill의 기준점은 소유 Player의 AimPoint이고, 지금은 호스트가 마우스 위치로 채운다(Player가 마우스를 가진다는 뜻이 아니다). 실행 구조와 획득 구조가 분리되어 있다. | 가이드 9, 10절 |
+| B6 | Death → Reward | HP <= 0에서 Death가 확정되고, 그 순간 Gold/EXP가 한 번 지급된다. 지금은 Player가 1명이므로 귀속 정책이 필요 없다. 멀티플레이의 Kill·Reward 귀속 정책은 미정이다. | 가이드 11절 |
 | B7 | Presentation 분리 | 흡수 연출은 화면의 일이다. 연출이 느려지거나 생략돼도 보상이 바뀌지 않는다. View 제거 시점은 Death 시점과 다르다. 원은 공격 범위의 표시다. | 가이드 12, 16.4절 |
 | B8 | Session | 한 판의 시작·진행·종료·재시작. 종료 조건은 시간제(후보)다. | 답변 12 |
 | B9 | Content | Enemy·Skill 정의의 검증과 공급. | v1 패턴 |
@@ -53,7 +53,9 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../SYSTEM_CATALOG.md)(v1
 - HQ HP·피격·파괴·패배 조건, **HQ 성장**(결정 D1 참고)
 - 레벨업 결과, Gold 사용처, 강화, 스킬트리, 두 번째 이후 Skill과 그 획득 방식
 - Enemy 종류별 고유 능력·사망 효과, AI 상태 기계, 행동 전환
-- PlayerCharacter의 위치·이동·HP·피격·외형, 캐릭터 선택
+- PlayerCharacter·Character 코드(빈 클래스도 두지 않는다), 캐릭터 위치·이동·HP·피격·외형·선택
+- 멀티플레이 Kill·Reward 귀속 정책(막타, 전원, 기여도, 공용 재화, 거리 등). 피해의 출처 Player는 기록만 한다
+- 입력 추상화 프레임워크(값의 소유 관계만 바르게 둔다)
 - 네트워크, 복제, 로비, 4인 UI
 - 영구 저장, 판 밖 성장
 - 범용 Ability 프레임워크, 범용 능력치 엔진
@@ -63,7 +65,7 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../SYSTEM_CATALOG.md)(v1
 돌아가는 Reference를 만들려면 미정 항목 일부를 채워야 한다. 원칙은 다음과 같다.
 
 1. **없어도 돌아가면 채우지 않는다.** 예: EXP와 Gold는 쌓이기만 하고 어디에도 쓰지 않는다.
-2. **없으면 안 돌아가면 가장 단순한 값을 [임시]로 채운다.** [임시] 값은 샘플 콘텐츠 한 곳과 아래 표에만 둔다. 코드 곳곳에 흩어 놓지 않는다.
+2. **없으면 안 돌아가면 가장 단순한 값을 [임시]로 채운다.** [임시] 값은 샘플 콘텐츠 한 곳(이름부터 샘플임을 드러낸다. 예: `SampleContent`)과 아래 표에만 둔다. 코드 곳곳에 흩어 놓지 않는다.
 3. **[임시]는 규칙 결정이 아니다.** 기획이 정해지면 바뀐다.
 
 | [임시] 항목 | 필요한 이유 | 들어가는 마일스톤 |
@@ -75,20 +77,19 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../SYSTEM_CATALOG.md)(v1
 | Orbit 속도·반경 | 행동이 있어야 한다 | M2 |
 | Runtime Stat 계산 시점(출현 때 1회) | 계산 시점을 정해야 계산할 수 있다 | M2 |
 | 첫 Skill의 반경·공격 주기·피해량 | Skill이 있어야 한다 | M3 |
-| 보상 수령자(Death를 일으킨 피해의 출처 Player) | 수령자 없이는 지급할 수 없다 | M4 |
 | Enemy 종류별 보상 Gold/EXP | 지급할 값이 있어야 한다 | M4 |
 | 흡수 연출의 길이·경로 | 연출이 있어야 한다(Presentation 전용 값) | M4 |
 
-## 6. 결정이 필요한 것
+## 6. 결정
 
-마일스톤에 들어가기 전에 답이 필요하다. 권장안을 함께 적는다.
+2026-09-24 모두 승인됐다.
 
-| # | 결정 | 권장안 | 필요한 시점 |
-|---|---|---|---|
-| D1 | HQ 성장을 v2에 넣는가 | 넣지 않는다. 성장은 핵심이지만 계기(Death? 강화? 시간?)와 영향이 미정이라, 넣으면 규칙을 지어내게 된다. 계기가 정해지면 마일스톤을 추가한다. | M1 전 |
-| D2 | 콘텐츠를 무엇으로 쓰는가 | 코드 샘플(v1과 같은 방식). 저작 방식(SO 등)은 v2의 검증 대상이 아니다. | M1 전 |
-| D3 | 행동 교체 가능성을 무엇으로 확인하는가 | 테스트 전용의 아주 작은 두 번째 행동(예: 제자리)으로 확인한다. 게임 콘텐츠에는 Orbit 하나만 둔다. | M2 전 |
-| D4 | Level을 계산하는가 | 계산하지 않는다. 레벨 곡선은 규칙이다. EXP만 쌓고, Level은 곡선이 정해질 때 추가한다. | M4 전 |
+| # | 결정 | 내용 |
+|---|---|---|
+| D1 | HQ 성장을 v2에 넣지 않는다 | 성장은 장기 방향이지만 계기와 영향이 없다. 넣으면 출현 거리·Orbit 반경 같은 규칙을 지어내게 된다. 계기가 정해지면 마일스톤을 추가한다. |
+| D2 | 콘텐츠는 코드 샘플로 쓴다 | 검증 대상은 저작 방식이 아니라 시스템 경계다. 샘플은 `SampleContent`처럼 이름부터 샘플임을 드러내고 Core 규칙과 분리한다. SO는 나중 문제다. |
+| D3 | 행동 교체 가능성은 테스트의 Fake로 증명한다 | 게임 콘텐츠에는 Orbit 하나만 둔다. 콘텐츠의 종류 해석에 가짜 행동을 추가하지 않는다. 계약 테스트가 행동 경계에 작은 Fake를 직접 꽂아, Enemy가 행동 구현에 종속되지 않았음을 보인다. |
+| D4 | Level을 계산하지 않고 EXP만 보관한다 | 레벨 곡선과 레벨업 결과가 없다. 미래의 PlayerState에 Level이 있을 수 있다는 것과 v2에서 Level 시스템을 구현하는 것은 다른 이야기다. 필요할 때 EXP → Level 규칙을 추가한다. |
 
 ## 7. 마일스톤
 
@@ -97,8 +98,8 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../SYSTEM_CATALOG.md)(v1
 | M0 | v1 정리와 빈 뼈대 | — | [M0-cleanup.md](M0-cleanup.md) | 계획 |
 | M1 | 월드 뼈대: Session, Content, HQ, Player | B1, B2, B8, B9 | [M1-world.md](M1-world.md) | 계획 |
 | M2 | Enemy: 정의, Runtime Stat, 출현, Orbit 행동 | B2, B3, B4, B9 | [M2-enemy.md](M2-enemy.md) | 계획 |
-| M3 | 첫 Passive Skill | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 계획 |
-| M4 | Death → Reward와 흡수 연출 | B1, B6, B7 | [M4-death-reward.md](M4-death-reward.md) | 계획 |
+| M3 | 첫 Passive Skill(Player 1의 AimPoint 기준) | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 계획 |
+| M4 | Death → Reward와 흡수 연출(사망 기록을 화면이 읽음) | B1, B6, B7 | [M4-death-reward.md](M4-death-reward.md) | 계획 |
 | M5 | 변화 실험과 정리 | 전체 | [M5-review.md](M5-review.md) | 계획 |
 
 순서의 이유: 각 마일스톤이 앞 마일스톤의 경계 위에 올라간다. M1의 Player와 HQ가 있어야 M2의 출현·행동이 HQ를 참조하고, M3의 Skill이 Player에 속한다. M2의 Enemy가 있어야 M3에서 때리고, M3의 피해가 있어야 M4에서 Death가 생긴다.
@@ -147,4 +148,4 @@ docs/
 
 | 날짜 | 마일스톤 | 점검 결과 | PLAN 변경 |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-09-24 | 계획 검토 | D1~D4 승인. 보상 귀속과 입력 소유 관계를 지어내던 부분 발견 | B1·B5·B6 문구 수정, 보상 수령자 [임시] 삭제, PlayerCharacter 코드 제외, D3를 테스트 Fake로 변경 |

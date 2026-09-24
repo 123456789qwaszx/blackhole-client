@@ -18,7 +18,7 @@
                   └─→ Enemy 행동의 기준 (현재: HQ 주위 Orbit)
 
 Player ─ 첫 Passive Skill
-          소유 Player의 마우스 위치 = 중심
+          소유 Player의 조준점(AimPoint, 현재는 마우스 위치) = 중심
           → 반경 → 공격 주기마다 → 원 안의 Enemy 전부에 피해
                                          ↓
                                      HP <= 0
@@ -44,7 +44,7 @@ Player ─ 첫 Passive Skill
   - PlayerCharacter는 존재하지만 투명하다. 위치, 이동, HP, 피격, 외형이 없고, Skill의 기준점도 아니며 Enemy가 추적하지도 않는다.
   - Character는 1종이다. 선택이 없고 Skill Tree도 고정된 하나다.
 - **미정**: PlayerCharacter가 실제로 전투에 참여하는 방식, Character별 구체적인 차이.
-- **장기 방향**: 최대 4인, Player별 Character, Character별 외형·특성·Passive Skill·Skill Tree.
+- **장기 방향**: 최대 4인, Player별 Character, Character별 외형·특성·Passive Skill·Skill Tree. Player는 미래에 Character를 소유할 수 있다. 지금 Character는 게임플레이 책임이 없다.
 - **누가 가지는가**: Player마다 자신의 상태(PlayerState)를 가진다. 4인을 고려하므로 각 Player의 현재 상태는 서로 구별되어야 한다.
 
 ### HQ (블랙홀)
@@ -91,7 +91,7 @@ Player ─ 첫 Passive Skill
 - **확정**
   - 공격 수단은 Passive Skill이다. 버튼을 눌러 쓰는 액티브 스킬을 기본으로 가정하지 않는다.
   - Passive Skill은 각자 자신의 발동 조건과 주기를 가지고 자동으로 실행된다.
-  - **첫 Skill**: 소유 Player의 마우스 위치를 중심으로 원형 범위를 가진다. 공격 주기마다 범위 안의 Enemy를 전부 공격한다.
+  - **첫 Skill**: 소유 Player의 조준점(AimPoint)을 중심으로 원형 범위를 가진다. 지금 PC 1인에서는 AimPoint가 마우스 위치에서 온다. Player가 마우스를 가진다는 뜻은 아니다. 공격 주기마다 범위 안의 Enemy를 전부 공격한다. 주기 타이머는 범위에 Enemy가 없어도 계속 돌고, 빈 틱은 아무 일도 없이 지나간다.
   - 원은 실제 공격 범위를 보여 주는 Presentation이다. 공격 범위와 원의 크기는 같은 것을 뜻한다.
   - Skill의 성장은 주로 수치 변화다(피해량, 반경, 공격 속도·주기, 효과 강도).
   - Skill이 실행되는 구조와 Skill을 얻는 구조는 따로 생각한다.
@@ -125,9 +125,9 @@ Player ─ 첫 Passive Skill
 위 규칙들은 각각은 정해져 있지만, 서로 맞물리는 곳에서 아직 답이 없는 질문이 생긴다. 지금 결정할 필요는 없지만, 정하지 않으면 구현이 전역 가정을 몰래 넣게 되는 곳이다.
 
 1. **HQ는 무엇으로 성장하는가?** 흡수는 연출이므로 "빨려 들어가서 성장"은 규칙이 될 수 없다. 성장의 계기는 Enemy Death, 강화 구매, 시간 등 연출과 무관한 사건이어야 한다.
-2. **보상은 누가 받는가?** 최대 4인을 고려하면 Death 때의 Gold/EXP 수령자(마지막 타격자, 전원 공유, 기여도 등)가 필요하다. 1인이어도 "수령자를 정하는 자리"를 두는 것이 전역 PlayerState를 피하는 방법이다.
+2. **보상은 누가 받는가?** 지금은 Player가 1명이므로 귀속 정책이 필요 없다(현재 단일 Player에게 지급). 멀티플레이의 Kill·Reward 귀속 정책(막타, 전원, 기여도, 공용 재화, 거리 등)은 **미정**이다. 피해에 출처 Player를 기록해 두는 것은 좋지만, 그것을 수령자 규칙으로 굳히면 기획을 지어내게 된다.
 3. **Enemy 수치를 바꾸는 PlayerState는 누구의 것인가?** 4인이면 공유 진행도로 보정하는지, 개인 능력으로 보정하는지, 한 Enemy에 여러 Player의 보정이 겹치는지가 문제가 된다.
-4. **마우스는 누구의 입력인가?** 첫 Skill의 기준점은 "소유 Player의 마우스"다. 4인에서는 Player마다 입력이 따로 있어야 하므로, 입력도 Player에 속하는 것으로 둔다.
+4. **조준점은 누구의 값인가?** 첫 Skill의 기준점은 소유 Player의 조준점(AimPoint)이다. 지금은 호스트가 마우스 위치로 채우지만, 나중에는 PlayerCharacter 위치, 게임패드, 네트워크 Player의 조준이 채울 수 있다. 입력 장치를 Player에 붙이지 않고, 조준점이라는 값만 Player에 둔다.
 
 ## 4. 현재 Reference와 다른 점
 
@@ -137,7 +137,7 @@ Reference(`Assets/BlackHole`)는 이 규칙이 정해지기 전에 임의로 만
 |---|---|---|
 | 보상 시점 | 흡수 확정 때 지급(Defeated → Absorbed) | Death 확정 때 지급 |
 | 흡수 | 게임 규칙(흡수 반경, 흡수 전이, 사망 후 낙하 속도) | 사망 연출. 규칙에서 빠짐 |
-| 스킬 | 누르는 액티브 스킬 2개, 쿨다운, 빈 조준 규칙, 당김 효과 | 자동 Passive. 첫 Skill은 마우스 중심 주기 범위 피해 |
+| 스킬 | 누르는 액티브 스킬 2개, 쿨다운, 빈 조준 규칙, 당김 효과 | 자동 Passive. 첫 Skill은 소유 Player의 조준점(현재 마우스) 중심 주기 범위 피해 |
 | 조준 원 | 시전 순간의 연출 | 공격 범위를 계속 표시 |
 | Player | 개념 없음. 스킬·재화·강화가 판(Playfield)에 하나씩 박혀 있음 | Player 단위가 있고, Player마다 상태가 구별됨(지금 1명) |
 | HQ | 좌표 원점일 뿐이고, "블랙홀 상태"는 질량 성장만 가짐 | 월드 기준점이 되는 대상. 출현·행동이 HQ를 참조 |

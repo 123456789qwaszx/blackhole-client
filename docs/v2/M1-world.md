@@ -1,6 +1,6 @@
 # M1 — 월드 뼈대: Session, Content, HQ, Player
 
-상태: 계획 · 선행: M0, 결정 D1·D2
+상태: 계획 · 선행: M0 · 결정 D1·D2 승인
 
 ## 목표
 
@@ -8,7 +8,8 @@
 
 ## 검증할 경계
 
-- **B1 Player 단위**: 판은 Player **목록**을 가진다(지금 1명). Player마다 PlayerState를 가진다. "현재 Player" 같은 전역 참조를 두지 않는다. PlayerCharacter는 Player에 속하되 위치·HP 같은 기능은 없다. Character는 1종이며 Player와 다른 개념이다.
+- **B1 Player 단위**: 판은 Player **목록**을 가진다. `SinglePlayerGame`이 아니라 `Players.Count == 1`인 게임이다. Player마다 PlayerState를 가진다. "현재 Player" 같은 전역 참조를 두지 않는다.
+  - 코드에는 `Player └─ PlayerState`까지만 둔다. PlayerCharacter·CharacterDefinition·외형·클래스는 지금 게임플레이 책임이 없으므로 빈 클래스로도 만들지 않는다. "Player는 미래에 Character를 소유할 수 있다"는 GAME_RULES에만 남긴다.
 - **B2 HQ 기준점**: HQ는 판 안의 대상이고 위치를 가진다. 다른 시스템은 원점이 아니라 HQ 위치를 읽는다. HQ와 Player는 다른 존재다.
 - **B8 Session**: 시작 → 진행(시간 분할) → 종료 판정 → 결과 확정 → 재시작(새로 조립).
 - **B9 Content**: 판 설정(시간 제한, HQ 위치)의 정의와 검증. 오류는 경로와 함께 모으고, 오류가 있으면 판을 시작하지 않는다.
@@ -18,16 +19,16 @@
 - Session: 시작, 일시정지, 종료, 재시작, 요청 허용 여부. 시간 분할은 v1 패턴(진행 전 제한 → 진행 → 진행 후 판정)을 다시 쓴다.
 - 시간제 종료 판정 하나. 종료 조건을 바꿀 수 있는 자리를 두되, 두 번째 조건은 만들지 않는다.
 - HQ: 위치만 가진다.
-- Player 목록(1명), 각 Player의 PlayerState(이 단계에서는 비어 있거나 식별자만), PlayerCharacter 자리.
-- Content: 판 설정 정의 + 로더 + 진단. v1의 방식을 간소화해 다시 쓴다.
+- Player 목록(1명), 각 Player의 식별자와 PlayerState(이 단계에서는 거의 비어 있다).
+- Content: 판 설정 정의 + 로더 + 진단. v1의 방식을 간소화해 다시 쓴다. 샘플 콘텐츠는 `SampleContent`처럼 이름부터 샘플임을 드러내고 Core 규칙과 분리한다(D2).
 - 호스트: 판 시작·종료·재시작, 비활성화 시 판 종료. 화면에는 HQ 원판과 남은 시간 정도만 둔다.
 
 ## 비범위
 
 - Enemy, Skill, 보상, 연출.
 - HQ 성장(D1), HQ HP.
-- PlayerCharacter의 위치·이동·외형.
-- 입력은 재시작·일시정지 정도만. 마우스는 M3에서 Player 입력으로 들어온다.
+- PlayerCharacter·Character 코드(빈 클래스 포함).
+- 입력은 재시작·일시정지 정도만. 조준점(AimPoint)은 M3에서 다룬다.
 
 ## [임시] 값
 
@@ -38,7 +39,7 @@
 
 1. Content: 판 설정 정의, 로더, 진단(최소).
 2. Session과 시간 분할, 시간제 종료 판정.
-3. HQ와 Player 목록·PlayerState·PlayerCharacter 자리.
+3. HQ와 Player 목록·PlayerState.
 4. 판 조립 진입점 하나(정의는 공유, 실행 상태는 판마다 새로).
 5. 호스트: 시작·재시작 흐름, 최소 화면.
 6. 계약 테스트(Session, Content, Player/HQ).
