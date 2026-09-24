@@ -65,16 +65,17 @@ namespace BlackHole.Unity
             session.Advance(Time.deltaTime);
 
             foreach (int slot in _input.CastSlots) Cast(slot, _input.Aim);
-            foreach (int slot in _input.UpgradeSlots) Upgrade(slot);
+            foreach (int slot in _input.UpgradeSlots) Upgrade(ReferenceHud.DirectUpgradeAt(session.Field, slot));
 
             _view.Synchronize(session.Field, Time.deltaTime);
         }
 
         private void OnGUI()
         {
-            switch (_hud.Draw(_launcher.Current, ReferenceInput.UpgradeKeyNames, out int slot))
+            switch (_hud.Draw(_launcher.Current, ReferenceInput.UpgradeKeyNames, out string target))
             {
-                case HudRequest.Upgrade: Upgrade(slot); break;
+                case HudRequest.Upgrade: Upgrade(target); break;
+                case HudRequest.AcquireNode: AcquireNode(target); break;
                 case HudRequest.TogglePause: _launcher.Current.TogglePause(); break;
                 case HudRequest.Stop: _launcher.Stop(); break;
                 case HudRequest.Restart: Restart(); break;
@@ -104,15 +105,15 @@ namespace BlackHole.Unity
             if (result == CastResult.Cast) _view.ShowCast(report.Aim, report.AreaRadius);
         }
 
-        private void Upgrade(int slot)
+        // 비어 있는 칸(null)은 무시한다.
+        private void Upgrade(string id)
         {
-            GameSession session = _launcher.Current;
-            IReadOnlyList<UpgradeDefinition> upgrades = session.Field.Upgrades.Definitions;
-            if (slot >= upgrades.Count) return;
-
-            string id = upgrades[slot].Id;
-            _hud.Show(id + ": " + session.TryPurchaseUpgrade(id));
+            if (id == null) return;
+            _hud.Show(id + ": " + _launcher.Current.TryPurchaseUpgrade(id));
         }
+
+        private void AcquireNode(string nodeId) =>
+            _hud.Show(nodeId + ": " + _launcher.Current.TryAcquireNode(nodeId));
 
         #endregion
 

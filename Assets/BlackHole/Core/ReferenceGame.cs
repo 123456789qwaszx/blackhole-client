@@ -42,7 +42,23 @@ namespace BlackHole.Core
             Upgrades = new List<UpgradeData>
             {
                 new UpgradeData { Id = PowerUpgradeId, BaseCost = 6, MaxLevel = 5, Stat = "DamageMultiplier", PerLevel = 0.35f },
-                new UpgradeData { Id = ReachUpgradeId, BaseCost = 8, MaxLevel = 3, Stat = "AbsorptionRadius", PerLevel = 0.15f }
+                new UpgradeData { Id = ReachUpgradeId, BaseCost = 8, MaxLevel = 3, Stat = "AbsorptionRadius", PerLevel = 0.15f },
+                // 아래 넷은 스킬 트리 노드가 참조한다. 트리 선행 조건을 채워야 살 수 있다.
+                new UpgradeData { Id = "core-power", BaseCost = 4, MaxLevel = 1, Stat = "DamageMultiplier", PerLevel = 0.1f },
+                new UpgradeData { Id = "focus-power", BaseCost = 8, MaxLevel = 1, Stat = "DamageMultiplier", PerLevel = 0.2f },
+                new UpgradeData { Id = "horizon-reach", BaseCost = 8, MaxLevel = 1, Stat = "AbsorptionRadius", PerLevel = 0.2f },
+                new UpgradeData { Id = "singularity-power", BaseCost = 20, MaxLevel = 1, Stat = "DamageMultiplier", PerLevel = 0.5f }
+            },
+            // core → focus, horizon → singularity(두 갈래 모두 필요).
+            SkillTree = new SkillTreeData
+            {
+                Nodes =
+                {
+                    Node("core", "core-power"),
+                    Node("focus", "focus-power", "core"),
+                    Node("horizon", "horizon-reach", "core"),
+                    Node("singularity", "singularity-power", "focus", "horizon")
+                }
             },
             Spawn = new SpawnData
             {
@@ -64,5 +80,8 @@ namespace BlackHole.Core
 
         private static EffectData Effect(string kind, float amount) =>
             new EffectData { Kind = kind, Amount = amount };
+
+        private static SkillTreeNodeData Node(string id, string upgradeId, params string[] requires) =>
+            new SkillTreeNodeData { Id = id, UpgradeId = upgradeId, Requires = new List<string>(requires) };
     }
 }

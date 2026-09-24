@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 namespace BlackHole.Unity
 {
     // Unity 입력 장치를 한 프레임의 요청으로 해석한다. 게임 상태를 읽거나 바꾸지 않는다.
-    // 숫자 키 N은 N번째 보유 스킬 칸, U/I/O는 강화 목록의 1~3번째 칸이다. ID나 종류를 알지 못한다.
+    // 숫자 키 N은 N번째 보유 스킬 칸, U/I/O는 HUD 강화 목록의 1~3번째 칸이다. ID나 종류를 알지 못한다.
     internal sealed class ReferenceInput
     {
         private static readonly Key[] CastKeys =

@@ -37,6 +37,9 @@ namespace BlackHole.Core
             return RequirementsMet(node) ? NodeStatus.Available : NodeStatus.Locked;
         }
 
+        // 이 강화를 참조하는 노드가 있는가.
+        public bool References(string upgradeId) => upgradeId != null && _byUpgrade.ContainsKey(upgradeId);
+
         // 트리 선행 조건 때문에 이 강화를 살 수 없는가. 트리에 없는 강화는 잠기지 않는다.
         public bool IsUpgradeLocked(string upgradeId) =>
             upgradeId != null && _byUpgrade.TryGetValue(upgradeId, out SkillTreeNodeDefinition node) &&
