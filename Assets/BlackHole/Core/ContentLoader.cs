@@ -72,7 +72,8 @@ namespace BlackHole.Core
             return targets;
         }
 
-        // 종류 이름을 하위 정의로 바꾼다.
+        // 종류 이름을 하위 정의로 바꾼다. 종류마다 쓰지 않는 칸이 0인지도 여기서 본다 —
+        // 하위 정의에는 그 칸이 없으므로 이것은 데이터 모양의 규칙이다.
         private static MovementDefinition LoadMovement(MovementData item, string at, List<ContentDiagnostic> into)
         {
             if (item == null)
@@ -84,12 +85,24 @@ namespace BlackHole.Core
             switch (item.Kind)
             {
                 case "Orbit":
+                    if (item.InitialSpeed != 0 || item.Acceleration != 0)
+                        return Unused(at, into, "Orbit", "InitialSpeed, Acceleration");
                     return Guard(at, into, () => new OrbitMovementDefinition(item.AngularSpeed, item.InwardSpeed));
+                case "Dive":
+                    if (item.AngularSpeed != 0 || item.InwardSpeed != 0)
+                        return Unused(at, into, "Dive", "AngularSpeed, InwardSpeed");
+                    return Guard(at, into, () => new DiveMovementDefinition(item.InitialSpeed, item.Acceleration));
                 default:
                     into.Add(new ContentDiagnostic(at + ".Kind",
-                        $"알 수 없는 이동 종류 '{item.Kind}'. 가능한 값: Orbit."));
+                        $"알 수 없는 이동 종류 '{item.Kind}'. 가능한 값: Orbit, Dive."));
                     return null;
             }
+        }
+
+        private static MovementDefinition Unused(string at, List<ContentDiagnostic> into, string kind, string fields)
+        {
+            into.Add(new ContentDiagnostic(at, $"{kind}는 {fields}을(를) 쓰지 않는다. 0으로 둘 것."));
+            return null;
         }
 
         // ── 스킬 ────────────────────────────────────────────────────────────

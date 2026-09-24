@@ -33,6 +33,61 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(EndingFrameRejectsSameFrameRequests), EndingFrameRejectsSameFrameRequests);
             yield return Case(nameof(TargetLifecycleRulesComeFromDefinition), TargetLifecycleRulesComeFromDefinition);
             yield return Case(nameof(LoaderReportsMovementAndTargetRuleErrors), LoaderReportsMovementAndTargetRuleErrors);
+            yield return Case(nameof(NewMovementRuleUsesSharedLifecycle), NewMovementRuleUsesSharedLifecycle);
+            yield return Case(nameof(LoaderRejectsFieldsUnusedByMovementKind), LoaderRejectsFieldsUnusedByMovementKind);
+        }
+
+        // 검증용 콘텐츠: Dive는 Orbit의 수치 변형이 아닌 두 번째 이동 규칙이다.
+        // TargetState·TargetWorld·SpawnSchedule·화면을 고치지 않고 정의 + 규칙 + factory 분기로 연결된다.
+        public static void NewMovementRuleUsesSharedLifecycle()
+        {
+            GameSession game = Assemble(Content(
+                new[] { Diver("diver", 20, 1, 2, 4) },
+                new[] { Strike("strike", 0.1f, 30, 1) },
+                Growth(6, 1, 0.5f),
+                Spawn(10, 5, 4, "diver")));
+            TargetState diver = game.Field.Targets[0];
+            float angle = diver.Angle;
+
+            game.Advance(0.5f);
+            float firstHalf = 5 - diver.Radius;
+            game.Advance(0.5f);
+            float secondHalf = 5 - firstHalf - diver.Radius;
+            Check(secondHalf > firstHalf, "Dive는 시간이 갈수록 빨라져야 한다.");
+            // 1/30초 단계마다 단계 시작 속도(1 + 2 × 나이)로 진행: 5 - 1.9667.
+            Near(3.0333f, diver.Radius);
+            Near(angle, diver.Angle);
+
+            // 공통 하한: 질량 0의 흡수 반경 0.65 + 여유 0.8.
+            game.Advance(2);
+            Near(1.45f, diver.Radius);
+            Equal(TargetPhase.Alive, diver.Phase);
+
+            // 사망·낙하·흡수·보상은 이동 종류와 무관한 공통 흐름이다.
+            Equal(CastResult.Cast, game.TryCast("strike", diver.Position));
+            Equal(TargetPhase.Defeated, diver.Phase);
+            game.Advance(0.5f);
+            Equal(TargetPhase.Absorbed, diver.Phase);
+            Near(angle, diver.Angle);
+            Equal(4, game.Field.Growth.Mass);
+            Equal(0, game.Field.Targets.Count);
+        }
+
+        public static void LoaderRejectsFieldsUnusedByMovementKind()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.Targets[0].Movement.Acceleration = 1;
+            data.Targets.Add(new TargetData
+            {
+                Id = "diver", MaxHealth = 1, Reward = 1,
+                Movement = new MovementData { Kind = "Dive", InitialSpeed = 1, AngularSpeed = 0.5f }
+            });
+
+            ContentLoadResult result = ContentLoader.Load(data);
+            Check(!result.Succeeded, "종류가 쓰지 않는 칸이 채워지면 로드에 실패해야 한다.");
+            Equal(2, result.Diagnostics.Count);
+            HasDiagnostic(result, "Targets[shard].Movement", "Acceleration");
+            HasDiagnostic(result, "Targets[diver].Movement", "AngularSpeed");
         }
 
         // 하한 여유와 낙하 속도는 모든 대상에 공통인 정의다. 사망한 대상은 이동 규칙의 각도 변화를 유지한다.
@@ -482,6 +537,13 @@ namespace BlackHole.Core.Tests
 
         private static MovementData Orbit(float angular, float inward) =>
             new MovementData { Kind = "Orbit", AngularSpeed = angular, InwardSpeed = inward };
+
+        private static TargetData Diver(string id, float health, float initialSpeed, float acceleration, int reward) =>
+            new TargetData
+            {
+                Id = id, MaxHealth = health, Reward = reward,
+                Movement = new MovementData { Kind = "Dive", InitialSpeed = initialSpeed, Acceleration = acceleration }
+            };
 
         private static SkillData Strike(string id, float cooldown, float damage, float aimRadius) =>
             new SkillData { Id = id, Kind = "FocusedStrike", Cooldown = cooldown, Damage = damage, Radius = aimRadius };

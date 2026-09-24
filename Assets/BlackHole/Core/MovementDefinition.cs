@@ -22,4 +22,18 @@ namespace BlackHole.Core
             InwardSpeed = DefinitionGuard.Positive(inwardSpeed, nameof(inwardSpeed));
         }
     }
+
+    // 각도를 유지한 채 중심을 향해 곧게 다가오며 점점 빨라진다.
+    // 속도 = InitialSpeed + Acceleration × 출현 후 시간. Orbit의 수치 변형으로는 표현할 수 없다.
+    public sealed class DiveMovementDefinition : MovementDefinition
+    {
+        public float InitialSpeed { get; }
+        public float Acceleration { get; }
+
+        public DiveMovementDefinition(float initialSpeed, float acceleration)
+        {
+            InitialSpeed = DefinitionGuard.Positive(initialSpeed, nameof(initialSpeed));
+            Acceleration = DefinitionGuard.NonNegative(acceleration, nameof(acceleration));
+        }
+    }
 }

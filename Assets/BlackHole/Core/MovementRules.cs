@@ -37,4 +37,19 @@ namespace BlackHole.Core
             current.Radius - _definition.InwardSpeed * delta,
             (current.Angle + _definition.AngularSpeed * delta) % FullTurn);
     }
+
+    internal sealed class DiveMovement : IMovementRule
+    {
+        private readonly DiveMovementDefinition _definition;
+
+        public DiveMovement(DiveMovementDefinition definition)
+        {
+            _definition = definition;
+        }
+
+        // 단계 시작 시점의 속도로 진행한다. 판정 정밀도는 실행 단계 단위다.
+        public PolarPoint Next(PolarPoint current, float age, float delta) => new PolarPoint(
+            current.Radius - (_definition.InitialSpeed + _definition.Acceleration * age) * delta,
+            current.Angle);
+    }
 }

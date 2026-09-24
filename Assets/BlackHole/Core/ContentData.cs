@@ -42,6 +42,9 @@ namespace BlackHole.Core
         // Orbit
         public float AngularSpeed;
         public float InwardSpeed;
+        // Dive
+        public float InitialSpeed;
+        public float Acceleration;
     }
 
     [Serializable]

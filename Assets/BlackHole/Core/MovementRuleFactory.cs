@@ -11,6 +11,9 @@ namespace BlackHole.Core
                 case OrbitMovementDefinition orbit:
                     rule = new OrbitMovement(orbit);
                     return true;
+                case DiveMovementDefinition dive:
+                    rule = new DiveMovement(dive);
+                    return true;
                 default:
                     rule = null;
                     return false;
