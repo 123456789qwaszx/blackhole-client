@@ -12,6 +12,8 @@
 
 아래의 시스템 후보도 "우리 게임의 시스템 목록"이 아니다. "이런 책임 덩어리가 생길 수 있고, Reference에서는 이렇게 한 번 나눠 봤다"는 뜻이다. 실제 기획에 따라 합쳐지거나, 나뉘거나, 사라질 수 있다.
 
+**실제 게임 규칙은 [GAME_RULES.md](GAME_RULES.md)에 있다.** 이 예제집의 규칙(흡수 시 보상, 액티브 스킬 등)과 다르며, 차이는 그 문서 4절에 정리했다.
+
 관련 기록: 구현 과정과 기준 동작은 [systemization-baseline.md](systemization-baseline.md), `80549cb` 시점의 최초 실험은 [REFERENCE_IMPLEMENTATION.md](REFERENCE_IMPLEMENTATION.md)에 있다.
 
 ## 1. 먼저 읽을 것 — Reference에서 임의로 정한 것
