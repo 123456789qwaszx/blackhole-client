@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    public enum UpgradeResult { Purchased, InsufficientCredits, MaxLevel, UnknownUpgrade, SessionInactive }
+    public enum UpgradeResult { Purchased, InsufficientCredits, MaxLevel, Locked, UnknownUpgrade, UnknownNode, SessionInactive }
 
     // 강화의 대상이 되는 두 계산. 범용 능력치 엔진이 아니라 지금 필요한 보정만 둔다.
     public enum UpgradeStat { DamageMultiplier, AbsorptionRadius }
@@ -89,10 +89,11 @@ namespace BlackHole.Core
         }
     }
 
-    // 강화 구매의 유일한 경로. 모든 판정을 끝낸 뒤에만 상태를 바꾼다.
+    // 강화 획득의 유일한 경로. 직접 구매와 트리 노드 요청이 같은 판정을 거친다.
+    // 모든 판정을 끝낸 뒤에만 상태를 바꾼다.
     //
-    // 1. 참조: 알 수 없는 강화면 거절한다.
-    // 2. 자격: 최고 단계면 거절한다.
+    // 1. 참조: 알 수 없는 강화(또는 노드)면 거절한다.
+    // 2. 자격: 최고 단계면, 트리 선행 조건을 채우지 못했으면 거절한다.
     // 3. 비용: 잔액이 부족하면 거절한다.
     // 4. 확정: 재화 차감 → 단계 상승. 1~3이 실패 조건을 모두 소진했으므로 두 변경은 실패하지 않는다.
     //    확정 구간에는 외부 I/O나 임의 콜백을 두지 않는다. 두 객체를 연속으로 바꾼다는 사실만으로
@@ -101,17 +102,26 @@ namespace BlackHole.Core
     {
         private readonly UpgradeState _upgrades;
         private readonly WalletState _wallet;
+        private readonly SkillTree _tree;
 
-        public UpgradePurchase(UpgradeState upgrades, WalletState wallet)
+        public UpgradePurchase(UpgradeState upgrades, WalletState wallet, SkillTree tree)
         {
             _upgrades = upgrades;
             _wallet = wallet;
+            _tree = tree;
         }
+
+        // 노드 요청은 노드가 참조한 강화의 구매로 바뀐다. 다른 판정 경로가 없다.
+        public UpgradeResult TryAcquireNode(string nodeId) =>
+            _tree.TryGetNode(nodeId, out SkillTreeNodeDefinition node)
+                ? TryPurchase(node.UpgradeId)
+                : UpgradeResult.UnknownNode;
 
         public UpgradeResult TryPurchase(string id)
         {
             if (!_upgrades.Contains(id)) return UpgradeResult.UnknownUpgrade;
             if (_upgrades.IsMaxed(id)) return UpgradeResult.MaxLevel;
+            if (_tree.IsUpgradeLocked(id)) return UpgradeResult.Locked;
 
             int cost = _upgrades.NextCost(id);
             if (!_wallet.CanAfford(cost)) return UpgradeResult.InsufficientCredits;

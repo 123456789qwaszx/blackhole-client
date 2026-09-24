@@ -15,7 +15,24 @@ namespace BlackHole.Core
         public List<TargetData> Targets = new List<TargetData>();
         public List<SkillData> Skills = new List<SkillData>();
         public List<UpgradeData> Upgrades = new List<UpgradeData>();
+        // 없으면 빈 트리다.
+        public SkillTreeData SkillTree;
         public SpawnData Spawn;
+    }
+
+    [Serializable]
+    public sealed class SkillTreeData
+    {
+        public List<SkillTreeNodeData> Nodes = new List<SkillTreeNodeData>();
+    }
+
+    [Serializable]
+    public sealed class SkillTreeNodeData
+    {
+        public string Id;
+        public string UpgradeId;
+        // 선행 노드 ID(모두 획득해야 한다).
+        public List<string> Requires = new List<string>();
     }
 
     [Serializable]

@@ -66,6 +66,12 @@ namespace BlackHole.Core
                 ? Field.TryPurchaseUpgrade(upgradeId)
                 : UpgradeResult.SessionInactive;
 
+        // 트리 노드 요청. 노드가 참조한 강화의 구매와 같은 판정 경로를 쓴다.
+        public UpgradeResult TryAcquireNode(string nodeId) =>
+            Phase == SessionPhase.Running
+                ? Field.TryAcquireNode(nodeId)
+                : UpgradeResult.SessionInactive;
+
         public void TogglePause()
         {
             if (Phase == SessionPhase.Ended) return;

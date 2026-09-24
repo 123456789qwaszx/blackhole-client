@@ -9,6 +9,7 @@ namespace BlackHole.Core
     // [1] 대상·스킬·강화 ID가 유일하다.
     // [2] 출현 순서의 대상 ID가 실재한다.
     // [3] 모든 스킬과 대상 이동이 실행 규칙으로 해석된다.
+    // [4] 트리 노드가 참조한 강화가 실재하고, 한 강화를 두 노드가 참조하지 않는다.
     // 오류가 있는 콘텐츠의 위치별 보고는 ContentLoader가 맡는다.
     public sealed class ContentCatalog
     {
@@ -21,6 +22,7 @@ namespace BlackHole.Core
         // 현재 스킬 사용자 한 명이 보유하는 스킬. 사용자가 여럿이 되면 사용자별 보유 목록으로 나눈다.
         public IReadOnlyList<SkillDefinition> Skills { get; }
         public IReadOnlyList<UpgradeDefinition> Upgrades { get; }
+        public SkillTreeDefinition SkillTree { get; }
         public SpawnDefinition Spawn { get; }
         // Spawn.TargetOrder를 해석한 정의 목록.
         internal IReadOnlyList<TargetDefinition> SpawnOrder { get; }
@@ -32,6 +34,7 @@ namespace BlackHole.Core
             IReadOnlyList<TargetDefinition> targets,
             IReadOnlyList<SkillDefinition> skills,
             IReadOnlyList<UpgradeDefinition> upgrades,
+            SkillTreeDefinition skillTree,
             SpawnDefinition spawn)
         {
             TimeLimit = timeLimit ?? throw new ArgumentNullException(nameof(timeLimit));
@@ -40,10 +43,11 @@ namespace BlackHole.Core
             Targets = Copy(targets);
             Skills = Copy(skills);
             Upgrades = Copy(upgrades);
+            SkillTree = skillTree ?? throw new ArgumentNullException(nameof(skillTree));
             Spawn = spawn;
 
             var diagnostics = new List<ContentDiagnostic>();
-            ContentInvariants.Collect(Targets, Skills, Upgrades, Spawn, diagnostics, out _targetsById);
+            ContentInvariants.Collect(Targets, Skills, Upgrades, SkillTree, Spawn, diagnostics, out _targetsById);
             if (diagnostics.Count > 0)
                 throw new ArgumentException(diagnostics[0].ToString());
 

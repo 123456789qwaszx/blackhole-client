@@ -26,13 +26,15 @@ namespace BlackHole.Core
             List<TargetDefinition> targets = LoadTargets(data.Targets, diagnostics);
             List<SkillDefinition> skills = LoadSkills(data.Skills, diagnostics);
             List<UpgradeDefinition> upgrades = LoadUpgrades(data.Upgrades, diagnostics);
+            SkillTreeDefinition skillTree = LoadSkillTree(data.SkillTree, diagnostics);
             SpawnDefinition spawn = LoadSpawn(data.Spawn, diagnostics);
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            ContentInvariants.Collect(targets, skills, upgrades, spawn, diagnostics, out _);
+            ContentInvariants.Collect(targets, skills, upgrades, skillTree, spawn, diagnostics, out _);
             if (diagnostics.Count > 0) return Fail(diagnostics);
 
-            var catalog = new ContentCatalog(timeLimit, targetRules, blackHole, targets, skills, upgrades, spawn);
+            var catalog = new ContentCatalog(
+                timeLimit, targetRules, blackHole, targets, skills, upgrades, skillTree, spawn);
             return new ContentLoadResult(catalog, diagnostics);
         }
 
@@ -254,6 +256,34 @@ namespace BlackHole.Core
                 case "AbsorptionRadius": stat = UpgradeStat.AbsorptionRadius; return true;
                 default: stat = default; return false;
             }
+        }
+
+        // ── 스킬 트리 ───────────────────────────────────────────────────────
+
+        // 노드마다 생성자 규칙을 모으고, 그래프 규칙(중복·누락·순환)은 SkillTreeInvariants로 모은다.
+        private static SkillTreeDefinition LoadSkillTree(SkillTreeData item, List<ContentDiagnostic> into)
+        {
+            if (item == null || item.Nodes == null) return SkillTreeDefinition.Empty;
+
+            int errors = into.Count;
+            var nodes = new List<SkillTreeNodeDefinition>();
+            for (int i = 0; i < item.Nodes.Count; i++)
+            {
+                SkillTreeNodeData node = item.Nodes[i];
+                string at = At("SkillTree.Nodes", i, node?.Id);
+                if (node == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "트리 노드 데이터가 null이다."));
+                    continue;
+                }
+                SkillTreeNodeDefinition definition = Guard(at, into, () =>
+                    new SkillTreeNodeDefinition(node.Id, node.UpgradeId, node.Requires));
+                if (definition != null) nodes.Add(definition);
+            }
+            if (into.Count > errors) return null;
+
+            SkillTreeInvariants.Collect(nodes, into);
+            return into.Count > errors ? null : new SkillTreeDefinition(nodes);
         }
 
         // ── 출현 ────────────────────────────────────────────────────────────

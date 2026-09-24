@@ -43,6 +43,97 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(RejectedPurchaseChangesNothing), RejectedPurchaseChangesNothing);
             yield return Case(nameof(LoaderReportsGrowthAndUpgradeErrors), LoaderReportsGrowthAndUpgradeErrors);
             yield return Case(nameof(AbsorptionRadiusUpgradeAppliesToAbsorption), AbsorptionRadiusUpgradeAppliesToAbsorption);
+            yield return Case(nameof(SkillTreeBranchAndMergeRequireAll), SkillTreeBranchAndMergeRequireAll);
+            yield return Case(nameof(RejectedTreeRequestsPreserveState), RejectedTreeRequestsPreserveState);
+            yield return Case(nameof(SkillTreeRejectsBrokenGraph), SkillTreeRejectsBrokenGraph);
+        }
+
+        // 루트 → 두 갈래 → 합류를 데이터로 표현한다. 화면 없이 획득 가능성을 판정한다.
+        public static void SkillTreeBranchAndMergeRequireAll()
+        {
+            GameSession game = TreeSession(20);
+            SkillTree tree = game.Field.SkillTree;
+            Equal(NodeStatus.Available, tree.Status("root"));
+            Equal(NodeStatus.Locked, tree.Status("left"));
+            Equal(NodeStatus.Locked, tree.Status("merge"));
+
+            Equal(UpgradeResult.Purchased, game.TryAcquireNode("root"));
+            Equal(NodeStatus.Acquired, tree.Status("root"));
+            Equal(NodeStatus.Available, tree.Status("left"));
+            Equal(NodeStatus.Available, tree.Status("right"));
+
+            // AND: 한 갈래만으로는 합류 노드가 열리지 않는다.
+            Equal(UpgradeResult.Purchased, game.TryAcquireNode("left"));
+            Equal(NodeStatus.Locked, tree.Status("merge"));
+            Equal(UpgradeResult.Purchased, game.TryAcquireNode("right"));
+            Equal(NodeStatus.Available, tree.Status("merge"));
+            Equal(UpgradeResult.Purchased, game.TryAcquireNode("merge"));
+            Equal(NodeStatus.Acquired, tree.Status("merge"));
+
+            // 획득 원본은 강화 단계다. 보정은 실제 계산에 반영된다.
+            Equal(20 - 1 - 2 - 2 - 4, game.Field.Wallet.Credits);
+            Equal(1, game.Field.Upgrades.Level("merge-up"));
+            Near(1 + 0.1f + 0.1f + 0.5f, game.Field.DamageMultiplier);
+            Near(0.65f + 0.1f, game.Field.BlackHole.AbsorptionRadius);
+        }
+
+        // 잠긴 노드·직접 구매 우회·중복 획득·재화 부족·알 수 없는 노드는 모두 상태를 바꾸지 않는다.
+        public static void RejectedTreeRequestsPreserveState()
+        {
+            GameSession game = TreeSession(3);
+            Equal(UpgradeResult.Locked, game.TryAcquireNode("merge"));
+            Equal(UpgradeResult.Locked, game.TryPurchaseUpgrade("merge-up"));
+            Equal(UpgradeResult.UnknownNode, game.TryAcquireNode("missing"));
+            Equal(3, game.Field.Wallet.Credits);
+            Equal(0, game.Field.Upgrades.Level("merge-up"));
+
+            Equal(UpgradeResult.Purchased, game.TryAcquireNode("root"));
+            Equal(UpgradeResult.MaxLevel, game.TryAcquireNode("root"));
+            Equal(UpgradeResult.MaxLevel, game.TryPurchaseUpgrade("root-up"));
+            Equal(2, game.Field.Wallet.Credits);
+
+            Equal(UpgradeResult.Purchased, game.TryAcquireNode("left"));
+            Equal(0, game.Field.Wallet.Credits);
+            Equal(UpgradeResult.InsufficientCredits, game.TryAcquireNode("right"));
+            Equal(0, game.Field.Wallet.Credits);
+            Equal(0, game.Field.Upgrades.Level("right-up"));
+            Equal(NodeStatus.Available, game.Field.SkillTree.Status("right"));
+        }
+
+        public static void SkillTreeRejectsBrokenGraph()
+        {
+            // 그래프 모양: 중복 노드, 없는 선행 노드, 중복 선행.
+            ContentData shape = TreeContent(20);
+            shape.SkillTree.Nodes.Add(Node("left", "extra-up"));
+            shape.SkillTree.Nodes[3].Requires.Add("ghost");
+            shape.SkillTree.Nodes[1].Requires.Add("root");
+            ContentLoadResult result = ContentLoader.Load(shape);
+            Check(!result.Succeeded, "그래프 오류가 있으면 로드에 실패해야 한다.");
+            Equal(3, result.Diagnostics.Count);
+            HasDiagnostic(result, "SkillTree.Nodes[4]", "left");
+            HasDiagnostic(result, "SkillTree.Nodes[merge].Requires[2]", "ghost");
+            HasDiagnostic(result, "SkillTree.Nodes[left].Requires[1]", "중복");
+
+            // 순환: root → left → root. 트리 정의 생성자도 같은 규칙으로 거부한다.
+            ContentData cycle = TreeContent(20);
+            cycle.SkillTree.Nodes[0].Requires.Add("left");
+            result = ContentLoader.Load(cycle);
+            Equal(1, result.Diagnostics.Count);
+            Check(result.Diagnostics[0].Message.Contains("순환"), "순환을 보고해야 한다: " + result.Diagnostics[0]);
+            Throws<ArgumentException>(() => new SkillTreeDefinition(new[]
+            {
+                new SkillTreeNodeDefinition("a", "a-up", new[] { "b" }),
+                new SkillTreeNodeDefinition("b", "b-up", new[] { "a" })
+            }));
+
+            // 강화 참조: 없는 강화, 한 강화를 두 노드가 참조.
+            ContentData references = TreeContent(20);
+            references.SkillTree.Nodes[1].UpgradeId = "missing-up";
+            references.SkillTree.Nodes[2].UpgradeId = "root-up";
+            result = ContentLoader.Load(references);
+            Equal(2, result.Diagnostics.Count);
+            HasDiagnostic(result, "SkillTree.Nodes[left].UpgradeId", "missing-up");
+            HasDiagnostic(result, "SkillTree.Nodes[right].UpgradeId", "root");
         }
 
         // 두 번째 강화 종류: 흡수 반경 보정. 정의 추가만으로 구매·표시·실제 흡수 판정에 연결된다.
@@ -695,15 +786,15 @@ namespace BlackHole.Core.Tests
             var spawn = new SpawnDefinition(new[] { "shard" }, 1, 5, 0, 4);
             var limit = new TimeLimitDefinition(10);
             var rules = new TargetRulesDefinition(0.8f, 4);
-            new ContentCatalog(limit, rules, blackHole, new[] { target }, new[] { skill }, upgrades, spawn);
+            new ContentCatalog(limit, rules, blackHole, new[] { target }, new[] { skill }, upgrades, SkillTreeDefinition.Empty, spawn);
 
             Throws<ArgumentException>(() => new ContentCatalog(
-                limit, rules, blackHole, new[] { target }, new[] { skill, skill }, upgrades, spawn));
+                limit, rules, blackHole, new[] { target }, new[] { skill, skill }, upgrades, SkillTreeDefinition.Empty, spawn));
             Throws<ArgumentException>(() => new ContentCatalog(
-                limit, rules, blackHole, new[] { target }, new[] { skill }, upgrades,
+                limit, rules, blackHole, new[] { target }, new[] { skill }, upgrades, SkillTreeDefinition.Empty,
                 new SpawnDefinition(new[] { "ghost" }, 1, 5, 0, 4)));
             Throws<ArgumentException>(() => new ContentCatalog(
-                limit, rules, blackHole, new[] { target }, new[] { skill }, new[] { upgrades[0], upgrades[0] }, spawn));
+                limit, rules, blackHole, new[] { target }, new[] { skill }, new[] { upgrades[0], upgrades[0] }, SkillTreeDefinition.Empty, spawn));
         }
 
         // ── 공통 준비 ───────────────────────────────────────────────────────
@@ -777,6 +868,45 @@ namespace BlackHole.Core.Tests
             };
 
         private static RewardData Reward(int mass, int credits) => new RewardData { Mass = mass, Credits = credits };
+
+        // 검증용 트리: root → left, right → merge. 강화는 모두 1단계, 비용 1·2·2·4.
+        // 첫 shard 흡수로 credits를 받는다(질량 0이라 흡수 반경은 기본값 그대로).
+        private static ContentData TreeContent(int credits)
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.Targets[0].Reward = Reward(0, credits);
+            data.Upgrades.Add(TreeUpgrade("root-up", 1, "DamageMultiplier", 0.1f));
+            data.Upgrades.Add(TreeUpgrade("left-up", 2, "DamageMultiplier", 0.1f));
+            data.Upgrades.Add(TreeUpgrade("right-up", 2, "AbsorptionRadius", 0.1f));
+            data.Upgrades.Add(TreeUpgrade("merge-up", 4, "DamageMultiplier", 0.5f));
+            data.Upgrades.Add(TreeUpgrade("extra-up", 1, "DamageMultiplier", 0.1f));
+            data.SkillTree = new SkillTreeData
+            {
+                Nodes =
+                {
+                    Node("root", "root-up"),
+                    Node("left", "left-up", "root"),
+                    Node("right", "right-up", "root"),
+                    Node("merge", "merge-up", "left", "right")
+                }
+            };
+            return data;
+        }
+
+        private static GameSession TreeSession(int credits)
+        {
+            GameSession game = Assemble(TreeContent(credits));
+            game.TryCast(ReferenceGame.StrikeId, game.Field.Targets[0].Position);
+            game.Advance(2);
+            Equal(credits, game.Field.Wallet.Credits);
+            return game;
+        }
+
+        private static UpgradeData TreeUpgrade(string id, int cost, string stat, float perLevel) =>
+            new UpgradeData { Id = id, BaseCost = cost, MaxLevel = 1, Stat = stat, PerLevel = perLevel };
+
+        private static SkillTreeNodeData Node(string id, string upgradeId, params string[] requires) =>
+            new SkillTreeNodeData { Id = id, UpgradeId = upgradeId, Requires = new List<string>(requires) };
 
         private static SpawnData Spawn(float interval, float radius, int capacity, params string[] order) =>
             new SpawnData

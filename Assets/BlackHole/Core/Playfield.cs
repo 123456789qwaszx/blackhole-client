@@ -18,12 +18,13 @@ namespace BlackHole.Core
         public BlackHoleState BlackHole { get; }
         public WalletState Wallet { get; }
         public UpgradeState Upgrades { get; }
+        public SkillTree SkillTree { get; }
 
         // 스킬 사용자의 공격 배율: 기본 1 + 획득 강화 보정. 원본을 저장하지 않고 매번 계산한다.
         public float DamageMultiplier => 1 + Upgrades.Bonus(UpgradeStat.DamageMultiplier);
 
         internal Playfield(TargetWorld world, SpawnSchedule spawn, SkillLoadout loadout,
-            BlackHoleState blackHole, WalletState wallet, UpgradeState upgrades)
+            BlackHoleState blackHole, WalletState wallet, UpgradeState upgrades, SkillTree skillTree)
         {
             _world = world;
             _spawn = spawn;
@@ -31,8 +32,9 @@ namespace BlackHole.Core
             BlackHole = blackHole;
             Wallet = wallet;
             Upgrades = upgrades;
+            SkillTree = skillTree;
             _combat = new CombatResolver(_world);
-            _purchase = new UpgradePurchase(upgrades, wallet);
+            _purchase = new UpgradePurchase(upgrades, wallet, skillTree);
             _spawn.Advance(0, _world);
         }
 
@@ -49,5 +51,7 @@ namespace BlackHole.Core
             _loadout.TryCast(id, new CastContext(aim, DamageMultiplier), _world, _combat, out report);
 
         internal UpgradeResult TryPurchaseUpgrade(string id) => _purchase.TryPurchase(id);
+
+        internal UpgradeResult TryAcquireNode(string nodeId) => _purchase.TryAcquireNode(nodeId);
     }
 }

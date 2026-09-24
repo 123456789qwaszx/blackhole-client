@@ -12,6 +12,7 @@ namespace BlackHole.Core
             IReadOnlyList<TargetDefinition> targets,
             IReadOnlyList<SkillDefinition> skills,
             IReadOnlyList<UpgradeDefinition> upgrades,
+            SkillTreeDefinition skillTree,
             SpawnDefinition spawn,
             ICollection<ContentDiagnostic> into,
             out Dictionary<string, TargetDefinition> targetsById)
@@ -19,6 +20,7 @@ namespace BlackHole.Core
             targetsById = IndexTargets(targets, into);
             VerifySkills(skills, into);
             VerifyUpgrades(upgrades, into);
+            VerifySkillTree(skillTree, upgrades, into);
             VerifySpawn(spawn, targetsById, into);
         }
 
@@ -90,6 +92,29 @@ namespace BlackHole.Core
                     into.Add(new ContentDiagnostic($"Upgrades[{i}]", "강화 정의가 null이다."));
                 else if (!ids.Add(upgrade.Id))
                     into.Add(new ContentDiagnostic($"Upgrades[{i}]", $"강화 ID '{upgrade.Id}'가 중복됐다."));
+            }
+        }
+
+        // 트리 그래프 자체의 규칙은 SkillTreeDefinition이 보장한다. 여기서는 강화 참조만 본다.
+        private static void VerifySkillTree(SkillTreeDefinition tree,
+            IReadOnlyList<UpgradeDefinition> upgrades, ICollection<ContentDiagnostic> into)
+        {
+            if (tree == null) return;
+            var upgradeIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (UpgradeDefinition upgrade in upgrades)
+                if (upgrade != null) upgradeIds.Add(upgrade.Id);
+
+            var referenced = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (SkillTreeNodeDefinition node in tree.Nodes)
+            {
+                string at = $"SkillTree.Nodes[{node.Id}].UpgradeId";
+                if (!upgradeIds.Contains(node.UpgradeId))
+                    into.Add(new ContentDiagnostic(at, $"정의되지 않은 강화 '{node.UpgradeId}'."));
+                else if (referenced.TryGetValue(node.UpgradeId, out string other))
+                    into.Add(new ContentDiagnostic(at,
+                        $"강화 '{node.UpgradeId}'를 노드 '{other}'도 참조한다. 한 강화는 한 노드만 참조한다."));
+                else
+                    referenced.Add(node.UpgradeId, node.Id);
             }
         }
 

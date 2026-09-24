@@ -18,7 +18,8 @@ namespace BlackHole.Core
             var world = new TargetWorld(catalog.TargetRules);
             var spawn = new SpawnSchedule(catalog.Spawn, catalog.SpawnOrder);
             var loadout = new SkillLoadout(catalog.Skills);
-            var field = new Playfield(world, spawn, loadout, blackHole, wallet, upgrades);
+            var skillTree = new SkillTree(catalog.SkillTree, upgrades);
+            var field = new Playfield(world, spawn, loadout, blackHole, wallet, upgrades, skillTree);
 
             var mode = new TimeLimitMode(catalog.TimeLimit);
             return new GameSession(field, mode);
