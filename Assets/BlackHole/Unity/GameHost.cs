@@ -65,7 +65,10 @@ namespace BlackHole.Unity
             }
 
             GameSession session = _launcher.Current;
-            if (_input.TogglePause) session.TogglePause();
+            
+            if (_input.TogglePause) 
+                session.TogglePause();
+            
             session.SetAimPoint(MouseAimPlayer, _input.Aim);
 
             session.Advance(Time.deltaTime);
@@ -77,9 +80,17 @@ namespace BlackHole.Unity
         {
             switch (_hud.Draw(_launcher.Current))
             {
-                case HudRequest.TogglePause: _launcher.Current.TogglePause(); break;
-                case HudRequest.Stop: _launcher.Stop(); break;
-                case HudRequest.Restart: _launcher.StartNew(); break;
+                case HudRequest.TogglePause: 
+                    _launcher.Current.TogglePause();
+                    break;
+                
+                case HudRequest.Stop: 
+                    _launcher.Stop();
+                    break;
+                
+                case HudRequest.Restart: 
+                    _launcher.StartNew();
+                    break;
             }
         }
 
@@ -90,6 +101,7 @@ namespace BlackHole.Unity
         private Camera ConfigureCamera(SamplePresentation presentation)
         {
             Camera camera = Camera.main;
+            
             if (camera == null)
             {
                 var cameraObject = new GameObject("Camera");
@@ -97,22 +109,28 @@ namespace BlackHole.Unity
                 camera = cameraObject.AddComponent<Camera>();
                 camera.tag = "MainCamera";
             }
+            
             // 규칙 평면은 z = 0. x, y는 WorldView가 HQ 위치에 맞춘다.
             camera.transform.position = new Vector3(0, 0, -10);
             camera.orthographic = true;
             camera.orthographicSize = presentation.CameraSize;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = presentation.Background;
+            
             return camera;
         }
 
         // 오류가 있는 콘텐츠로는 판을 시작하지 않는다. 모든 진단을 위치와 함께 남긴다.
         private bool TryLoadContent(out GameContent content)
         {
-            ContentLoadResult result = ContentLoader.Load(SampleContent.Create());
+            ContentLoadResult result = 
+                ContentLoader.Load(SampleContent.Create());
+            
             foreach (ContentDiagnostic diagnostic in result.Diagnostics)
                 Debug.LogError("[콘텐츠] " + diagnostic, this);
+            
             content = result.Content;
+            
             return result.Succeeded;
         }
 

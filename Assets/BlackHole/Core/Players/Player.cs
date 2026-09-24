@@ -13,8 +13,10 @@ namespace BlackHole.Core
             Value = value;
         }
 
-        public bool Equals(PlayerId other) => Value == other.Value;
-        public override bool Equals(object obj) => obj is PlayerId other && Equals(other);
+        public bool Equals(PlayerId other) => 
+            Value == other.Value;
+        public override bool Equals(object obj) =>
+            obj is PlayerId other && Equals(other);
         public override int GetHashCode() => Value;
         public override string ToString() => $"Player {Value}";
     }
@@ -27,10 +29,13 @@ namespace BlackHole.Core
 
         public PlayerId Id { get; }
         public PlayerState State { get; } = new PlayerState();
+        
         // 이 Player의 조준점. 누가 채우는지는 모른다 — 지금은 호스트가 마우스 위치로 채운다.
         // Player가 마우스를 가진다는 뜻이 아니다. 없으면 null.
         public Point2? AimPoint { get; private set; }
-        // 이 Player가 가진 Passive Skill. 지금은 콘텐츠의 시작 구성으로 판 조립 때 정해진다(획득 구조 없음).
+        // 이 Player가 가진 Passive Skill.
+        // 지금은 콘텐츠의 시작 구성으로 판 조립 때 정해진다(획득 구조 없음).
+        
         public IReadOnlyList<PassiveSkill> Skills { get; }
 
         internal Player(PlayerId id)

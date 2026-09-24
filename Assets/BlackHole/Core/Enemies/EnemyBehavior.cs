@@ -9,7 +9,10 @@ namespace BlackHole.Core
         public EnemyStats Stats { get; }
         public Point2 HqPosition { get; }
 
-        public EnemyBehaviorInput(Point2 position, EnemyStats stats, Point2 hqPosition)
+        public EnemyBehaviorInput(
+            Point2 position, 
+            EnemyStats stats, 
+            Point2 hqPosition)
         {
             Position = position;
             Stats = stats;
@@ -24,13 +27,16 @@ namespace BlackHole.Core
         Point2 NextPosition(in EnemyBehaviorInput input, float delta);
     }
 
-    // 행동 정의 → 행동 구현. 판 조립 때 쓰인다. 게임은 EnemyBehaviors.Standard를 쓴다(D3: 테스트만 다른 해석기를 꽂는다).
-    public delegate IEnemyBehavior EnemyBehaviorResolver(EnemyBehaviorDefinition definition);
+    // 행동 정의 → 행동 구현. 판 조립 때 쓰인다.
+    // 게임은 EnemyBehaviors.Standard를 쓴다(D3: 테스트만 다른 해석기를 꽂는다).
+    public delegate IEnemyBehavior EnemyBehaviorResolver(
+        EnemyBehaviorDefinition definition);
 
     public static class EnemyBehaviors
     {
         // 행동 정의를 구현으로 해석하는 유일한 자리. 지금은 Orbit 하나다.
-        public static IEnemyBehavior Standard(EnemyBehaviorDefinition definition)
+        public static IEnemyBehavior Standard(
+            EnemyBehaviorDefinition definition)
         {
             switch (definition)
             {
@@ -58,11 +64,21 @@ namespace BlackHole.Core
         {
             float dx = input.Position.X - input.HqPosition.X;
             float dy = input.Position.Y - input.HqPosition.Y;
+            
             float radius = (float)Math.Sqrt(dx * dx + dy * dy);
-            if (radius == 0) return input.Position;
+            
+            if (radius == 0) 
+                return input.Position;
 
             float angle = (float)Math.Atan2(dy, dx);
-            float turn = input.Stats.MoveSpeed / radius * delta * (_definition.Clockwise ? -1 : 1);
+            float turn = 
+                input.Stats.MoveSpeed 
+                / radius 
+                * delta 
+                * (_definition.Clockwise 
+                    ? -1 
+                    : 1);
+            
             return new Point2(
                 input.HqPosition.X + radius * (float)Math.Cos(angle + turn),
                 input.HqPosition.Y + radius * (float)Math.Sin(angle + turn));

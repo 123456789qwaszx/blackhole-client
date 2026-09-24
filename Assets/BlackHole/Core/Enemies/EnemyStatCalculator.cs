@@ -13,13 +13,21 @@ namespace BlackHole.Core
     // 계산 시점은 [임시]로 출현 때 1회다(EnemySpawner). 살아 있는 Enemy에 즉시 반영할지는 미정이다.
     public static class EnemyStatCalculator
     {
-        public static EnemyStats Compute(EnemyDefinition definition, IReadOnlyList<IEnemyStatModifier> modifiers)
+        public static EnemyStats Compute(
+            EnemyDefinition definition,
+            IReadOnlyList<IEnemyStatModifier> modifiers)
         {
-            if (definition == null) throw new ArgumentNullException(nameof(definition));
+            if (definition == null) 
+                throw new ArgumentNullException(nameof(definition));
+            
             EnemyStats stats = definition.BaseStats;
-            if (modifiers == null) return stats;
+            
+            if (modifiers == null)
+                return stats;
+            
             foreach (IEnemyStatModifier modifier in modifiers)
                 stats = modifier.Apply(definition, stats);
+            
             return stats;
         }
     }

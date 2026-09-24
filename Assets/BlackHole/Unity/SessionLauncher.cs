@@ -14,7 +14,10 @@ namespace BlackHole.Unity
 
         public GameSession Current { get; private set; }
 
-        public SessionLauncher(GameContent content, IReadOnlyList<PlayerId> participants, WorldView view)
+        public SessionLauncher(
+            GameContent content, 
+            IReadOnlyList<PlayerId> participants, 
+            WorldView view)
         {
             _content = content;
             _participants = participants;
@@ -25,7 +28,9 @@ namespace BlackHole.Unity
         {
             Current?.Stop();
             _view.Reset();
+            
             Current = SessionAssembler.Create(_content, _participants);
+            
             _view.Synchronize(Current.World);
         }
 

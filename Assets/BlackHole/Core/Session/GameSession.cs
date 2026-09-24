@@ -40,9 +40,12 @@ namespace BlackHole.Core
         public void Advance(float delta)
         {
             DefinitionGuard.Delta(delta);
-            if (Phase != SessionPhase.Running || delta == 0) return;
+            
+            if (Phase != SessionPhase.Running || delta == 0)
+                return;
 
             World.BeginAdvance();
+            
             if (_runner.Advance(delta, out SessionEndReason reason))
                 End(reason);
         }

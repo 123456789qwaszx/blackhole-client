@@ -48,12 +48,20 @@ namespace BlackHole.Core
         internal void Step(float delta)
         {
             Point2 hq = Hq.Position;
-            for (int i = 0; i < _enemies.Count; i++) _enemies[i].Move(delta, hq);
+
+            for (int i = 0; i < _enemies.Count; i++)
+            {
+                _enemies[i].Move(delta, hq);
+            }
 
             for (int p = 0; p < _players.Count; p++)
             {
                 IReadOnlyList<PassiveSkill> skills = _players[p].Skills;
-                for (int s = 0; s < skills.Count; s++) skills[s].Advance(delta, this);
+                
+                for (int s = 0; s < skills.Count; s++)
+                {
+                    skills[s].Advance(delta, this);
+                }
             }
 
             _spawner.Advance(delta, this);
@@ -64,19 +72,34 @@ namespace BlackHole.Core
         // 사망은 피해를 수용한 Enemy가 판정한다. World는 보상·목록·사망 기록을 한 번 확정한다.
         internal void DealDamage(Enemy enemy, Damage damage)
         {
-            if (!enemy.IsAlive || !enemy.ApplyDamage(damage)) return;
+            if (!enemy.IsAlive || !enemy.ApplyDamage(damage))
+                return;
 
             // 현재 실제 보상 구성은 단일 Player다. 조립 때 그 전제를 검증한다.
-            if (_players.Count == 1) _players[0].State.EarnGold(enemy.Definition.Gold);
+            if (_players.Count == 1) 
+                _players[0].State.EarnGold(enemy.Definition.Gold);
+            
             Hq.GainExp(enemy.Definition.HqExp);
+            
             _deaths.Add(new DeathRecord(_nextDeathSequence++, enemy));
+            
             _enemies.Remove(enemy);
         }
 
         // 출현 요청을 받는다. 목록과 ID 발급은 World가 가진다.
-        internal void AddEnemy(EnemyDefinition definition, EnemyStats stats, Point2 position, IEnemyBehavior behavior)
+        internal void AddEnemy(
+            EnemyDefinition definition,
+            EnemyStats stats,
+            Point2 position, 
+            IEnemyBehavior behavior)
         {
-            _enemies.Add(new Enemy(new EnemyId(_nextEnemyId++), definition, stats, position, behavior));
+            _enemies.Add(
+                new Enemy(
+                    new EnemyId(_nextEnemyId++),
+                    definition, 
+                    stats, 
+                    position, 
+                    behavior));
         }
     }
 }

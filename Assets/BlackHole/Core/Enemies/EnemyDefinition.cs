@@ -29,12 +29,22 @@ namespace BlackHole.Core
         public int Gold { get; }
         public int HqExp { get; }
 
-        public EnemyDefinition(string id, EnemyStats baseStats, EnemyBehaviorDefinition behavior,
-            int gold = 0, int hqExp = 0)
+        public EnemyDefinition(
+            string id, 
+            EnemyStats baseStats,
+            EnemyBehaviorDefinition behavior,
+            int gold = 0,
+            int hqExp = 0)
         {
-            if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("ID가 비어 있다.", nameof(id));
-            if (gold < 0) throw new ArgumentOutOfRangeException(nameof(gold));
-            if (hqExp < 0) throw new ArgumentOutOfRangeException(nameof(hqExp));
+            if (string.IsNullOrWhiteSpace(id)) 
+                throw new ArgumentException("ID가 비어 있다.", nameof(id));
+            
+            if (gold < 0) 
+                throw new ArgumentOutOfRangeException(nameof(gold));
+            
+            if (hqExp < 0) 
+                throw new ArgumentOutOfRangeException(nameof(hqExp));
+            
             Id = id;
             BaseStats = baseStats;
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");

@@ -23,19 +23,30 @@ namespace BlackHole.Unity
         public void Read()
         {
             Keyboard keyboard = Keyboard.current;
+            
             Restart = keyboard != null && keyboard.rKey.wasPressedThisFrame;
             TogglePause = keyboard != null && keyboard.pKey.wasPressedThisFrame;
+            
             Aim = ReadAim();
         }
 
         private Point2? ReadAim()
         {
             Mouse mouse = Mouse.current;
-            if (mouse == null) return null;
+            
+            if (mouse == null) 
+                return null;
 
             Vector2 screen = mouse.position.ReadValue();
-            if (screen.x < 0 || screen.y < 0 || screen.x >= Screen.width || screen.y >= Screen.height) return null;
-            return SceneSpace.ToRules(_camera.ScreenToWorldPoint(screen));
+            
+            if (screen.x < 0 
+                || screen.y < 0 
+                || screen.x >= Screen.width 
+                || screen.y >= Screen.height)
+                return null;
+            
+            return SceneSpace.ToRules(
+                _camera.ScreenToWorldPoint(screen));
         }
     }
 }

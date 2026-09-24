@@ -12,8 +12,10 @@ namespace BlackHole.Core
             Value = value;
         }
 
-        public bool Equals(EnemyId other) => Value == other.Value;
-        public override bool Equals(object obj) => obj is EnemyId other && Equals(other);
+        public bool Equals(EnemyId other) =>
+            Value == other.Value;
+        public override bool Equals(object obj) =>
+            obj is EnemyId other && Equals(other);
         public override int GetHashCode() => Value;
         public override string ToString() => $"Enemy {Value}";
     }
@@ -31,10 +33,16 @@ namespace BlackHole.Core
         public float Health { get; private set; }
         public bool IsAlive { get; private set; } = true;
         public Point2 Position { get; private set; }
-        // 마지막으로 피해를 준 Player. 기록일 뿐이며 보상 귀속 규칙으로 쓰지 않는다(귀속 정책은 미정).
+        // 마지막으로 피해를 준 Player.
+        // 기록일 뿐이며 보상 귀속 규칙으로 쓰지 않는다(귀속 정책은 미정).
         public PlayerId? LastDamageSource { get; private set; }
 
-        internal Enemy(EnemyId id, EnemyDefinition definition, EnemyStats stats, Point2 position, IEnemyBehavior behavior)
+        internal Enemy(
+            EnemyId id, 
+            EnemyDefinition definition,
+            EnemyStats stats, 
+            Point2 position,
+            IEnemyBehavior behavior)
         {
             Id = id;
             Definition = definition;
@@ -46,17 +54,25 @@ namespace BlackHole.Core
 
         internal void Move(float delta, Point2 hqPosition)
         {
-            Position = _behavior.NextPosition(new EnemyBehaviorInput(Position, Stats, hqPosition), delta);
+            Position = _behavior.NextPosition(
+                new EnemyBehaviorInput(Position, Stats, hqPosition),
+                delta);
         }
 
         // true는 이번 피해에서 최초로 사망했음을 뜻한다.
         internal bool ApplyDamage(Damage damage)
         {
-            if (!IsAlive) return false;
+            if (!IsAlive) 
+                return false;
+            
             Health = Math.Max(0, Health - damage.Amount);
             LastDamageSource = damage.Source;
-            if (Health > 0) return false;
+            
+            if (Health > 0)
+                return false;
+            
             IsAlive = false;
+            
             return true;
         }
     }

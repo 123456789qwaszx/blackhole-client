@@ -62,15 +62,26 @@ namespace BlackHole.Core
 
         private void Tick(World world)
         {
-            if (!TryGetOrigin(out Point2 origin)) return;
+            if (!TryGetOrigin(out Point2 origin))
+                return;
 
             _targets.Clear();
             IReadOnlyList<Enemy> enemies = world.Enemies;
+            
             for (int i = 0; i < enemies.Count; i++)
-                if (enemies[i].IsAlive && IsInside(enemies[i], origin, Stats.Radius)) _targets.Add(enemies[i]);
+            {
+                if (enemies[i].IsAlive 
+                    && IsInside(enemies[i], origin, Stats.Radius)) 
+                {
+                    _targets.Add(enemies[i]);
+                }
+            }
 
             var damage = new Damage(Stats.Damage, _owner.Id);
-            foreach (Enemy target in _targets) world.DealDamage(target, damage);
+            
+            foreach (Enemy target in _targets) 
+                world.DealDamage(target, damage);
+            
             _targets.Clear();
         }
 
