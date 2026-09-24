@@ -13,7 +13,7 @@
 
 ## 2. v1을 어떻게 다루는가
 
-**결정(제안)**: v1 코드는 지우고 처음부터 만든다. v1은 태그로 보존하고, 검증된 **패턴**만 목록으로 정해 의식적으로 다시 쓴다(복사하지 않는다).
+**결정(2026-09-24 승인)**: v1 코드는 지우고 처음부터 만든다. v1은 태그로 보존하고, 검증된 **패턴**만 목록으로 정해 의식적으로 다시 쓴다(복사하지 않는다).
 
 - **지우는 이유**: v1은 규칙이 정해지기 전에 만든 예제라서 임의 규칙이 구조 깊이 들어가 있다. 블랙홀 = 좌표 원점, 흡수 반경 기준 하한, 판에 박힌 단일 Player 등이다. 고쳐 쓰면 이것들이 "원래 있던 것"으로 남기 쉽다. 새 규칙에서 의미가 남는 v1 계약 테스트는 38개 중 약 10개다.
 - **태그로 보존하는 이유**: 같은 `Assets`에 v1과 v2를 함께 두면 Unity가 둘 다 컴파일해 namespace와 씬이 충돌한다. v1 코드는 `reference-v1` 태그로 언제든 열어 볼 수 있다.
@@ -28,7 +28,7 @@
 | Enemy 행동을 본체에서 분리 | 블랙홀 중심 극좌표 전제 |
 | Core(엔진 없음)와 Unity 호스트의 어셈블리 분리, 같은 계약을 EditMode와 .NET 실행기가 실행 | 한 파일짜리 계약 테스트(v2는 시스템별 파일) |
 
-v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../SYSTEM_CATALOG.md)(v1 예제집)에 남아 있다. 이 문서는 v1 기록으로 유지한다.
+v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../v1/SYSTEM_CATALOG.md)(v1 예제집)에 남아 있다. 이 문서는 v1 기록으로 유지한다.
 
 ## 3. v2가 검증할 경계
 
@@ -95,7 +95,7 @@ v1에서 얻은 질문과 관점은 [SYSTEM_CATALOG.md](../SYSTEM_CATALOG.md)(v1
 
 | 마일스톤 | 내용 | 검증 경계 | 문서 | 상태 |
 |---|---|---|---|---|
-| M0 | v1 정리와 빈 뼈대 | — | [M0-cleanup.md](M0-cleanup.md) | 계획 |
+| M0 | v1 정리와 빈 뼈대 | — | [M0-cleanup.md](M0-cleanup.md) | 진행 중 |
 | M1 | 월드 뼈대: Session, Content, HQ, Player | B1, B2, B8, B9 | [M1-world.md](M1-world.md) | 계획 |
 | M2 | Enemy: 정의, Runtime Stat, 출현, Orbit 행동 | B2, B3, B4, B9 | [M2-enemy.md](M2-enemy.md) | 계획 |
 | M3 | 첫 Passive Skill(Player 1의 AimPoint 기준) | B1, B5, B7 | [M3-passive-skill.md](M3-passive-skill.md) | 계획 |
@@ -136,7 +136,7 @@ docs/
   v2/
     PLAN.md              이 문서. 마일스톤마다 갱신한다
     M0-cleanup.md …      마일스톤별 계획과 결과
-  v1/                    (M0에서 이동) v1 기록
+  v1/                    v1 기록(코드는 태그 reference-v1)
     SYSTEM_CATALOG.md    v1 예제집: 시스템별 질문과 관점
     systemization-baseline.md
     REFERENCE_IMPLEMENTATION.md

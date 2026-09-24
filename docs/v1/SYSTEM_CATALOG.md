@@ -1,4 +1,6 @@
-# System Catalog — Reference 예제집
+# System Catalog — Reference v1 예제집
+
+> v1 기록이다. 코드는 태그 `reference-v1`에 있고 작업 트리에서는 지워졌다. 현재 작업은 [../v2/PLAN.md](../v2/PLAN.md)를 따른다.
 
 이 레포는 팀 게임의 설계 초안이 아니다. 블랙홀 키우기 게임을 만들 때 생길 만한 시스템을 한 번씩 실제로 만들어 보면서, **이런 종류의 시스템이 어떤 목적·규칙·흐름·책임을 가지는지** 체감하려고 만든 실물 예제집이다.
 
@@ -12,7 +14,7 @@
 
 아래의 시스템 후보도 "우리 게임의 시스템 목록"이 아니다. "이런 책임 덩어리가 생길 수 있고, Reference에서는 이렇게 한 번 나눠 봤다"는 뜻이다. 실제 기획에 따라 합쳐지거나, 나뉘거나, 사라질 수 있다.
 
-**실제 게임 규칙은 [GAME_RULES.md](GAME_RULES.md)에 있다.** 이 예제집의 규칙(흡수 시 보상, 액티브 스킬 등)과 다르며, 차이는 그 문서 4절에 정리했다.
+**실제 게임 규칙은 [GAME_RULES.md](../GAME_RULES.md)에 있다.** 이 예제집의 규칙(흡수 시 보상, 액티브 스킬 등)과 다르며, 차이는 그 문서 4절에 정리했다.
 
 관련 기록: 구현 과정과 기준 동작은 [systemization-baseline.md](systemization-baseline.md), `80549cb` 시점의 최초 실험은 [REFERENCE_IMPLEMENTATION.md](REFERENCE_IMPLEMENTATION.md)에 있다.
 

@@ -129,9 +129,9 @@ Player ─ 첫 Passive Skill
 3. **Enemy 수치를 바꾸는 PlayerState는 누구의 것인가?** 4인이면 공유 진행도로 보정하는지, 개인 능력으로 보정하는지, 한 Enemy에 여러 Player의 보정이 겹치는지가 문제가 된다.
 4. **조준점은 누구의 값인가?** 첫 Skill의 기준점은 소유 Player의 조준점(AimPoint)이다. 지금은 호스트가 마우스 위치로 채우지만, 나중에는 PlayerCharacter 위치, 게임패드, 네트워크 Player의 조준이 채울 수 있다. 입력 장치를 Player에 붙이지 않고, 조준점이라는 값만 Player에 둔다.
 
-## 4. 현재 Reference와 다른 점
+## 4. v1 Reference와 다른 점
 
-Reference(`Assets/BlackHole`)는 이 규칙이 정해지기 전에 임의로 만든 예제다. 아래는 이 문서와 어긋나는 부분이다.
+v1 Reference(태그 `reference-v1`)는 이 규칙이 정해지기 전에 임의로 만든 예제다. 아래는 이 문서와 어긋나는 부분이다. v2는 [v2/PLAN.md](v2/PLAN.md)에 따라 이 규칙 기준으로 다시 만든다.
 
 | 주제 | Reference | 이 문서의 규칙 |
 |---|---|---|
