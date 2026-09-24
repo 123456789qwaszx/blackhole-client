@@ -1,5 +1,8 @@
 # Reference Implementation — 구현 경계와 실험 결과
 
+> 이 문서는 `80549cb` 시점의 실험 기록이다. 이후 시스템화(S0~S7)로 상태 소유자, 파일, 확장 지점이 바뀌었다.
+> 현재 구조와 팀 인계 정보는 [SYSTEM_CATALOG.md](SYSTEM_CATALOG.md)를 기준으로 한다.
+
 ## 목적과 적용 범위
 
 첨부된 Reference Implementation 가이드에 따라 가장 작은 플레이 흐름으로 경계를 구현했다.
