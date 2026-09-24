@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace BlackHole.Core
 {
     // 흡수 확정과 보상 지급의 순서를 한 흐름에 둔다. 사망 콜백과 뷰 Destroy에서 따로 보상을 주지 않는다.
@@ -11,8 +13,11 @@ namespace BlackHole.Core
         public void Resolve(TargetWorld world, BlackHoleState blackHole, WalletState wallet)
         {
             float radius = blackHole.AbsorptionRadius;
-            foreach (TargetState target in world.Targets)
+            // 매 단계 경로: IReadOnlyList를 foreach로 돌면 열거자가 할당되므로 인덱스로 돈다.
+            IReadOnlyList<TargetState> targets = world.Targets;
+            for (int i = 0; i < targets.Count; i++)
             {
+                TargetState target = targets[i];
                 if (target.TryAbsorb(radius))
                     GrantReward(target.Definition.Reward, blackHole, wallet);
             }

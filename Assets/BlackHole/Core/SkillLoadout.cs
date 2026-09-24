@@ -28,7 +28,8 @@ namespace BlackHole.Core
 
         public void Advance(float delta)
         {
-            foreach (SkillState skill in Skills) skill.Advance(delta);
+            // 매 단계 경로: IReadOnlyList를 foreach로 돌면 열거자가 할당되므로 인덱스로 돈다.
+            for (int i = 0; i < Skills.Count; i++) Skills[i].Advance(delta);
         }
 
         // 시전 순서:
@@ -63,8 +64,8 @@ namespace BlackHole.Core
             CombatResolver combat)
         {
             bool applied = false;
-            foreach (ISkillEffect effect in skill.Effects)
-                applied |= effect.Apply(target, context, combat);
+            for (int i = 0; i < skill.Effects.Count; i++)
+                applied |= skill.Effects[i].Apply(target, context, combat);
             return applied;
         }
     }

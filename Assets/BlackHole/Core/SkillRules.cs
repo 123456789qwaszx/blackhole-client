@@ -17,6 +17,7 @@ namespace BlackHole.Core
 
     // ── 대상 선택 규칙 ─────────────────────────────────────────────────────
     // 선택은 상태를 바꾸지 않는다. 고른 대상을 into에 목록 순서대로 더한다.
+    // 시전마다 도는 경로라 IReadOnlyList를 인덱스로 돈다(인터페이스 foreach는 열거자를 할당한다).
 
     internal interface ITargetSelector
     {
@@ -40,8 +41,9 @@ namespace BlackHole.Core
         {
             TargetState nearest = null;
             float best = _definition.Radius * _definition.Radius;
-            foreach (TargetState target in targets)
+            for (int i = 0; i < targets.Count; i++)
             {
+                TargetState target = targets[i];
                 if (target.Phase != TargetPhase.Alive) continue;
                 float distance = target.Position.DistanceSquared(aim);
                 if (distance > best || (nearest != null && distance == best)) continue;
@@ -66,8 +68,9 @@ namespace BlackHole.Core
         public void Select(Point2 aim, IReadOnlyList<TargetState> targets, List<TargetState> into)
         {
             float radiusSquared = _definition.Radius * _definition.Radius;
-            foreach (TargetState target in targets)
+            for (int i = 0; i < targets.Count; i++)
             {
+                TargetState target = targets[i];
                 if (target.Phase == TargetPhase.Alive && target.Position.DistanceSquared(aim) <= radiusSquared)
                     into.Add(target);
             }

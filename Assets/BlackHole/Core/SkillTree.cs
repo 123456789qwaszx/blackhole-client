@@ -56,8 +56,8 @@ namespace BlackHole.Core
         // AND: 선행 노드를 모두 획득해야 한다. 루트는 선행 노드가 없어 늘 충족한다.
         private bool RequirementsMet(SkillTreeNodeDefinition node)
         {
-            foreach (string required in node.Requires)
-                if (!IsAcquired(_byId[required])) return false;
+            for (int i = 0; i < node.Requires.Count; i++)
+                if (!IsAcquired(_byId[node.Requires[i]])) return false;
             return true;
         }
     }
