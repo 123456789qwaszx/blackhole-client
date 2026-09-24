@@ -20,7 +20,10 @@
 | BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES | 복잡도 제한과 성능 검증 방식 |
 | SYSTEM_CATALOG | 시스템 책임, 접점, 인수 기준, 분담 후보 |
 | [REFERENCE_ANALYSIS](REFERENCE_ANALYSIS.md) | 원작에서 확인한 사실·관찰·설계 해석 |
-| docs/v2의 기존 문서 | 과거 Reference의 구현 근거와 실험 기록 |
+| [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
+| [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
+
+과거 Reference의 PLAN·마일스톤 기록(docs/v1, docs/v2)은 삭제되었고 `4304467` 이전의 git 기록에 남아 있다.
 
 규칙이 충돌하면 최신 GAME_RULES_MVP를 기준으로 판단한다. 성능 원칙의 예시 숫자와 후속 기능 예시는 확정 밸런스가 아니다. 예를 들어 사망 시 적 생성은 후속 후보이며, **MVP 공급 계기는 Battle Start와 Growth Milestone 두 가지**다.
 
