@@ -22,6 +22,57 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Laser.OverlappingTelegraphsAreBounded", OverlappingTelegraphsAreBounded);
             yield return new Contract("Laser.BattleEndDropsPendingShots", BattleEndDropsPendingShots);
             yield return new Contract("Laser.SameSeedSameStart", SameSeedSameStart);
+            yield return new Contract("Laser.FireRecordedOncePerFire", FireRecordedOncePerFire);
+            yield return new Contract("Laser.FireRecordMatchesShot", FireRecordMatchesShot);
+        }
+
+        // 발사마다 기록이 하나 생긴다. 긴 프레임 하나에 여러 발사가 있어도 모두 남고, 번호는 전투 안에서 계속 는다.
+        // 기록은 다음 Advance가 시작할 때 비운다(사망 기록과 같다). 발사는 0.3, 1.3, 2.3, 3.3, 4.3초다.
+        private static void FireRecordedOncePerFire()
+        {
+            GameSession game = TestContent.Session(
+                TestContent.LaserArena(enemies: 1, angleStep: 1, interval: 1, damage: 5, width: 0.2f, telegraph: 0.3f));
+            game.SetAimPoint(TestContent.First, East);
+
+            game.Advance(3.5f);
+            Expect.Equal(4, game.World.LaserFires.Count);
+            for (int i = 0; i < 4; i++)
+            {
+                LaserFireRecord fire = game.World.LaserFires[i];
+                Expect.Equal((long)(i + 1), fire.Sequence);
+                Expect.Equal(TestContent.First, fire.Owner);
+                Expect.Near(0.2f, fire.Width);
+                Expect.Equal(1, fire.HitCount);
+            }
+
+            game.Advance(0.1f);
+            Expect.Equal(0, game.World.LaserFires.Count);
+
+            game.Advance(0.8f);
+            Expect.Equal(1, game.World.LaserFires.Count);
+            Expect.Equal(5L, game.World.LaserFires[0].Sequence);
+        }
+
+        // 발사 기록의 경로는 예고 중이던 경로이고, 맞힌 수는 실제로 피해를 받은 Enemy 수다.
+        private static void FireRecordMatchesShot()
+        {
+            GameSession game = TestContent.Session(
+                TestContent.LaserArena(enemies: 36, angleStep: (float)(Math.PI / 18), interval: 10, damage: 5, width: 0.8f, telegraph: 0.5f));
+            PiercingLaserSkill laser = TestContent.LaserSkill(game.World.Players[0]);
+            game.SetAimPoint(TestContent.First, Hq);
+            game.Advance(0.01f);
+            LaserShot shot = laser.PendingShots[0];
+
+            game.Advance(0.5f);
+            Expect.Equal(1, game.World.LaserFires.Count);
+            LaserFireRecord fire = game.World.LaserFires[0];
+            Expect.True(fire.Start.Equals(shot.Start) && fire.End.Equals(shot.End), "발사 기록의 경로는 예고 중이던 경로여야 한다.");
+
+            int damaged = 0;
+            foreach (Enemy enemy in game.World.Enemies)
+                if (enemy.Health < 100) damaged++;
+            Expect.Equal(damaged, fire.HitCount);
+            Expect.True(damaged >= 2, "관통을 보이려면 둘 이상 맞아야 한다.");
         }
 
         // 예고 시작 순간의 Aim Point로 경로가 확정된다. 예고 중에 조준을 옮겨도 이번 발사는 바뀌지 않는다.

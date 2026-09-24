@@ -23,6 +23,32 @@ namespace BlackHole.Core
         internal LaserShot Elapse(float delta) => new LaserShot(Start, End, RemainingTelegraph - delta);
     }
 
+    // 레이저 발사 한 번의 기록. 피해는 이미 처리된 뒤다. 화면·소리는 이를 읽고 발사 선과 발사음을 한 번씩 낸다.
+    // 사망 기록처럼 번호(Sequence)로 소비한다. 예고 중인 발사는 PiercingLaserSkill.PendingShots가 보여 준다.
+    public readonly struct LaserFireRecord
+    {
+        public long Sequence { get; }
+        public PlayerId Owner { get; }
+        public PiercingLaserDefinition Laser { get; }
+        public Point2 Start { get; }
+        public Point2 End { get; }
+        // 이 발사에 쓰인 굵기(판정과 표시가 같은 값).
+        public float Width { get; }
+        // 이 발사가 피해를 준 Enemy 수.
+        public int HitCount { get; }
+
+        internal LaserFireRecord(long sequence, PlayerId owner, PiercingLaserDefinition laser, LaserShot shot, float width, int hitCount)
+        {
+            Sequence = sequence;
+            Owner = owner;
+            Laser = laser;
+            Start = shot.Start;
+            End = shot.End;
+            Width = width;
+            HitCount = hitCount;
+        }
+    }
+
     // 관통 레이저의 실행 상태(CONTENT_DEFINITION 2.3).
     //
     // 시간표: 예고는 0, I, 2I, …에 시작하고 각 예고는 T 뒤에 발사한다(I = Interval, T = TelegraphDuration).
@@ -126,6 +152,8 @@ namespace BlackHole.Core
                     _targets.Add(enemies[i]);
                 }
             }
+
+            world.RecordLaserFire(Owner.Id, _definition, shot, Stats.Width, _targets.Count);
 
             var damage = new Damage(Stats.Damage, Owner.Id);
 

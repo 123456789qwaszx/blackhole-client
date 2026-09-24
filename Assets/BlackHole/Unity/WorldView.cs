@@ -29,8 +29,12 @@ namespace BlackHole.Unity
         private readonly Dictionary<EnemyId, EnemyView> _enemies = new Dictionary<EnemyId, EnemyView>();
         private readonly List<AbsorbingView> _absorbing = new List<AbsorbingView>();
         private long _lastDeathSequence;
-        private readonly List<LightningView> _lightning = new List<LightningView>();
+        private readonly List<FadingLine> _lightning = new List<FadingLine>();
         private long _lastDeathEffectHitSequence;
+        // 레이저 예고 선은 매 프레임 예고 중인 발사에 맞춰 다시 쓴다. 발사 선은 발사 기록마다 하나씩 만든다.
+        private readonly List<SpriteRenderer> _telegraphs = new List<SpriteRenderer>();
+        private readonly List<FadingLine> _laserFires = new List<FadingLine>();
+        private long _lastLaserFireSequence;
         private readonly HashSet<EnemyId> _seen = new HashSet<EnemyId>();
         private readonly List<EnemyId> _gone = new List<EnemyId>();
         // Skill은 판 안에서 사라지지 않는다. 판이 바뀌면 Reset이 지운다.
@@ -58,6 +62,7 @@ namespace BlackHole.Unity
             SynchronizeEnemies(world.Enemies, world.Deaths, world.Hq.Position);
             SynchronizeDeathEffects(world.DeathEffectHits);
             SynchronizeSkills(world.Players);
+            SynchronizeLasers(world.Players, world.LaserFires);
         }
 
         // 이전 판의 Enemy·Skill View를 모두 지운다. HQ 원판처럼 판과 무관한 객체는 유지한다.
@@ -68,9 +73,14 @@ namespace BlackHole.Unity
             foreach (AbsorbingView view in _absorbing) Destroy(view.Renderer);
             _absorbing.Clear();
             _lastDeathSequence = 0;
-            foreach (LightningView view in _lightning) Destroy(view.Renderer);
+            foreach (FadingLine view in _lightning) Destroy(view.Renderer);
             _lightning.Clear();
             _lastDeathEffectHitSequence = 0;
+            foreach (SpriteRenderer view in _telegraphs) Destroy(view);
+            _telegraphs.Clear();
+            foreach (FadingLine view in _laserFires) Destroy(view.Renderer);
+            _laserFires.Clear();
+            _lastLaserFireSequence = 0;
             foreach (SkillView view in _skills.Values)
             {
                 Destroy(view.Fill);
@@ -189,20 +199,15 @@ namespace BlackHole.Unity
                 _lastDeathEffectHitSequence = hit.Sequence;
                 if (!(hit.Effect is ChainLightningDefinition)) continue;
 
-                Vector3 from = SceneSpace.ToScene(hit.From);
-                Vector3 to = SceneSpace.ToScene(hit.To);
-                Vector3 span = to - from;
                 SpriteRenderer renderer = CreateRenderer("Lightning #" + hit.Sequence, _line, _presentation.LightningColor, 5);
-                renderer.transform.position = (from + to) / 2;
-                renderer.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(span.y, span.x) * Mathf.Rad2Deg);
-                renderer.transform.localScale = new Vector3(span.magnitude, _presentation.LightningWidth, 1);
-                _lightning.Add(new LightningView(renderer, now));
+                PlaceLine(renderer, hit.From, hit.To, _presentation.LightningWidth);
+                _lightning.Add(new FadingLine(renderer, now));
             }
 
             // 일시정지 중에도 실제 시간으로 옅어진다(흡수 연출과 같은 [임시]).
             for (int i = _lightning.Count - 1; i >= 0; i--)
             {
-                LightningView view = _lightning[i];
+                FadingLine view = _lightning[i];
                 float alpha = Fade(now - view.StartedAt, _presentation.LightningSeconds);
                 Color color = _presentation.LightningColor;
                 view.Renderer.color = new Color(color.r, color.g, color.b, color.a * alpha);
@@ -212,9 +217,63 @@ namespace BlackHole.Unity
             }
         }
 
+        // 관통 레이저. 예고 중인 발사는 얇은 선이 발사에 가까울수록 진해진다(PendingShots를 매 프레임 읽는다).
+        // 발사는 판정 굵기 그대로의 선이 옅어진다. 발사 기록은 Sequence로 한 번만 소비한다. 피해는 이미 처리된 뒤다.
+        private void SynchronizeLasers(IReadOnlyList<Player> players, IReadOnlyList<LaserFireRecord> fires)
+        {
+            float now = Time.unscaledTime;
+            int used = 0;
+
+            for (int p = 0; p < players.Count; p++)
+            {
+                IReadOnlyList<PassiveSkill> skills = players[p].Skills;
+                for (int s = 0; s < skills.Count; s++)
+                {
+                    if (!(skills[s] is PiercingLaserSkill laser)) continue;
+                    IReadOnlyList<LaserShot> shots = laser.PendingShots;
+                    for (int i = 0; i < shots.Count; i++)
+                    {
+                        if (used == _telegraphs.Count)
+                            _telegraphs.Add(CreateRenderer("Laser Telegraph", _line, _presentation.LaserTelegraphColor, 5));
+
+                        SpriteRenderer renderer = _telegraphs[used++];
+                        renderer.enabled = true;
+                        PlaceLine(renderer, shots[i].Start, shots[i].End, _presentation.LaserTelegraphWidth);
+                        float ready = 1 - Mathf.Clamp01(shots[i].RemainingTelegraph / laser.Stats.TelegraphDuration);
+                        renderer.color = Color.Lerp(_presentation.LaserTelegraphColor, _presentation.LaserTelegraphReadyColor, ready);
+                    }
+                }
+            }
+
+            for (int i = used; i < _telegraphs.Count; i++)
+                _telegraphs[i].enabled = false;
+
+            for (int i = 0; i < fires.Count; i++)
+            {
+                LaserFireRecord fire = fires[i];
+                if (fire.Sequence <= _lastLaserFireSequence) continue;
+                _lastLaserFireSequence = fire.Sequence;
+
+                SpriteRenderer renderer = CreateRenderer("Laser Fire #" + fire.Sequence, _line, _presentation.LaserFireColor, 6);
+                PlaceLine(renderer, fire.Start, fire.End, fire.Width);
+                _laserFires.Add(new FadingLine(renderer, now));
+            }
+
+            for (int i = _laserFires.Count - 1; i >= 0; i--)
+            {
+                FadingLine view = _laserFires[i];
+                float alpha = Fade(now - view.StartedAt, _presentation.LaserFireSeconds);
+                Color color = _presentation.LaserFireColor;
+                view.Renderer.color = new Color(color.r, color.g, color.b, color.a * alpha);
+                if (alpha > 0) continue;
+                Destroy(view.Renderer);
+                _laserFires.RemoveAt(i);
+            }
+        }
+
         // 범위 원 = Skill의 기준점과 실행 반경. 화면이 따로 정한 크기가 없다.
         // 기준점이 없으면(조준점 없음) 원을 감춘다. 틱마다 안쪽이 잠깐 밝아진다 — 맞은 적이 없어도.
-        // Breaker만 그린다. 관통 레이저의 예고·발사 표현은 아직 없다(CA-005).
+        // 범위 원은 Breaker만 그린다. 레이저는 SynchronizeLasers가 그린다.
         private void SynchronizeSkills(IReadOnlyList<Player> players)
         {
             float now = Time.unscaledTime;
@@ -255,6 +314,17 @@ namespace BlackHole.Unity
                         Fade(now - view.TickAt, _presentation.SkillTickSeconds));
                 }
             }
+        }
+
+        // 선 스프라이트(1 × 1)를 두 규칙 좌표 사이에 굵기 width로 놓는다.
+        private static void PlaceLine(SpriteRenderer renderer, Point2 from, Point2 to, float width)
+        {
+            Vector3 start = SceneSpace.ToScene(from);
+            Vector3 end = SceneSpace.ToScene(to);
+            Vector3 span = end - start;
+            renderer.transform.position = (start + end) / 2;
+            renderer.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(span.y, span.x) * Mathf.Rad2Deg);
+            renderer.transform.localScale = new Vector3(span.magnitude, width, 1);
         }
 
         // 0초에 1, duration초 뒤 0으로 줄어드는 연출 가중치.
@@ -326,12 +396,12 @@ namespace BlackHole.Unity
             }
         }
 
-        private sealed class LightningView
+        private sealed class FadingLine
         {
             public readonly SpriteRenderer Renderer;
             public readonly float StartedAt;
 
-            public LightningView(SpriteRenderer renderer, float startedAt)
+            public FadingLine(SpriteRenderer renderer, float startedAt)
             {
                 Renderer = renderer;
                 StartedAt = startedAt;

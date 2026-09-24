@@ -5,11 +5,11 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // Unity 수명과 한 프레임의 순서를 가진 진입점(조립 루트).
-    // - Awake: 콘텐츠 로드·검증, 화면·입력·HUD·판 시작 흐름 조립. 판은 만들지 않는다.
+    // - Awake: 콘텐츠 로드·검증, 화면·소리·입력·HUD·판 시작 흐름 조립. 판은 만들지 않는다.
     // - OnEnable / OnDisable: 새 진행 시작 / 전투 종료. 최초 활성화와 재활성화가 같은 경로를 쓴다.
     //
     // 한 프레임(Update): 입력 읽기 → 새 진행 요청(R, 있으면 그 프레임 끝) → 구매 화면이면 끝
-    //   → 일시정지 전환 → AimPoint 갱신 → 진행 → 전투가 끝났으면 구매 화면으로 → 화면 갱신.
+    //   → 일시정지 전환 → AimPoint 갱신 → 진행 → 전투가 끝났으면 구매 화면으로 → 화면·소리 갱신.
     // HUD 버튼 요청(구매, 다음 전투, 전투 끝내기)은 OnGUI, 곧 그 프레임의 진행 뒤에 적용된다.
     public sealed class GameHost : MonoBehaviour
     {
@@ -19,6 +19,7 @@ namespace BlackHole.Unity
         private static readonly PlayerId MouseAimPlayer = LocalPlayers[0];
 
         private WorldView _view;
+        private BattleAudio _audio;
         private HostInput _input;
         private Hud _hud;
         private SessionLauncher _launcher;
@@ -30,6 +31,7 @@ namespace BlackHole.Unity
             var presentation = new SamplePresentation();
             Camera camera = ConfigureCamera(presentation);
             _view = new WorldView(transform, camera, presentation);
+            _audio = new BattleAudio(transform, new SampleSounds());
 
             if (!TryLoadContent(out GameContent content))
             {
@@ -39,7 +41,7 @@ namespace BlackHole.Unity
 
             _input = new HostInput(camera);
             _hud = new Hud();
-            _launcher = new SessionLauncher(content, LocalPlayers, _view);
+            _launcher = new SessionLauncher(content, LocalPlayers, _view, _audio);
         }
 
         private void OnEnable()
@@ -49,7 +51,11 @@ namespace BlackHole.Unity
 
         private void OnDisable() => _launcher?.Stop();
 
-        private void OnDestroy() => _view?.Dispose();
+        private void OnDestroy()
+        {
+            _view?.Dispose();
+            _audio?.Dispose();
+        }
 
         #endregion
 
@@ -81,7 +87,10 @@ namespace BlackHole.Unity
             _launcher.OpenShopIfEnded();
 
             if (!_launcher.InShop)
+            {
                 _view.Synchronize(session.World);
+                _audio.Synchronize(session);
+            }
         }
 
         private void OnGUI()
@@ -142,6 +151,7 @@ namespace BlackHole.Unity
                 cameraObject.transform.SetParent(transform);
                 camera = cameraObject.AddComponent<Camera>();
                 camera.tag = "MainCamera";
+                cameraObject.AddComponent<AudioListener>();
             }
             
             // 규칙 평면은 z = 0. x, y는 WorldView가 HQ 위치에 맞춘다.

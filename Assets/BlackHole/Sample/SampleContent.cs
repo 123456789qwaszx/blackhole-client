@@ -60,8 +60,7 @@ namespace BlackHole.Sample
             Growth = new GrowthData { Levels = GrowthLevels() },
             // [임시] Breaker: 소유 Player의 조준점 주변 반경 1.2, 0.5초마다 피해 3.
             // [임시] 관통 레이저: 1.5초마다 한 발, 예고 0.6초, 굵기 0.4, 피해 5. 시작점은 HQ에서 16
-            // (카메라 크기 7.5인 16:9 화면의 반대각선 약 15.3보다 멀다). 시작 구성에 넣지 않는다.
-            // 해금 노드는 레이저 표현(CA-005)이 생긴 뒤 샘플 트리에 넣는다. 지금 넣으면 사서 보이지 않는 공격이 생긴다.
+            // (카메라 크기 7.5인 16:9 화면의 반대각선 약 15.3보다 멀다). 시작 구성에 넣지 않고 laser-unlock 노드로 얻는다.
             Skills = new List<SkillData>
             {
                 new SkillData { Id = AuraSkillId, Kind = "Breaker", Radius = 1.2f, Interval = 0.5f, Damage = 3 },
@@ -83,7 +82,10 @@ namespace BlackHole.Sample
                 Upgrade("dense-matter", 30, "breaker-damage",
                     Effect("EnemyHealthMultiply", 1.5f),
                     Effect("GoldMultiply", 1.5f),
-                    Effect("HqExpMultiply", 1.5f))
+                    Effect("HqExpMultiply", 1.5f)),
+                // [임시] CONTENT_DEFINITION 3.2의 레이저 노드. 해금은 값이 없는 효과라 0을 적는다(AUTHORING_PAIN AP9).
+                Upgrade("laser-unlock", 30, "breaker-damage", Effect("SkillUnlock", 0, LaserSkillId)),
+                Upgrade("laser-width", 20, "laser-unlock", Effect("LaserWidthAdd", 0.2f, LaserSkillId))
             }
         };
 

@@ -9,12 +9,14 @@ namespace BlackHole.Core
         private readonly List<Enemy> _enemies = new List<Enemy>();
         private readonly List<DeathRecord> _deaths = new List<DeathRecord>();
         private readonly List<DeathEffectHit> _deathEffectHits = new List<DeathEffectHit>();
+        private readonly List<LaserFireRecord> _laserFires = new List<LaserFireRecord>();
         private readonly DeathEffects _deathEffects = new DeathEffects();
         private readonly EnemySupply _supply;
         private readonly GrowthProgression _growth;
         private int _nextEnemyId = 1;
         private long _nextDeathSequence = 1;
         private long _nextDeathEffectHitSequence = 1;
+        private long _nextLaserFireSequence = 1;
 
         public Hq Hq { get; }
         // Player는 목록이다. "첫 번째 Player" 같은 전역 가정 없이 Id로 찾는다.
@@ -24,6 +26,8 @@ namespace BlackHole.Core
         public IReadOnlyList<DeathRecord> Deaths { get; }
         // 마지막 Advance 동안의 모든 사망 효과 적중 기록. Deaths와 같은 때 비운다.
         public IReadOnlyList<DeathEffectHit> DeathEffectHits { get; }
+        // 마지막 Advance 동안의 모든 레이저 발사 기록. Deaths와 같은 때 비운다.
+        public IReadOnlyList<LaserFireRecord> LaserFires { get; }
         // 이 판의 난수. 판 조립 때 seed로 만든다.
         internal BattleRandom Random { get; }
 
@@ -43,6 +47,7 @@ namespace BlackHole.Core
             Enemies = _enemies.AsReadOnly();
             Deaths = _deaths.AsReadOnly();
             DeathEffectHits = _deathEffectHits.AsReadOnly();
+            LaserFires = _laserFires.AsReadOnly();
         }
 
         public bool TryGetPlayer(PlayerId id, out Player player)
@@ -107,6 +112,7 @@ namespace BlackHole.Core
         {
             _deaths.Clear();
             _deathEffectHits.Clear();
+            _laserFires.Clear();
         }
 
         // 사망은 피해를 수용한 Enemy가 판정한다. World는 보상·목록·사망 기록을 한 번 확정한다.
@@ -143,6 +149,16 @@ namespace BlackHole.Core
                     from,
                     to,
                     target));
+        }
+
+        internal void RecordLaserFire(
+            PlayerId owner,
+            PiercingLaserDefinition laser,
+            LaserShot shot,
+            float width,
+            int hitCount)
+        {
+            _laserFires.Add(new LaserFireRecord(_nextLaserFireSequence++, owner, laser, shot, width, hitCount));
         }
 
         // 출현 요청을 받는다. 목록과 ID 발급은 World가 가진다.

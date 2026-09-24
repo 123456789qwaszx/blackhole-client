@@ -47,6 +47,13 @@ namespace BlackHole.Unity
         public float LightningWidth { get; } = 0.06f;
         public float LightningSeconds { get; } = 0.25f;
 
+        // 관통 레이저: 예고는 얇은 선이 발사에 가까울수록 진해지고, 발사는 판정 굵기 그대로의 선이 옅어진다.
+        public Color LaserTelegraphColor { get; } = new Color(1, 0.35f, 0.3f, 0.2f);
+        public Color LaserTelegraphReadyColor { get; } = new Color(1, 0.45f, 0.4f, 0.85f);
+        public float LaserTelegraphWidth { get; } = 0.04f;
+        public Color LaserFireColor { get; } = new Color(1, 0.6f, 0.5f, 0.9f);
+        public float LaserFireSeconds { get; } = 0.2f;
+
         // HQ 원판의 지름: 시작 Level에서 기본 지름, Level마다 일정하게 커진다.
         public float HqDiameter(int level) =>
             HqBaseDiameter + HqDiameterPerLevel * (level - HqGrowthDefinition.StartLevel);

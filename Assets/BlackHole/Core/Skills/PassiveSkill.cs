@@ -55,6 +55,8 @@ namespace BlackHole.Core
         public BreakerStats Stats { get; }
         // 지금까지 일어난 틱 수. 맞은 적이 없는 틱도 센다. 화면(틱 표시)과 계약이 읽는다.
         public int TickCount { get; private set; }
+        // 마지막 틱이 피해를 준 Enemy 수. 빈 틱(조준점 없음, 범위가 빔)이면 0이다. 소리가 적중 유무와 세기를 정할 때 읽는다.
+        public int LastTickHitCount { get; private set; }
 
         internal BreakerSkill(BreakerSkillDefinition definition, BreakerStats stats, Player owner)
             : base(definition, owner)
@@ -90,6 +92,8 @@ namespace BlackHole.Core
 
         private void Tick(World world)
         {
+            LastTickHitCount = 0;
+
             if (!TryGetOrigin(out Point2 origin))
                 return;
 
@@ -105,6 +109,7 @@ namespace BlackHole.Core
                 }
             }
 
+            LastTickHitCount = _targets.Count;
             var damage = new Damage(Stats.Damage, Owner.Id);
 
             foreach (Enemy target in _targets)

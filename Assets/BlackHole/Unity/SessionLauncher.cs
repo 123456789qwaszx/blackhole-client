@@ -16,6 +16,7 @@ namespace BlackHole.Unity
         private readonly GameContent _content;
         private readonly IReadOnlyList<PlayerId> _participants;
         private readonly WorldView _view;
+        private readonly BattleAudio _audio;
         private PlayerState[] _progress;
 
         public GameSession Current { get; private set; }
@@ -27,11 +28,13 @@ namespace BlackHole.Unity
         public SessionLauncher(
             GameContent content,
             IReadOnlyList<PlayerId> participants,
-            WorldView view)
+            WorldView view,
+            BattleAudio audio)
         {
             _content = content;
             _participants = participants;
             _view = view;
+            _audio = audio;
         }
 
         public void StartNew()
@@ -73,16 +76,19 @@ namespace BlackHole.Unity
         public PurchaseResult Purchase(PlayerState state, string nodeId) =>
             UpgradePurchase.TryPurchase(state, _content, nodeId);
 
-        // 교체 순서: 화면 정리 → 새 전투 조립 → 첫 화면 동기화.
+        // 교체 순서: 화면·소리 정리 → 새 전투 조립 → 첫 화면·소리 동기화(소리는 기준만 잡는다).
+        // 이전 판의 소리는 새 판을 시작할 때 멈춘다. 구매 화면으로 갈 때는 끝나 가는 소리를 끊지 않는다.
         // 전투마다 seed를 새로 정한다. 같은 전투를 재현할 방법(seed 기록·지정)은 아직 없다.
         private void StartBattle()
         {
             _view.Reset();
+            _audio.Reset();
 
             Current = SessionAssembler.CreateBattle(_content, _progress, Environment.TickCount);
             InShop = false;
 
             _view.Synchronize(Current.World);
+            _audio.Synchronize(Current);
         }
     }
 }

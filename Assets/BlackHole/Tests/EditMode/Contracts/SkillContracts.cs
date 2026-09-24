@@ -21,6 +21,34 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Skill.AimPointBelongsToPlayer", AimPointBelongsToPlayer);
             yield return new Contract("Skill.RuntimeStatsLeaveBaseDefinitionUnchanged", RuntimeStatsLeaveBaseDefinitionUnchanged);
             yield return new Contract("Skill.EachPlayerHasOwnSkills", EachPlayerHasOwnSkills);
+            yield return new Contract("Skill.LastTickHitCountCountsTargets", LastTickHitCountCountsTargets);
+        }
+
+        // 마지막 틱이 피해를 준 Enemy 수. 빈 틱은 0이다(소리가 적중 유무를 읽는다).
+        private static void LastTickHitCountCountsTargets()
+        {
+            GameSession game = TestContent.Session(TestContent.SkillArena(enemies: 2, radius: 5, interval: 0.5f, damage: 1));
+            BreakerSkill skill = TestContent.Breaker(game.World.Players[0]);
+            Expect.Equal(0, skill.LastTickHitCount);
+
+            game.SetAimPoint(TestContent.First, new Point2(0, 0));
+            game.Advance(0.25f);
+            Expect.Equal(2, skill.LastTickHitCount);
+
+            game.SetAimPoint(TestContent.First, Nowhere);
+            game.Advance(0.5f);
+            Expect.Equal(2, skill.TickCount);
+            Expect.Equal(0, skill.LastTickHitCount);
+
+            game.SetAimPoint(TestContent.First, East);
+            game.Advance(0.5f);
+            Expect.Equal(1, skill.LastTickHitCount);
+
+            // 조준점이 없는 틱도 빈 틱이다.
+            game.SetAimPoint(TestContent.First, null);
+            game.Advance(0.5f);
+            Expect.Equal(4, skill.TickCount);
+            Expect.Equal(0, skill.LastTickHitCount);
         }
 
         // 첫 틱은 0초다. 전투 시작 배치가 판 조립 때 나오므로 0초 틱이 그 적을 맞힌다.
