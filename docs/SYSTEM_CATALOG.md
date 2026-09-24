@@ -4,6 +4,29 @@
 
 이 문서는 팀 스프레드시트, 의존 지도(FigJam), 티켓을 만들기 위한 입력이다. 클래스 목록을 확정하는 문서가 아니며, 팀 레포에서는 경계와 계약을 유지한 채 구현을 바꿀 수 있다.
 
+## 0. 폴더
+
+폴더는 아래 시스템 구분과 1:1로 맞췄다. 어셈블리는 `BlackHole.Core`(엔진 참조 없음)와 `BlackHole.Unity`(호스트) 두 개이고, namespace는 폴더와 관계없이 `BlackHole.Core` / `BlackHole.Unity`다.
+
+```text
+Assets/BlackHole/
+  Core/
+    Content/     저작 데이터, 로더, 콘텐츠 불변식, 카탈로그, 진단, 수치 검사
+    Session/     GameSession, SessionRunner, TimeLimitMode, Playfield(한 단계 순서), SessionAssembler
+    Spawn/       출현 정의와 진행
+    Target/      대상 정의·상태·목록, 이동 정의·규칙·factory
+    Skill/       스킬 정의, 선택·효과 정의와 규칙, factory, SkillLoadout(시전 순서)
+    Combat/      CombatResolver(피해·당김 요청 경계)
+    Absorption/  블랙홀 정의·상태, 흡수 확정과 보상 지급 순서
+    Economy/     보상 정의, 지갑
+    Upgrade/     강화 정의·상태·구매 흐름
+    SkillTree/   트리 정의·그래프 규칙, 판 안 판정
+    Common/      Point2
+    Sample/      ReferenceGame — 임의로 정한 샘플 콘텐츠 수치. 기획 값이 아니다
+  Unity/         호스트(조립·수명·입력·HUD·화면·표현 정의 샘플)
+  Tests/EditMode 계약 테스트(Unity EditMode와 tests/CoreSmoke가 같은 계약을 실행)
+```
+
 ## 1. 한 판의 흐름
 
 ```text
