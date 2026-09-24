@@ -42,6 +42,43 @@ namespace BlackHole.Core.Tests
             yield return Case(nameof(RewardMassAndCreditsAreIndependent), RewardMassAndCreditsAreIndependent);
             yield return Case(nameof(RejectedPurchaseChangesNothing), RejectedPurchaseChangesNothing);
             yield return Case(nameof(LoaderReportsGrowthAndUpgradeErrors), LoaderReportsGrowthAndUpgradeErrors);
+            yield return Case(nameof(AbsorptionRadiusUpgradeAppliesToAbsorption), AbsorptionRadiusUpgradeAppliesToAbsorption);
+        }
+
+        // 두 번째 강화 종류: 흡수 반경 보정. 정의 추가만으로 구매·표시·실제 흡수 판정에 연결된다.
+        public static void AbsorptionRadiusUpgradeAppliesToAbsorption()
+        {
+            ContentData data = ReferenceGame.CreateContent();
+            data.Targets[0].Reward = Reward(0, 20);
+            data.Targets[1].MaxHealth = 1;
+            data.Upgrades[1].PerLevel = 0.5f;
+            ContentCatalog catalog = Load(data);
+            GameSession upgraded = SessionAssembler.Create(catalog);
+            GameSession plain = SessionAssembler.Create(catalog);
+
+            foreach (GameSession game in new[] { upgraded, plain })
+            {
+                game.TryCast(ReferenceGame.StrikeId, game.Field.Targets[0].Position);
+                game.Advance(2);
+                Equal(20, game.Field.Wallet.Credits);
+            }
+
+            Equal(UpgradeResult.Purchased, upgraded.TryPurchaseUpgrade(ReferenceGame.ReachUpgradeId));
+            Equal(12, upgraded.Field.Wallet.Credits);
+            Near(1.15f, upgraded.Field.BlackHole.AbsorptionRadius);
+            Near(0.65f, plain.Field.BlackHole.AbsorptionRadius);
+            Near(1, upgraded.Field.DamageMultiplier);
+
+            // 같은 위치에서 사망한 heavy가 떨어진다: 강화한 판만 1.1초 안에 흡수 반경에 닿는다.
+            TargetState upgradedHeavy = upgraded.Field.Targets[0];
+            TargetState plainHeavy = plain.Field.Targets[0];
+            Near(plainHeavy.Radius, upgradedHeavy.Radius);
+            Equal(CastResult.Cast, upgraded.TryCast(ReferenceGame.StrikeId, upgradedHeavy.Position));
+            Equal(CastResult.Cast, plain.TryCast(ReferenceGame.StrikeId, plainHeavy.Position));
+            upgraded.Advance(1.1f);
+            plain.Advance(1.1f);
+            Equal(TargetPhase.Absorbed, upgradedHeavy.Phase);
+            Equal(TargetPhase.Defeated, plainHeavy.Phase);
         }
 
         // 질량 증가와 재화 지급은 서로 다른 수치다. 흡수가 확정될 때 한 번만 받는다.
@@ -111,7 +148,7 @@ namespace BlackHole.Core.Tests
 
             ContentData duplicate = ReferenceGame.CreateContent();
             duplicate.Upgrades.Add(Power(1, 1, 1));
-            Fails(duplicate, "Upgrades[1]");
+            Fails(duplicate, $"Upgrades[{duplicate.Upgrades.Count - 1}]");
         }
 
         // 피해 없는 범위 당김은 새 코드 없이 기존 선택(AllInRadius)과 효과(Pull)의 조합이다.

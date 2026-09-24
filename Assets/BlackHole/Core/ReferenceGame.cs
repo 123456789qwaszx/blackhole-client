@@ -9,6 +9,7 @@ namespace BlackHole.Core
         public const string StrikeId = "focused-strike";
         public const string PulseId = "gravity-pulse";
         public const string PowerUpgradeId = "power";
+        public const string ReachUpgradeId = "reach";
 
         // 호출마다 새 데이터를 만든다. 호출자가 고쳐도 다른 호출에 영향이 없다.
         public static ContentData CreateContent() => new ContentData
@@ -40,7 +41,8 @@ namespace BlackHole.Core
             },
             Upgrades = new List<UpgradeData>
             {
-                new UpgradeData { Id = PowerUpgradeId, BaseCost = 6, MaxLevel = 5, Stat = "DamageMultiplier", PerLevel = 0.35f }
+                new UpgradeData { Id = PowerUpgradeId, BaseCost = 6, MaxLevel = 5, Stat = "DamageMultiplier", PerLevel = 0.35f },
+                new UpgradeData { Id = ReachUpgradeId, BaseCost = 8, MaxLevel = 3, Stat = "AbsorptionRadius", PerLevel = 0.15f }
             },
             Spawn = new SpawnData
             {
