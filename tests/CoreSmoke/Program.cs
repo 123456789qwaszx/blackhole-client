@@ -7,18 +7,18 @@ internal static class Program
     {
         int passed = 0;
         int failed = 0;
-        foreach (var test in CoreContracts.Cases())
+        foreach (Contract contract in Contracts.All())
         {
             try
             {
-                test.Value();
+                contract.Run();
                 passed++;
-                Console.WriteLine("PASS " + test.Key);
+                Console.WriteLine("PASS " + contract.Name);
             }
             catch (Exception error)
             {
                 failed++;
-                Console.Error.WriteLine("FAIL " + test.Key + "\n" + error);
+                Console.Error.WriteLine("FAIL " + contract.Name + "\n" + error);
             }
         }
         Console.WriteLine($"{passed} passed, {failed} failed");
