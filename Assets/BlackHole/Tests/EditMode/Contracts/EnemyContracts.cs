@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core.Tests
 {
-    // 적: 전투 시작 공급·풀 여과·배치, HQ 공전, 피해와 사망 확정, 판 정리(GAME_RULES 7~9·12절).
+    // 적: 전투 시작 공급·풀 여과·배치, HQ 공전, 피해와 사망 확정, 생성·파괴 요청, 판 정리(GAME_RULES 7~9·12·13절).
     // 공급된 적은 판의 단계 풀을 거쳐서만 나오므로, 계약은 공급하는 종류를 기본 풀에 넣는다(TestContent.Allow).
     internal static class EnemyContracts
     {
@@ -24,6 +24,124 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.BattleUsesItsStagePool", BattleUsesItsStagePool);
             yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
             yield return new Contract("Enemy.KillsAreTalliedByKind", KillsAreTalliedByKind);
+            yield return new Contract("Enemy.SpawnRequestsWaitForTheNextStep", SpawnRequestsWaitForTheNextStep);
+            yield return new Contract("Enemy.FilteredSpawnRequestsAreDropped", FilteredSpawnRequestsAreDropped);
+            yield return new Contract("Enemy.RejectsRequestsTheBattleCannotTake", RejectsRequestsTheBattleCannotTake);
+            yield return new Contract("Enemy.DestroyRequestsConfirmDeathAtTheNextStep", DestroyRequestsConfirmDeathAtTheNextStep);
+            yield return new Contract("Enemy.DeathsComeBeforeSupplyInAStep", DeathsComeBeforeSupplyInAStep);
+        }
+
+        // 생성 요청은 쌓였다가 다음 Step의 공급 처리 때 적이 된다. 정지 중에는 Step이 없으므로 계속 쌓여 있다.
+        private static void SpawnRequestsWaitForTheNextStep()
+        {
+            GameSession game = TestContent.Session(OneEnemy(health: 10));
+            World world = game.World;
+            EnemyDefinition kind = world.Enemies[0].Definition;
+
+            world.RequestSpawn(new SupplyRequest(kind, 2));
+            Expect.Equal(1, world.Enemies.Count);
+            Expect.Equal(1, world.PendingSpawns.Count);
+
+            game.TogglePause();
+            game.Advance(0.1f);
+            Expect.Equal(1, world.Enemies.Count);
+            Expect.Equal(1, world.PendingSpawns.Count);
+
+            game.TogglePause();
+            game.Advance(0.1f);
+            Expect.Equal(3, world.Enemies.Count);
+            Expect.Equal(3, world.CountAlive(kind));
+            Expect.Equal(0, world.PendingSpawns.Count);
+
+            foreach (Enemy enemy in world.Enemies)
+                Expect.Near(3, TestContent.DistanceToHq(enemy.Position));
+        }
+
+        // 풀 여과 장치가 거른 생성 요청은 버린다. 나중에 자리가 나도 다시 나오지 않는다.
+        private static void FilteredSpawnRequestsAreDropped()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 2));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 2);
+            GameSession game = TestContent.Session(data);
+            World world = game.World;
+
+            world.RequestSpawn(new SupplyRequest(world.Enemies[0].Definition, 1));
+            game.Advance(0.1f);
+            Expect.Equal(2, world.Enemies.Count);
+            Expect.Equal(0, world.PendingSpawns.Count);
+
+            world.RequestDestroy(world.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(1, world.Enemies.Count);
+        }
+
+        // 판이 만들 수 없는 적의 생성 요청(이 판의 종류가 아님, 출현 배치 없음)과 빈 파괴 요청은 요청 때 거부한다.
+        private static void RejectsRequestsTheBattleCannotTake()
+        {
+            World world = TestContent.Session(OneEnemy(health: 10)).World;
+            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1), new OrbitBehaviorDefinition(false));
+            Expect.Throws<ArgumentException>(() => world.RequestSpawn(new SupplyRequest(stranger, 1)));
+            Expect.Throws<ArgumentException>(() => world.RequestSpawn(default));
+            Expect.Throws<ArgumentNullException>(() => world.RequestDestroy(null));
+            Expect.Equal(0, world.PendingSpawns.Count);
+            Expect.Equal(0, world.PendingDestroys.Count);
+
+            World bare = TestContent.Session(TestContent.Data()).World;
+            EnemyDefinition poolKind = bare.Pool.Entries[0].Enemy;
+            Expect.Throws<InvalidOperationException>(() => bare.RequestSpawn(new SupplyRequest(poolKind, 1)));
+        }
+
+        // 파괴 요청은 쌓였다가 다음 Step의 사망 처리 때 사망을 확정한다. 피해·HP를 계산하지 않고,
+        // 피해로 죽을 때와 같은 사망 절차(목록에서 제외, 사망 기록, 처치 수)를 거친다.
+        // 같은 적의 두 번째 요청과 이미 죽은 적의 요청은 아무것도 하지 않는다.
+        private static void DestroyRequestsConfirmDeathAtTheNextStep()
+        {
+            ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 2));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 10));
+            TestContent.Allow(data, TestContent.EnemyId);
+            GameSession game = TestContent.Session(data);
+            World world = game.World;
+            Enemy target = world.Enemies[0];
+
+            world.RequestDestroy(target);
+            world.RequestDestroy(target);
+            Expect.True(target.IsAlive, "요청만으로는 죽지 않는다.");
+            Expect.Equal(2, world.Enemies.Count);
+            Expect.Equal(2, world.PendingDestroys.Count);
+
+            game.Advance(0.1f);
+            Expect.True(!target.IsAlive, "다음 Step에 죽어야 한다.");
+            Expect.Equal(1, world.Enemies.Count);
+            Expect.Equal(1, world.CountAlive(target.Definition));
+            Expect.Equal(1, world.Deaths.Count);
+            Expect.Equal(target.Id, world.Deaths[0].EnemyId);
+            Expect.Equal(1, world.TotalKills);
+            Expect.Equal(0, world.PendingDestroys.Count);
+
+            world.RequestDestroy(target);
+            game.Advance(0.1f);
+            Expect.Equal(0, world.Deaths.Count);
+            Expect.Equal(1, world.TotalKills);
+        }
+
+        // 한 Step에서 사망 처리가 공급 처리보다 먼저다(GAME_RULES 13절). 죽어서 비운 자리에 같은 Step의 생성이 들어간다.
+        private static void DeathsComeBeforeSupplyInAStep()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 1));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 1);
+            GameSession game = TestContent.Session(data);
+            World world = game.World;
+            Enemy old = world.Enemies[0];
+
+            world.RequestSpawn(new SupplyRequest(old.Definition, 1));
+            world.RequestDestroy(old);
+            game.Advance(0.1f);
+
+            Expect.Equal(1, world.Enemies.Count);
+            Expect.True(!ReferenceEquals(old, world.Enemies[0]), "비운 자리에 새 적이 나와야 한다.");
+            Expect.Equal(1, world.TotalKills);
         }
 
         // 판의 적 수치는 조립 때 정해지고, 출현하는 적은 그 수치를 받는다. 지금은 보정이 없어 기본 수치와 같다.
@@ -223,16 +341,21 @@ namespace BlackHole.Core.Tests
         }
 
         // 전투가 끝나 남은 적을 치우는 것은 처치가 아니다. 사망 기록도 처치 수도 만들지 않는다.
-        // 남은 적은 끝난 판에서만 치울 수 있다.
+        // 처리되지 않은 생성·파괴 요청은 처리되지 않고 함께 버려진다. 남은 적은 끝난 판에서만 치울 수 있다.
         private static void BattleCleanupIsNotAKill()
         {
             GameSession ended = TestContent.Session(OneEnemy(health: 10));
             Enemy survivor = ended.World.Enemies[0];
             Expect.Throws<InvalidOperationException>(() => ended.ClearRemainingEnemies());
 
+            ended.World.RequestSpawn(new SupplyRequest(survivor.Definition, 1));
+            ended.World.RequestDestroy(survivor);
             ended.RequestEnd(SessionEndReason.TimeExpired);
+            ended.Advance(0.1f);
             Expect.Equal(1, ended.ClearRemainingEnemies());
             Expect.Equal(0, ended.World.Enemies.Count);
+            Expect.Equal(0, ended.World.PendingSpawns.Count);
+            Expect.Equal(0, ended.World.PendingDestroys.Count);
             Expect.Equal(0, ended.World.CountAlive(survivor.Definition));
             Expect.Equal(0, ended.World.Deaths.Count);
             Expect.Equal(0, ended.World.TotalKills);

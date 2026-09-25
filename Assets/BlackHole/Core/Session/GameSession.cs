@@ -33,7 +33,6 @@ namespace BlackHole.Core
     {
         private readonly IReadOnlyList<PlayerState> _players;
         private readonly IReadOnlyList<SupplyRequest> _startSupply;
-        private readonly EnemyPlacementDefinition _placement;
 
         public World World { get; }
         public TimeLimitRule TimeLimit { get; }
@@ -52,8 +51,7 @@ namespace BlackHole.Core
             int stage,
             int seed,
             IReadOnlyList<PlayerState> players,
-            IReadOnlyList<SupplyRequest> startSupply,
-            EnemyPlacementDefinition placement)
+            IReadOnlyList<SupplyRequest> startSupply)
         {
             World = world;
             TimeLimit = timeLimit;
@@ -61,16 +59,19 @@ namespace BlackHole.Core
             Seed = seed;
             _players = players;
             _startSupply = startSupply;
-            _placement = placement;
         }
 
-        // 전투를 시작한다: 전투 시작 공급을 내보내고(0초) 진행 단계로 들어간다. 준비 단계에서 한 번만 부를 수 있다.
+        // 전투를 시작한다: 전투 시작 공급을 생성 요청으로 넣고 그 자리(0초)에서 공급 처리한 뒤 진행 단계로 들어간다.
+        // 준비 단계에서 한 번만 부를 수 있다.
         public void Begin()
         {
             if (Phase != SessionPhase.Preparing)
                 throw new InvalidOperationException($"준비 단계에서만 시작할 수 있다. 지금: {Phase}.");
 
-            World.PlaceStartingEnemies(_startSupply, _placement);
+            foreach (SupplyRequest request in _startSupply)
+                World.RequestSpawn(request);
+
+            World.ProcessSpawnRequests();
             Phase = SessionPhase.Running;
         }
 
@@ -111,7 +112,8 @@ namespace BlackHole.Core
             End(reason);
         }
 
-        // 끝난 판에 남은 적을 치운다. 처치가 아니다 — 사망 기록도, 처치 수도 없다(GAME_RULES 9절). 치운 수를 돌려준다.
+        // 끝난 판에 남은 적과 처리되지 않은 생성·파괴 요청을 치운다. 처치가 아니다 — 사망 기록도, 처치 수도 없다(GAME_RULES 9절).
+        // 치운 적의 수를 돌려준다.
         public int ClearRemainingEnemies()
         {
             RequireEnded();

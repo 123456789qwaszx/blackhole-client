@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace BlackHole.Unity
 {
-    // 개발용 콘솔 창(조종 콘솔, 전투 시작·종료 콘솔)이 함께 쓰는 부품.
+    // 개발용 콘솔 창(조종 콘솔, 전투 시작·종료 콘솔, 적 요청 콘솔)이 함께 쓰는 부품.
     // 창마다 게임 UI(UIManager)와 따로 자기 Canvas에 그린다. 게임 화면보다 위에 있고, 창 영역의 클릭은 아래 화면으로 새지 않는다.
     // 모든 창은 같은 키(`)로 함께 숨고 보인다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
     internal static class ConsoleParts
@@ -40,18 +40,21 @@ namespace BlackHole.Unity
             return rect;
         }
 
-        // 화면의 위쪽 모서리(corner: 왼쪽 위 (0, 1), 오른쪽 위 (1, 1))에 붙어, 그 안의 창을 위에서 아래로 쌓는다.
-        // 내용 크기만큼 늘어난다.
+        // 화면의 모서리(corner: 왼쪽 위 (0, 1), 오른쪽 위 (1, 1), 왼쪽 아래 (0, 0) …)에 붙어 그 안의 창을 쌓는다.
+        // 모서리에서 16만큼 떨어지고, 내용 크기만큼 모서리 반대쪽으로 늘어난다.
         public static RectTransform Stack(RectTransform canvas, Vector2 corner)
         {
             bool right = corner.x > 0.5f;
+            bool top = corner.y > 0.5f;
 
             RectTransform stack = Child(canvas, "Stack");
             stack.anchorMin = corner;
             stack.anchorMax = corner;
             stack.pivot = corner;
-            stack.anchoredPosition = new Vector2(right ? -16 : 16, -16);
-            VerticalLayout(stack, 0, 8).childAlignment = right ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
+            stack.anchoredPosition = new Vector2(right ? -16 : 16, top ? -16 : 16);
+            VerticalLayout(stack, 0, 8).childAlignment = top
+                ? (right ? TextAnchor.UpperRight : TextAnchor.UpperLeft)
+                : (right ? TextAnchor.LowerRight : TextAnchor.LowerLeft);
 
             var fitter = stack.gameObject.AddComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;

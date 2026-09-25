@@ -36,15 +36,18 @@ namespace BlackHole.Core
 
             var players = new List<PlayerState>(states);
             // 적의 수치는 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
-            var world = new World(new BattleRandom(seed), content.GetStage(stage).Pool, new EnemyStatTable(content.Enemies));
+            var world = new World(
+                new BattleRandom(seed),
+                content.GetStage(stage).Pool,
+                new EnemyStatTable(content.Enemies),
+                content.EnemyPlacement);
             var session = new GameSession(
                 world,
                 new TimeLimitRule(content.TimeLimit),
                 stage,
                 seed,
                 players.AsReadOnly(),
-                content.StartSupply,
-                content.EnemyPlacement);
+                content.StartSupply);
 
             // 모든 검사를 통과한 뒤에 전투에 들인다. 조립이 실패하면 PlayerState는 묶이지 않는다.
             foreach (PlayerState state in players)

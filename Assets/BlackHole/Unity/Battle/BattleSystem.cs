@@ -16,7 +16,7 @@ namespace BlackHole.Unity
     //   1. 업그레이드에서 바뀐 수치 받기 — 판을 조립한다: 진행 상태를 묶고 이 판의 적 수치를 확정한다(지금은 보정 없음).
     //   2. 적 소환 단계 진입 — 전투 시작 공급을 내보내고 판을 진행 단계로 넣는다.
     // 종료 단계:
-    //   1. 종료 요청(사유)             2. 화면에서 관리하던 적의 수가 0(남은 적 정리 — 처치 아님)
+    //   1. 종료 요청(사유)             2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
     //   3. 죽은 적의 처리 완료          4. 처치 집계를 계산해 보관(원자료)
     //   5. 화면의 연출 정리             6. 모두 끝났으면 완전 초기화
     // 종료 뒤에 남는 것은 UI와 원자료(LastRawData)뿐이다. 판을 시작했던 다른 흔적은 없다.
@@ -126,8 +126,10 @@ namespace BlackHole.Unity
                 EndSteps.Mark(0, StepState.Done);
 
                 // 2. 화면에서 관리하던 적의 수가 0. 남은 적은 처치가 아니라 정리다.
+                //    처리되지 않은 생성·파괴 요청도 함께 버린다 — 끝난 판은 새 적도, 새 사망도 만들지 않는다.
                 Session.ClearRemainingEnemies();
-                Verify(1, Session.World.Enemies.Count == 0);
+                World world = Session.World;
+                Verify(1, world.Enemies.Count == 0 && world.PendingSpawns.Count == 0 && world.PendingDestroys.Count == 0);
 
                 // 3. 죽은 적의 처리 완료(사망 효과·보상 처리가 붙으면 그것이 끝났는지까지).
                 Verify(2, !Session.World.HasPendingDeathProcessing);

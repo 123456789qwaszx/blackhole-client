@@ -65,5 +65,16 @@ namespace BlackHole.Core
             IsAlive = false;
             return true;
         }
+
+        // 파괴 요청으로 죽는다. 피해·HP를 계산하지 않는다(HP는 그대로 남는다).
+        // true는 이번에 처음 죽었다는 뜻이다.
+        internal bool Destroy()
+        {
+            if (!IsAlive)
+                return false;
+
+            IsAlive = false;
+            return true;
+        }
     }
 }

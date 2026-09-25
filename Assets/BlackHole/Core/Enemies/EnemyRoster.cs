@@ -6,6 +6,7 @@ namespace BlackHole.Core
     // - 출현: 정의·이 판의 수치·위치로 적을 만들고 번호를 준다. 수치는 판의 적 수치 표(EnemyStatTable)에서 온다.
     // - 이동: 살아 있는 적이 행동에 따라 움직인다.
     // - 피해: 살아 있는 적만 받는다. 처음 죽은 순간 목록에서 빠지고, 사망 기록을 한 번 남기고, 처치 수에 든다.
+    // - 파괴: 피해·HP 계산 없이 사망을 확정한다. 이 목록에 살아 있는 적만 죽고, 그 뒤는 피해로 죽을 때와 같다.
     // - 종류별 살아 있는 수: 출현 때 늘고 사망 때 준다. 풀 여과 장치의 출현 제한이 읽는다.
     // - 정리: 판이 끝난 뒤 남은 적을 목록에서 치운다. 처치가 아니다 — 사망 기록도, 처치 수도 없다.
     // 사망 보상(HQ EXP·Gold)과 사망 효과는 그 시스템이 사망 기록이나 이 절차에 붙는다.
@@ -71,6 +72,23 @@ namespace BlackHole.Core
             if (!enemy.ApplyDamage(damage))
                 return false;
 
+            RecordDeath(enemy);
+            return true;
+        }
+
+        // true는 이번에 처음 죽었다는 뜻이다. 이미 죽었거나 이 목록에 없는 적(다른 판의 적, 정리된 적)은 그대로 둔다.
+        public bool Destroy(Enemy enemy)
+        {
+            if (!enemy.IsAlive || !_alive.Contains(enemy) || !enemy.Destroy())
+                return false;
+
+            RecordDeath(enemy);
+            return true;
+        }
+
+        // 막 죽은 적의 사망 절차: 사망 기록, 목록에서 제외, 종류별 살아 있는 수와 처치 수.
+        private void RecordDeath(Enemy enemy)
+        {
             _deaths.Add(new DeathRecord(_nextDeathSequence++, enemy));
 
             if (_alive.Remove(enemy))
@@ -85,8 +103,6 @@ namespace BlackHole.Core
                 _killsByKind.Add(enemy.Definition, 1);
                 _killOrder.Add(enemy.Definition);
             }
-
-            return true;
         }
 
         // 남은 적을 모두 치운다. 처치가 아니다. 치운 수를 돌려준다.
