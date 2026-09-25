@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 한 판의 적 목록과 사망 절차. 적 시스템이 판 안에서 가진 상태는 여기에 모인다.
-    // - 출현: 정의와 위치로 적을 만들고 번호를 준다. 실행 수치는 이때 정해진다.
+    // - 출현: 정의·이 판의 수치·위치로 적을 만들고 번호를 준다. 수치는 판의 적 수치 표(EnemyStatTable)에서 온다.
     // - 이동: 살아 있는 적이 행동에 따라 움직인다.
     // - 피해: 살아 있는 적만 받는다. 처음 죽은 순간 목록에서 빠지고 사망 기록을 한 번 남긴다.
     // - 종류별 살아 있는 수: 출현 때 늘고 사망 때 준다. 풀 여과 장치의 출현 제한이 읽는다.
@@ -32,12 +32,12 @@ namespace BlackHole.Core
         public int CountAlive(EnemyDefinition kind) =>
             kind != null && _aliveByKind.TryGetValue(kind, out int count) ? count : 0;
 
-        public Enemy Spawn(EnemyDefinition definition, Point2 position)
+        public Enemy Spawn(EnemyDefinition definition, EnemyStats stats, Point2 position)
         {
             var enemy = new Enemy(
                 new EnemyId(_nextEnemyId++),
                 definition,
-                definition.BaseStats,
+                stats,
                 position,
                 EnemyBehaviors.Create(definition.Behavior));
 

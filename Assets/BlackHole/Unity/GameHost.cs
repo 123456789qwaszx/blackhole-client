@@ -47,6 +47,7 @@ namespace BlackHole.Unity
         [SerializeField] private UIDisplayRefreshDriver displayRefreshDriver;
 
         private readonly List<UIPresentationSpec> _emptyPresentations = new List<UIPresentationSpec>();
+        private EnemyLooks _enemyLooks;
         private EnemyView _enemyView;
         private ScreenFlow _flow;
         private ControlConsole _console;
@@ -61,7 +62,8 @@ namespace BlackHole.Unity
                 return;
             }
 
-            _enemyView = new EnemyView(transform, enemyCatalog.Kinds());
+            _enemyLooks = new EnemyLooks(enemyCatalog.Kinds());
+            _enemyView = new EnemyView(transform, _enemyLooks);
 
             if (rootLayer == null)
             {
@@ -102,7 +104,7 @@ namespace BlackHole.Unity
 
             // 조종 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
             if (Debug.isDebugBuild)
-                _console = new ControlConsole(transform, _flow);
+                _console = new ControlConsole(transform, _flow, _enemyLooks);
         }
 
         private void Start() => _flow.OpenTitle();
@@ -118,6 +120,7 @@ namespace BlackHole.Unity
             _console?.Dispose();
             _flow?.Dispose();
             _enemyView?.Dispose();
+            _enemyLooks?.Dispose();
 
             foreach (UIPresentationSpec presentation in _emptyPresentations)
                 Destroy(presentation);

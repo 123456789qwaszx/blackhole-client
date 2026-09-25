@@ -33,7 +33,8 @@ namespace BlackHole.Core
             VerifyParticipants(states);
 
             var players = new List<PlayerState>(states);
-            var world = new World(new BattleRandom(seed), content.GetStage(stage).Pool);
+            // 적의 수치는 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
+            var world = new World(new BattleRandom(seed), content.GetStage(stage).Pool, new EnemyStatTable(content.Enemies));
 
             // 전투 시작 배치. 0초에 한 번 공급한다.
             world.PlaceStartingEnemies(content.StartSupply, content.EnemyPlacement);

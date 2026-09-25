@@ -10,6 +10,7 @@ namespace BlackHole.Core
     {
         private readonly EnemyRoster _enemies = new EnemyRoster();
         private readonly PoolFilter _filter;
+        private readonly EnemyStatTable _stats;
 
         // 살아 있는 적. 죽은 적은 즉시 빠진다.
         public IReadOnlyList<Enemy> Enemies => _enemies.Alive;
@@ -20,15 +21,19 @@ namespace BlackHole.Core
         // 이 판의 난수. 판 조립 때 seed로 만든다.
         internal BattleRandom Random { get; }
 
-        internal World(BattleRandom random, EnemyPoolDefinition pool)
+        internal World(BattleRandom random, EnemyPoolDefinition pool, EnemyStatTable stats)
         {
             Random = random;
             Pool = pool ?? throw new ArgumentNullException(nameof(pool));
+            _stats = stats ?? throw new ArgumentNullException(nameof(stats));
             _filter = new PoolFilter(pool);
         }
 
         // 지금 살아 있는 이 종류의 적 수.
         public int CountAlive(EnemyDefinition kind) => _enemies.CountAlive(kind);
+
+        // 이 판에서 이 종류가 받는 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
+        public EnemyStats StatsOf(EnemyDefinition kind) => _stats.Of(kind);
 
         // 전투 시작 공급. 판 조립 때(0초) 한 번, 요청 순서대로 한 마리씩 풀 여과 장치를 거쳐 배치 띠 안에 내보낸다.
         // 여과 장치가 거른 요청은 버린다. 성장 공급이 붙으면 단계 끝에 요청을 모아 내보내는 자리가 따로 생긴다.
@@ -39,7 +44,7 @@ namespace BlackHole.Core
                 for (int i = 0; i < request.Count; i++)
                 {
                     if (_filter.Allows(request.Enemy, _enemies))
-                        _enemies.Spawn(request.Enemy, placement.Pick(Random));
+                        _enemies.Spawn(request.Enemy, _stats.Of(request.Enemy), placement.Pick(Random));
                 }
             }
         }

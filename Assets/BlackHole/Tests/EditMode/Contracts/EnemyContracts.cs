@@ -22,6 +22,24 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.PoolFilterDropsKindsOutsideThePool", PoolFilterDropsKindsOutsideThePool);
             yield return new Contract("Enemy.PoolFilterCapsAliveCountPerKind", PoolFilterCapsAliveCountPerKind);
             yield return new Contract("Enemy.BattleUsesItsStagePool", BattleUsesItsStagePool);
+            yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
+        }
+
+        // 판의 적 수치는 조립 때 정해지고, 출현하는 적은 그 수치를 받는다. 지금은 보정이 없어 기본 수치와 같다.
+        // 판에 없는 종류의 수치는 묻지 않는다.
+        private static void SpawnsTakeTheBattleStats()
+        {
+            GameSession game = TestContent.Session(OneEnemy(health: 12));
+            Enemy enemy = game.World.Enemies[0];
+            EnemyStats battle = game.World.StatsOf(enemy.Definition);
+
+            Expect.Near(battle.MaxHealth, enemy.Stats.MaxHealth);
+            Expect.Near(battle.Size, enemy.Stats.Size);
+            Expect.Near(battle.MoveSpeed, enemy.Stats.MoveSpeed);
+            Expect.Near(enemy.Definition.BaseStats.MaxHealth, battle.MaxHealth);
+
+            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1), new OrbitBehaviorDefinition(false));
+            Expect.Throws<ArgumentException>(() => game.World.StatsOf(stranger));
         }
 
         // 공급이 요청해도 이 판의 단계 풀에 없는 종류는 나오지 않는다. 걸러진 요청은 버린다.
