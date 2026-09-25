@@ -82,9 +82,6 @@ namespace BlackHole.Core.Tests
         public static SupplyData Supply(string enemyId, int count) =>
             new SupplyData { Enemy = enemyId, Count = count };
 
-        public static UpgradeData Upgrade(string id, int price, string requires) =>
-            new UpgradeData { Id = id, Price = price, Requires = requires };
-
         public static GameContent Load(ContentData data)
         {
             ContentLoadResult result = ContentLoader.Load(data);
@@ -93,9 +90,15 @@ namespace BlackHole.Core.Tests
             return result.Content;
         }
 
-        // 새 진행 상태의 Player 1명으로 첫 단계의 전투를 조립한다.
+        // 새 진행 상태의 Player 1명으로 첫 단계의 전투를 조립하고 시작한다(전투 시작 공급까지).
         public static GameSession Session(ContentData data, int seed = SessionAssembler.DefaultSeed) =>
-            SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, SessionAssembler.FirstStage, seed);
+            Begun(SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, SessionAssembler.FirstStage, seed));
+
+        public static GameSession Begun(GameSession session)
+        {
+            session.Begin();
+            return session;
+        }
 
         public static float DistanceToHq(Point2 point) =>
             (float)System.Math.Sqrt(point.DistanceSquared(BattleSpace.Origin));

@@ -10,8 +10,8 @@ namespace BlackHole.Core
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
-    // 1. 개별 정의: 판 설정, 적 종류, 출현 배치, 업그레이드 노드.
-    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀. 업그레이드 노드 사이의 규칙.
+    // 1. 개별 정의: 판 설정, 적 종류, 출현 배치.
+    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀.
     // 3. 적 풀을 가리키는 것: 풀 ID 유일, 단계 표.
     public static class ContentLoader
     {
@@ -28,13 +28,11 @@ namespace BlackHole.Core
             TimeLimitDefinition timeLimit = LoadSession(data.Session, diagnostics);
             List<EnemyDefinition> enemies = LoadEnemies(data.Enemies, diagnostics);
             EnemyPlacementDefinition placement = LoadPlacement(data.EnemyPlacement, diagnostics);
-            List<UpgradeNodeDefinition> upgrades = LoadUpgrades(data.Upgrades, diagnostics);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
             ContentInvariants.CollectEnemies(enemies, diagnostics, out Dictionary<string, EnemyDefinition> enemiesById);
-            ContentInvariants.CollectUpgrades(upgrades, diagnostics, out _);
             List<SupplyRequest> startSupply = LoadSupplyList(data.StartSupply, "StartSupply", enemiesById, diagnostics);
             List<EnemyPoolDefinition> pools = LoadPools(data.EnemyPools, enemiesById, diagnostics);
 
@@ -51,7 +49,7 @@ namespace BlackHole.Core
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, enemies, placement, startSupply, pools, stages, upgrades),
+                new GameContent(timeLimit, enemies, placement, startSupply, pools, stages),
                 diagnostics);
         }
 
@@ -262,37 +260,6 @@ namespace BlackHole.Core
             }
 
             return stages;
-        }
-
-        // ── 업그레이드 ──────────────────────────────────────────────────────
-
-        // 없으면 업그레이드 노드가 없다.
-        private static List<UpgradeNodeDefinition> LoadUpgrades(List<UpgradeData> items, List<ContentDiagnostic> into)
-        {
-            var upgrades = new List<UpgradeNodeDefinition>();
-
-            if (items == null)
-                return upgrades;
-
-            for (int i = 0; i < items.Count; i++)
-            {
-                UpgradeData item = items[i];
-                string at = At("Upgrades", i, item?.Id);
-
-                if (item == null)
-                {
-                    into.Add(new ContentDiagnostic(at, "업그레이드 데이터가 null이다."));
-                    continue;
-                }
-
-                UpgradeNodeDefinition node = Guard(at, into, () =>
-                    new UpgradeNodeDefinition(item.Id, item.Price, item.Requires));
-
-                if (node != null)
-                    upgrades.Add(node);
-            }
-
-            return upgrades;
         }
 
         // ── 공통 ────────────────────────────────────────────────────────────

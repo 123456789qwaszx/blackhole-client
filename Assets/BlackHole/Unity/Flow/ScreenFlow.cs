@@ -1,77 +1,36 @@
 using System;
 using System.Collections.Generic;
-using BlackHole.Core;
 
 namespace BlackHole.Unity
 {
-    // 화면 전환과, 화면이 전투 Session·업그레이드와 만나는 경계.
-    // 화면(View)은 버튼 사건을 알리고 표시 값을 받을 뿐이다. Session과 구매 규칙을 부르는 곳은 여기뿐이다.
+    // 화면과, 화면이 전투 시스템·오케스트레이터와 만나는 경계.
+    // 화면(View)은 버튼 사건을 알리고 표시 값을 받을 뿐이다.
     //
-    //   타이틀 ─시작→ 전투 ─끝→ 업그레이드 ─다음 전투→ 전투
-    //     │                        └─타이틀→ 타이틀
-    //     └─설정→ 설정 ─뒤로→ 타이틀
-    //
-    // 타이틀의 시작은 늘 새 진행이다(저장이 없다). 다음 전투는 같은 진행 상태(Gold, 산 노드)를 이어받는다.
+    // 지금 화면은 전투 화면 하나다. 타이틀·설정·업그레이드 화면은 지웠다.
+    // 전투의 시작과 정리는 화면이 아니라 오케스트레이터(BattleOrchestrator)가 순서대로 한다.
+    // 나중의 화면 전환(GoToBattle, GoToUpgrade)은 오케스트레이터의 시작·종료를 부르고 화면을 바꾸는 식으로 붙는다.
     // 화면마다 partial 파일 하나가 전환과 사건 연결을 가진다. 연결은 화면이 닫힐 때 모두 푼다.
     internal sealed partial class ScreenFlow : IDisposable
     {
         private readonly UIManager _ui;
-        private readonly GameContent _content;
-        // 전투 화면과 함께 보이는 판 안의 적. 전투 화면이 닫히면 비운다.
-        private readonly EnemyView _enemyView;
-        private readonly IReadOnlyList<PlayerId> _participants;
-        // 업그레이드 화면을 보는 Player. 지금은 로컬 1명이다.
-        private readonly PlayerId _viewer;
-        private readonly UIPresentationSpec _titlePresentation;
-        private readonly UIPresentationSpec _settingsPresentation;
+        private readonly BattleSystem _battle;
+        private readonly BattleOrchestrator _orchestrator;
         private readonly UIPresentationSpec _battlePresentation;
-        private readonly UIPresentationSpec _upgradePresentation;
-
-        private PlayerState[] _progress;
-        private GameSession _battle;
-        // 진행도: 적의 강도 단계(1 ~ 콘텐츠의 단계 수). HQ 성장 단계와 다르다.
-        // 다음에 조립하는 전투가 이 단계로 만들어진다. 지금 바꾸는 곳은 조종 콘솔뿐이다.
-        private int _stage = SessionAssembler.FirstStage;
 
         public ScreenFlow(
             UIManager ui,
-            GameContent content,
-            EnemyView enemyView,
-            IReadOnlyList<PlayerId> participants,
-            PlayerId viewer,
-            UIPresentationSpec titlePresentation,
-            UIPresentationSpec settingsPresentation,
-            UIPresentationSpec battlePresentation,
-            UIPresentationSpec upgradePresentation)
+            BattleSystem battle,
+            BattleOrchestrator orchestrator,
+            UIPresentationSpec battlePresentation)
         {
             _ui = ui;
-            _content = content;
-            _enemyView = enemyView;
-            _participants = participants;
-            _viewer = viewer;
-            _titlePresentation = titlePresentation;
-            _settingsPresentation = settingsPresentation;
+            _battle = battle;
+            _orchestrator = orchestrator;
             _battlePresentation = battlePresentation;
-            _upgradePresentation = upgradePresentation;
         }
 
-        public void OpenTitle() => GoToTitle();
-
-        public int Stage => _stage;
-        public int StageCount => _content.StageCount;
-        // 지금 진행도의 단계 정의(쓰는 적 풀 포함).
-        public StageDefinition SelectedStage => _content.GetStage(_stage);
-        // 마지막으로 조립한 전투의 seed. 전투를 연 적이 없으면 null이다.
-        public int? BattleSeed => _battle?.Seed;
-        // 전투 화면에서 진행 중인 전투. 전투 화면이 아니면 null이다.
-        public GameSession ActiveBattle => _battleScreen != null ? _battle : null;
-
-        // 진행도를 바꾼다. 범위 밖의 값은 가장 가까운 단계가 된다. 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
-        public void SetStage(int stage) =>
-            _stage = Math.Max(SessionAssembler.FirstStage, Math.Min(StageCount, stage));
-
-        // 한 프레임. 전투 화면이 열려 있을 때만 전투 시간이 흐른다.
-        public void Tick(float delta) => TickBattle(delta);
+        // 한 프레임. 열린 화면의 표시 값을 맞춘다.
+        public void Tick() => ShowBattle();
 
         #region 연결
 

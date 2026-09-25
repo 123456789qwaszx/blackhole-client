@@ -23,6 +23,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.PoolFilterCapsAliveCountPerKind", PoolFilterCapsAliveCountPerKind);
             yield return new Contract("Enemy.BattleUsesItsStagePool", BattleUsesItsStagePool);
             yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
+            yield return new Contract("Enemy.KillsAreTalliedByKind", KillsAreTalliedByKind);
         }
 
         // 판의 적 수치는 조립 때 정해지고, 출현하는 적은 그 수치를 받는다. 지금은 보정이 없어 기본 수치와 같다.
@@ -85,8 +86,10 @@ namespace BlackHole.Core.Tests
             data.Stages[1].Pool = "late";
             GameContent content = TestContent.Load(data);
 
-            GameSession early = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 1, 0);
-            GameSession late = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 2, 0);
+            GameSession early = TestContent.Begun(
+                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 1, 0));
+            GameSession late = TestContent.Begun(
+                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 2, 0));
 
             Expect.Equal(TestContent.PoolId, early.World.Pool.Id);
             Expect.Equal("late", late.World.Pool.Id);
@@ -219,13 +222,21 @@ namespace BlackHole.Core.Tests
             Expect.Equal(0, game.World.Deaths.Count);
         }
 
-        // 전투가 끝나 남은 적이 사라지는 것은 처치가 아니다. 사망 기록을 만들지 않는다.
+        // 전투가 끝나 남은 적을 치우는 것은 처치가 아니다. 사망 기록도 처치 수도 만들지 않는다.
+        // 남은 적은 끝난 판에서만 치울 수 있다.
         private static void BattleCleanupIsNotAKill()
         {
-            GameSession stopped = TestContent.Session(OneEnemy(health: 10));
-            stopped.Stop();
-            Expect.Equal(0, stopped.World.Deaths.Count);
-            Expect.True(stopped.World.Enemies[0].IsAlive, "정리된 적은 죽은 것이 아니다.");
+            GameSession ended = TestContent.Session(OneEnemy(health: 10));
+            Enemy survivor = ended.World.Enemies[0];
+            Expect.Throws<InvalidOperationException>(() => ended.ClearRemainingEnemies());
+
+            ended.RequestEnd(SessionEndReason.TimeExpired);
+            Expect.Equal(1, ended.ClearRemainingEnemies());
+            Expect.Equal(0, ended.World.Enemies.Count);
+            Expect.Equal(0, ended.World.CountAlive(survivor.Definition));
+            Expect.Equal(0, ended.World.Deaths.Count);
+            Expect.Equal(0, ended.World.TotalKills);
+            Expect.True(survivor.IsAlive, "정리된 적은 죽은 것이 아니다.");
 
             ContentData timed = OneEnemy(health: 10);
             timed.Session.TimeLimit = 1;
@@ -236,12 +247,40 @@ namespace BlackHole.Core.Tests
             Expect.True(expired.World.Enemies[0].IsAlive, "시간이 끝나도 적은 죽지 않는다.");
         }
 
+        // 확정된 사망은 종류별 처치 수가 되고, 끝난 판의 원자료에 처음 처치한 순서로 남는다.
+        private static void KillsAreTalliedByKind()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("a", 3), TestContent.Supply("b", 1));
+            data.Enemies.Add(TestContent.Enemy("a", health: 1));
+            data.Enemies.Add(TestContent.Enemy("b", health: 1));
+            TestContent.Allow(data, "a");
+            TestContent.Allow(data, "b");
+            GameSession game = TestContent.Session(data);
+
+            World world = game.World;
+            world.DealDamage(world.Enemies[3], Hit);
+            world.DealDamage(world.Enemies[0], Hit);
+            world.DealDamage(world.Enemies[0], Hit);
+            Expect.Equal(3, world.TotalKills);
+            Expect.True(!world.HasPendingDeathProcessing, "사망 처리는 확정 순간 끝나야 한다.");
+
+            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.ClearRemainingEnemies();
+            BattleRawData raw = game.CreateRawData();
+            Expect.Equal(3, raw.TotalKills);
+            Expect.Equal(2, raw.Kills.Count);
+            Expect.Equal("b", raw.Kills[0].Enemy.Id);
+            Expect.Equal(1, raw.Kills[0].Count);
+            Expect.Equal("a", raw.Kills[1].Enemy.Id);
+            Expect.Equal(2, raw.Kills[1].Count);
+        }
+
         // 같은 콘텐츠로 만든 두 판은 적을 공유하지 않는다. 한 판의 피해가 다른 판에 닿지 않는다.
         private static void EachBattleHasItsOwnEnemies()
         {
             GameContent content = TestContent.Load(OneEnemy(health: 10));
-            GameSession first = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) });
-            GameSession second = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) });
+            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+            GameSession second = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
 
             Expect.True(!ReferenceEquals(first.World, second.World), "World를 재사용하면 안 된다.");
             first.World.DealDamage(first.World.Enemies[0], Hit);

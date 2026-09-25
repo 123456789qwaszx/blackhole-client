@@ -5,7 +5,7 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // 전투 화면. 남은 시간과 일시정지 여부를 받아 보여 주고, 일시정지·종료 버튼을 알린다.
-    // 전투 Session을 모른다 — 표시 값은 ScreenFlow가 넘긴다.
+    // 전투 Session을 모른다 — 표시 값은 ScreenFlow가 넘긴다. 진행 중인 판이 없으면 비어 있는 표시(ShowIdle)다.
     public sealed class BattleScreen : UIRoot<BattleScreen.Refs>
     {
         public enum Refs
@@ -33,6 +33,22 @@ namespace BlackHole.Unity
 
             BindEvent(View.Button(Refs.PauseBtn_Button), _ => PauseClicked?.Invoke());
             BindEvent(View.Button(Refs.EndBtn_Button), _ => EndClicked?.Invoke());
+        }
+
+        // 진행 중인 판이 없을 때의 표시. 매 프레임 불러도 된다.
+        public void ShowIdle()
+        {
+            if (_shownTenths != int.MinValue && _remaining != null)
+            {
+                _shownTenths = int.MinValue;
+                _remaining.text = "-";
+            }
+
+            if (_shownPaused != false && _pauseLabel != null)
+            {
+                _shownPaused = false;
+                _pauseLabel.text = "Pause";
+            }
         }
 
         // 매 프레임 불러도 된다. 보이는 값이 바뀔 때만 글자를 고친다.

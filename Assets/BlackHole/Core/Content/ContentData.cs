@@ -5,7 +5,7 @@ namespace BlackHole.Core
 {
     // 저작 형식. 검증 전 값이며 실행에 쓰지 않는다 — ContentLoader만 읽는다.
     // 적 종류·공급·배치와 단계 표는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable)이 채운다.
-    // 판 설정과 업그레이드 노드는 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
+    // 판 설정은 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
     [Serializable]
     public sealed class ContentData
     {
@@ -17,10 +17,8 @@ namespace BlackHole.Core
         public List<StageData> Stages = new List<StageData>();
         // 출현 위치. 공급이 하나라도 있으면 필요하다.
         public EnemyPlacementData EnemyPlacement;
-        // 전투 시작 공급. 판 조립 때(0초) 한 번 공급한다.
+        // 전투 시작 공급. 전투를 시작할 때(0초) 한 번 공급한다.
         public List<SupplyData> StartSupply = new List<SupplyData>();
-        // 업그레이드 노드. 노드 저작 툴이 만들 데이터다.
-        public List<UpgradeData> Upgrades = new List<UpgradeData>();
     }
 
     [Serializable]
@@ -90,15 +88,5 @@ namespace BlackHole.Core
     {
         public string Enemy;
         public int Count;
-    }
-
-    // 업그레이드 노드 하나. 툴과 게임이 공유하는 형식 중 구매 규칙에 필요한 칸만 있다(위치·구역 없음).
-    [Serializable]
-    public sealed class UpgradeData
-    {
-        public string Id;
-        public int Price;
-        // 선행 노드 ID. 비어 있으면 처음부터 살 수 있다.
-        public string Requires;
     }
 }

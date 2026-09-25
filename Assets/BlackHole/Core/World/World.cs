@@ -35,7 +35,31 @@ namespace BlackHole.Core
         // 이 판에서 이 종류가 받는 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
         public EnemyStats StatsOf(EnemyDefinition kind) => _stats.Of(kind);
 
-        // 전투 시작 공급. 판 조립 때(0초) 한 번, 요청 순서대로 한 마리씩 풀 여과 장치를 거쳐 배치 띠 안에 내보낸다.
+        // 이 판에서 지금까지 확정된 처치 수(모든 종류).
+        public int TotalKills
+        {
+            get
+            {
+                int total = 0;
+
+                foreach (EnemyKillCount kill in _enemies.Kills())
+                    total += kill.Count;
+
+                return total;
+            }
+        }
+
+        // 확정된 사망 중 아직 처리가 끝나지 않은 것이 있는가. 판을 정리하기 전에 이것이 false여야 한다.
+        // 지금은 사망 처리(목록에서 빠짐·사망 기록·처치 수)가 사망 확정 순간에 모두 끝나므로 늘 false다.
+        // 사망 효과 대기열이나 보상 처리가 붙으면 그것이 빌 때까지 true다.
+        public bool HasPendingDeathProcessing => false;
+
+        internal IReadOnlyList<EnemyKillCount> Kills() => _enemies.Kills();
+
+        // 판이 끝난 뒤 남은 적을 치운다. 처치가 아니다(사망 기록·처치 수 없음). 치운 수를 돌려준다.
+        internal int ClearRemainingEnemies() => _enemies.ClearAlive();
+
+        // 전투 시작 공급. 전투를 시작할 때(0초) 한 번, 요청 순서대로 한 마리씩 풀 여과 장치를 거쳐 배치 띠 안에 내보낸다.
         // 여과 장치가 거른 요청은 버린다. 성장 공급이 붙으면 단계 끝에 요청을 모아 내보내는 자리가 따로 생긴다.
         internal void PlaceStartingEnemies(IReadOnlyList<SupplyRequest> requests, EnemyPlacementDefinition placement)
         {

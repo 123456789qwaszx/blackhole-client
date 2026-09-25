@@ -1,22 +1,18 @@
-using System;
 using BlackHole.Core;
 
 namespace BlackHole.Unity
 {
-    // 전투 화면 ↔ 전투 Session.
-    // 화면 → Session: 일시정지, 전투 끝내기.  Session → 화면: 남은 시간, 일시정지 여부, 판 안의 적(EnemyView).
-    // 끝난 전투(시간 종료 또는 끝내기)는 다음 Tick에 업그레이드 화면으로 간다. 전환하는 자리는 TickBattle 하나다.
+    // 전투 화면 ↔ 전투 시스템·오케스트레이터.
+    // 화면 → 일시정지(전투 시스템), 전투 끝내기(오케스트레이터에 종료 요청 — 사유는 지금 시간 종료로 통일).
+    // 전투 시스템 → 화면: 남은 시간, 일시정지 여부. 진행 중인 판이 없으면 비어 있는 표시다.
+    // 전투 화면은 판을 시작하거나 정리하지 않는다. 판이 정리돼도 화면(UI)은 남는다.
     internal sealed partial class ScreenFlow
     {
         // 열려 있는 전투 화면. 닫히면 null이다.
         private BattleScreen _battleScreen;
 
-        // 진행 상태와 지금의 진행도로 새 전투를 조립하고 전투 화면을 연다. 조립이 진행 상태를 전투에 묶는다(구매 불가).
-        // 전투마다 seed를 새로 정한다. 전투가 쓴 seed는 조종 콘솔에 보인다(지정하는 방법은 아직 없다).
-        private void GoToBattle()
+        public void OpenBattleScreen()
         {
-            _battle = SessionAssembler.CreateBattle(_content, _progress, _stage, Environment.TickCount);
-
             _ui.SwitchRoot<BattleScreen>(
                 _battlePresentation,
                 afterPresented: screen => BindView(screen, BindBattle),
@@ -26,55 +22,34 @@ namespace BlackHole.Unity
         private void BindBattle(BattleScreen screen)
         {
             _battleScreen = screen;
-
-            // 전투 화면을 떠나면 남은 적의 모습도 치운다. 판 정리는 처치가 아니므로 연출이 없다.
-            AddCleanup(screen, () =>
-            {
-                _battleScreen = null;
-                _enemyView.Reset();
-            });
+            AddCleanup(screen, () => _battleScreen = null);
 
             AddBinding(screen,
                 s => s.PauseClicked += TogglePause,
                 s => s.PauseClicked -= TogglePause);
 
             AddBinding(screen,
-                s => s.EndClicked += StopBattle,
-                s => s.EndClicked -= StopBattle);
+                s => s.EndClicked += RequestEnd,
+                s => s.EndClicked -= RequestEnd);
 
-            _enemyView.Reset();
             ShowBattle();
         }
 
-        private void TogglePause()
-        {
-            _battle.TogglePause();
-            ShowBattle();
-        }
+        private void TogglePause() => _battle.TogglePause();
 
-        // 결과를 확정하고 진행 상태를 풀어 준다. 화면 전환은 다음 Tick이 한다.
-        private void StopBattle() => _battle.Stop();
+        private void RequestEnd() => _orchestrator.RequestEnd(SessionEndReason.TimeExpired);
 
-        private void TickBattle(float delta)
+        private void ShowBattle()
         {
             if (_battleScreen == null)
                 return;
 
-            _battle.Advance(delta);
+            GameSession session = _battle.Session;
 
-            if (_battle.Phase == SessionPhase.Ended)
-            {
-                GoToUpgrade();
-                return;
-            }
-
-            ShowBattle();
-        }
-
-        private void ShowBattle()
-        {
-            _battleScreen.Show(_battle.Remaining, _battle.Phase == SessionPhase.Paused);
-            _enemyView.Synchronize(_battle.World);
+            if (session == null)
+                _battleScreen.ShowIdle();
+            else
+                _battleScreen.Show(session.Remaining, session.Phase == SessionPhase.Paused);
         }
     }
 }
