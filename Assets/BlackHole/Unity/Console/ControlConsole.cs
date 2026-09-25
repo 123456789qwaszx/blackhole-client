@@ -1,21 +1,18 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text;
 using BlackHole.Core;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using static BlackHole.Unity.ConsoleParts;
 using Object = UnityEngine.Object;
 
 namespace BlackHole.Unity
 {
     // 조종 콘솔(개발용). 진행도(적의 강도 단계)와 전투의 seed를 보여 주고, 진행도를 바꾼다.
     // 진행도를 바꾸면 다음에 조립하는 전투부터 쓰인다. 진행 중인 전투는 바뀌지 않는다.
-    //
-    // 전투 시작·종료 버튼은 오케스트레이터(BattleOrchestrator)에 요청할 뿐이다. 순서와 책임은 오케스트레이터에 있다.
-    // 버튼 아래에는 적·전투 시스템의 시작·종료 체크리스트가, 그 아래에는 마지막 판의 원자료가 나온다.
+    // 전투 시작·종료는 다른 창(BattleLifecycleConsole)이다.
     //
     // 아래에는 적 풀과 풀의 종류마다 "지금 살아 있는 수 / 동시 최대 수"를 보여 준다.
     // - 판이 있으면 그 판의 단계 풀과 지금 살아 있는 수(매 프레임).
@@ -24,13 +21,10 @@ namespace BlackHole.Unity
     // 적의 수치는 전투 Session이 시작되기 전에 정해지고 전투 중에는 바뀌지 않는다. 그래서 설명창은
     // 판이 있으면 그 판의 수치를, 없으면 종류의 기본 수치를 보여 준다(업그레이드 보정은 판 조립 때 반영된다).
     //
-    // 게임 UI(UIManager)와 따로 자기 Canvas에 그린다. 게임 화면보다 위에 있고, 콘솔 영역의 클릭은 아래 화면으로 새지 않는다.
-    // ` 키로 숨기고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
+    // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
     internal sealed class ControlConsole : IDisposable
     {
-        private static readonly Color PanelColor = new Color(0, 0, 0, 0.75f);
         private static readonly Color DetailColor = new Color(0.04f, 0.06f, 0.12f, 0.85f);
-        private static readonly Color ButtonColor = new Color(0.2f, 0.26f, 0.42f);
         private static readonly Color RowColor = new Color(1, 1, 1, 0);
         private static readonly Color SelectedRowColor = new Color(0.35f, 0.45f, 0.75f, 0.45f);
 
@@ -40,11 +34,6 @@ namespace BlackHole.Unity
         private readonly GameObject _canvas;
         private readonly TMP_Text _stageText;
         private readonly TMP_Text _seedText;
-        private readonly Button _startButton;
-        private readonly Button _endButton;
-        private readonly TMP_Text _startStepsText;
-        private readonly TMP_Text _endStepsText;
-        private readonly TMP_Text _rawDataText;
         private readonly TMP_Text _poolText;
         private readonly RectTransform _poolRows;
         private readonly List<PoolRow> _rows = new List<PoolRow>();
@@ -59,10 +48,6 @@ namespace BlackHole.Unity
         private int _shownStage = -1;
         private int? _shownSeed;
         private bool _seedShown;
-        private int _shownStartVersion = -1;
-        private int _shownEndVersion = -1;
-        private BattleRawData _shownRawData;
-        private bool _rawDataShown;
         // 풀 표시가 마지막으로 그린 것. 바뀔 때만 다시 쓴다.
         private EnemyPoolDefinition _shownPool;
         private int _shownPoolStage;
@@ -78,19 +63,11 @@ namespace BlackHole.Unity
             _battle = battle;
             _looks = looks;
 
-            RectTransform canvas = CreateCanvas(parent);
+            RectTransform canvas = CreateCanvas(parent, "Control Console");
             _canvas = canvas.gameObject;
 
             // 콘솔 패널과 설명창을 오른쪽 위에서 아래로 쌓는다.
-            RectTransform stack = Child(canvas, "Stack");
-            stack.anchorMin = Vector2.one;
-            stack.anchorMax = Vector2.one;
-            stack.pivot = Vector2.one;
-            stack.anchoredPosition = new Vector2(-16, -16);
-            VerticalLayout(stack, 0, 8).childAlignment = TextAnchor.UpperRight;
-            var fitter = stack.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            RectTransform stack = Stack(canvas, Vector2.one);
 
             RectTransform panel = Panel(stack, "Panel", PanelColor);
             Text(panel, "Title", "CONTROL CONSOLE  ( ` )", 22);
@@ -105,13 +82,6 @@ namespace BlackHole.Unity
 
             _seedText = Text(panel, "Seed", string.Empty, 28);
             Text(panel, "Note", "Stage applies from the next battle.", 18);
-
-            _startButton = CommandButton(panel, "StartBattle", "Start battle", () => _orchestrator.RequestStart());
-            _startStepsText = Text(panel, "StartSteps", string.Empty, 20);
-            _endButton = CommandButton(panel, "EndBattle", "End battle",
-                () => _orchestrator.RequestEnd(SessionEndReason.TimeExpired));
-            _endStepsText = Text(panel, "EndSteps", string.Empty, 20);
-            _rawDataText = Text(panel, "RawData", string.Empty, 20);
 
             _poolText = Text(panel, "Pool", string.Empty, 28);
             _poolRows = Child(panel, "PoolRows");
@@ -137,9 +107,7 @@ namespace BlackHole.Unity
         // 한 프레임. 표시 여부를 바꾸고, 바뀐 값만 다시 쓴다.
         public void Tick()
         {
-            Keyboard keyboard = Keyboard.current;
-
-            if (keyboard != null && keyboard.backquoteKey.wasPressedThisFrame)
+            if (TogglePressed())
                 _canvas.SetActive(!_canvas.activeSelf);
 
             Refresh();
@@ -165,87 +133,9 @@ namespace BlackHole.Unity
                 _seedText.text = seed.HasValue ? $"Seed  {seed.Value}" : "Seed  -";
             }
 
-            RefreshBattleControls();
             RefreshPool(battle);
             RefreshDetail(battle);
         }
-
-        #region 전투 시작·종료
-
-        private void RefreshBattleControls()
-        {
-            SetInteractable(_startButton, _orchestrator.CanStart);
-            SetInteractable(_endButton, _orchestrator.CanEnd);
-
-            if (_battle.StartSteps.Version != _shownStartVersion)
-            {
-                _shownStartVersion = _battle.StartSteps.Version;
-                _startStepsText.text = Describe(_battle.StartSteps);
-            }
-
-            if (_battle.EndSteps.Version != _shownEndVersion)
-            {
-                _shownEndVersion = _battle.EndSteps.Version;
-                _endStepsText.text = Describe(_battle.EndSteps);
-            }
-
-            BattleRawData raw = _battle.LastRawData;
-
-            if (!_rawDataShown || raw != _shownRawData)
-            {
-                _rawDataShown = true;
-                _shownRawData = raw;
-                _rawDataText.text = Describe(raw);
-            }
-        }
-
-        private string Describe(Checklist steps)
-        {
-            _builder.Clear();
-
-            for (int i = 0; i < steps.Count; i++)
-            {
-                if (i > 0)
-                    _builder.Append('\n');
-
-                switch (steps.StateOf(i))
-                {
-                    case StepState.Done: _builder.Append("  <color=#7CFC7C>[x]</color> "); break;
-                    case StepState.Failed: _builder.Append("  <color=#FF6B6B>[!]</color> "); break;
-                    default: _builder.Append("  <color=#808080>[ ]</color> "); break;
-                }
-
-                _builder.Append(steps.NameOf(i));
-            }
-
-            return _builder.ToString();
-        }
-
-        private string Describe(BattleRawData raw)
-        {
-            if (raw == null)
-                return "Last battle  -";
-
-            _builder.Clear();
-            _builder.Append("Last battle  stage ").Append(raw.Stage)
-                .Append(" / seed ").Append(raw.Seed)
-                .Append(" / ").Append(raw.EndReason)
-                .Append(" / ").Append(Number(raw.PlayedSeconds)).Append('s');
-            _builder.Append("\n  kills ").Append(raw.TotalKills);
-
-            foreach (EnemyKillCount kill in raw.Kills)
-                _builder.Append("\n    ").Append(kill.Enemy.Id).Append("<pos=9em>").Append(kill.Count);
-
-            return _builder.ToString();
-        }
-
-        private static void SetInteractable(Button button, bool interactable)
-        {
-            if (button.interactable != interactable)
-                button.interactable = interactable;
-        }
-
-        #endregion
 
         #region 풀
 
@@ -392,8 +282,6 @@ namespace BlackHole.Unity
             }
         }
 
-        private static string Number(float value) => value.ToString("0.###", CultureInfo.InvariantCulture);
-
         #endregion
 
         #region 부품
@@ -401,35 +289,6 @@ namespace BlackHole.Unity
         private void StageButton(RectTransform parent, int delta) =>
             ButtonOf(parent, $"Stage{delta:+0;-0}", $"{delta:+0;-0}", 80,
                 () => _orchestrator.SetStage(_orchestrator.Stage + delta));
-
-        // 진행도 버튼 줄(80 × 4 + 간격 8 × 3)과 같은 너비의 명령 버튼.
-        private static Button CommandButton(RectTransform parent, string name, string text, Action onClick) =>
-            ButtonOf(parent, name, text, 344, onClick);
-
-        private static Button ButtonOf(RectTransform parent, string name, string text, float width, Action onClick)
-        {
-            RectTransform rect = Child(parent, name);
-
-            var image = rect.gameObject.AddComponent<Image>();
-            image.color = ButtonColor;
-
-            var button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = image;
-            button.onClick.AddListener(() => onClick());
-
-            var element = rect.gameObject.AddComponent<LayoutElement>();
-            element.preferredWidth = width;
-            element.preferredHeight = 44;
-
-            TMP_Text label = Text(rect, "Label", text, 24);
-            RectTransform labelRect = label.rectTransform;
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-            label.alignment = TextAlignmentOptions.Center;
-            return button;
-        }
 
         private static Image FormPreview(RectTransform parent)
         {
@@ -442,73 +301,6 @@ namespace BlackHole.Unity
             element.preferredWidth = 40;
             element.preferredHeight = 40;
             return image;
-        }
-
-        private static RectTransform Panel(RectTransform parent, string name, Color color)
-        {
-            RectTransform panel = Child(parent, name);
-            panel.gameObject.AddComponent<Image>().color = color;
-            VerticalLayout(panel, 16, 6).padding = new RectOffset(16, 16, 12, 12);
-            return panel;
-        }
-
-        private static VerticalLayoutGroup VerticalLayout(RectTransform rect, int padding, float spacing)
-        {
-            var layout = rect.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(padding, padding, padding, padding);
-            layout.spacing = spacing;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-            return layout;
-        }
-
-        private static HorizontalLayoutGroup HorizontalLayout(RectTransform rect, float spacing)
-        {
-            var layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = spacing;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-            return layout;
-        }
-
-        private static RectTransform CreateCanvas(Transform parent)
-        {
-            RectTransform rect = Child(parent, "Control Console");
-
-            var canvas = rect.gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            // 게임 UI보다 위에 그린다.
-            canvas.sortingOrder = 1000;
-
-            var scaler = rect.gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.matchWidthOrHeight = 0.5f;
-
-            rect.gameObject.AddComponent<GraphicRaycaster>();
-            return rect;
-        }
-
-        private static TMP_Text Text(RectTransform parent, string name, string text, float size)
-        {
-            RectTransform rect = Child(parent, name);
-            var label = rect.gameObject.AddComponent<TextMeshProUGUI>();
-            label.text = text;
-            label.fontSize = size;
-            label.color = Color.white;
-            label.raycastTarget = false;
-            return label;
-        }
-
-        private static RectTransform Child(Transform parent, string name)
-        {
-            var child = new GameObject(name, typeof(RectTransform));
-            child.transform.SetParent(parent, false);
-            return (RectTransform)child.transform;
         }
 
         #endregion

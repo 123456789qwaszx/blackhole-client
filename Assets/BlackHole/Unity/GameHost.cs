@@ -7,8 +7,8 @@ namespace BlackHole.Unity
 {
     // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
     // - Awake: 콘텐츠 로드·검증, 적 화면, 적·전투 시스템, 오케스트레이터, UI(UIManager와 전투 화면),
-    //   화면 흐름, 조종 콘솔(개발용) 조립.
-    // - Start: 전투 화면을 연다. 판은 아직 없다 — 전투 시작은 오케스트레이터에 요청한다(지금은 콘솔의 Start).
+    //   화면 흐름, 조종 콘솔과 전투 시작·종료 콘솔(개발용) 조립.
+    // - Start: 전투 화면을 연다. 판은 아직 없다 — 전투 시작은 오케스트레이터에 요청한다(지금은 전투 시작·종료 콘솔의 Start).
     // - Update: 적·전투 시스템 → 화면 → 콘솔 순서로 한 프레임을 넘긴다.
     //
     // 콘텐츠: 판 설정은 SampleContent(C#), 적 종류는 적 종류 목록 에셋,
@@ -49,6 +49,7 @@ namespace BlackHole.Unity
         private BattleOrchestrator _orchestrator;
         private ScreenFlow _flow;
         private ControlConsole _console;
+        private BattleLifecycleConsole _lifecycleConsole;
 
         #region Unity 수명
 
@@ -93,9 +94,12 @@ namespace BlackHole.Unity
             if (displayRefreshDriver != null)
                 displayRefreshDriver.Initialize(ui);
 
-            // 조종 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
+            // 조종 콘솔과 전투 시작·종료 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
             if (Debug.isDebugBuild)
+            {
                 _console = new ControlConsole(transform, _orchestrator, _battle, _enemyLooks);
+                _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle);
+            }
         }
 
         private void Start() => _flow.OpenBattleScreen();
@@ -105,10 +109,12 @@ namespace BlackHole.Unity
             _battle.Tick(Time.deltaTime);
             _flow.Tick();
             _console?.Tick();
+            _lifecycleConsole?.Tick();
         }
 
         private void OnDestroy()
         {
+            _lifecycleConsole?.Dispose();
             _console?.Dispose();
             _flow?.Dispose();
             _orchestrator?.Dispose();
