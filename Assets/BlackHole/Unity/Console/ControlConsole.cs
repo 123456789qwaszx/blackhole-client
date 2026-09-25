@@ -1,4 +1,5 @@
 using System;
+using BlackHole.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -9,6 +10,7 @@ namespace BlackHole.Unity
 {
     // 조종 콘솔(개발용). 진행도(적의 강도 단계)와 전투의 seed를 보여 주고, 진행도만 바꾼다.
     // 진행도를 바꾸면 다음에 조립하는 전투부터 쓰인다. 진행 중인 전투는 바뀌지 않는다.
+    // 아래에는 지금 진행도가 쓰는 적 풀과 그 풀에 든 적 종류(ID)를 보여 준다.
     //
     // 게임 UI(UIManager)와 따로 자기 Canvas에 그린다. 게임 화면보다 위에 있고, 콘솔 영역의 클릭은 아래 화면으로 새지 않는다.
     // ` 키로 숨기고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
@@ -21,6 +23,8 @@ namespace BlackHole.Unity
         private readonly GameObject _canvas;
         private readonly TMP_Text _stageText;
         private readonly TMP_Text _seedText;
+        private readonly TMP_Text _poolText;
+        private readonly TMP_Text _poolKindsText;
         private int _shownStage = -1;
         private int? _shownSeed;
         private bool _seedShown;
@@ -69,6 +73,9 @@ namespace BlackHole.Unity
             _seedText = Text(panel, "Seed", string.Empty, 28);
             Text(panel, "Note", "Stage applies from the next battle.", 18);
 
+            _poolText = Text(panel, "Pool", string.Empty, 28);
+            _poolKindsText = Text(panel, "PoolKinds", string.Empty, 22);
+
             Refresh();
         }
 
@@ -91,6 +98,10 @@ namespace BlackHole.Unity
             {
                 _shownStage = _flow.Stage;
                 _stageText.text = $"Stage  {_shownStage} / {_flow.StageCount}";
+
+                EnemyPoolDefinition pool = _flow.SelectedStage.Pool;
+                _poolText.text = $"Pool  {pool.Id}";
+                _poolKindsText.text = "  " + string.Join(", ", KindIds(pool));
             }
 
             int? seed = _flow.BattleSeed;
@@ -101,6 +112,16 @@ namespace BlackHole.Unity
                 _shownSeed = seed;
                 _seedText.text = seed.HasValue ? $"Seed  {seed.Value}" : "Seed  -";
             }
+        }
+
+        private static string[] KindIds(EnemyPoolDefinition pool)
+        {
+            var ids = new string[pool.Enemies.Count];
+
+            for (int i = 0; i < ids.Length; i++)
+                ids[i] = pool.Enemies[i].Id;
+
+            return ids;
         }
 
         private void StageButton(RectTransform parent, int delta)

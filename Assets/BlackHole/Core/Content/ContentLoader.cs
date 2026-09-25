@@ -9,9 +9,10 @@ namespace BlackHole.Core
     // 여기서 새로 두는 규칙은 데이터 모양에 관한 것뿐이다(빠진 칸, 알 수 없는 종류 이름, 정의되지 않은 참조).
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
-    // 두 단계로 읽는다.
-    // 1. 개별 정의: 판 설정, 단계 수, 적 종류, 출현 배치, 업그레이드 노드.
-    // 2. 목록 규칙과 참조: ID 유일, 공급의 적 참조, 노드 사이의 규칙. 개별 정의가 모두 올바를 때 본다.
+    // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
+    // 1. 개별 정의: 판 설정, 적 종류, 출현 배치, 업그레이드 노드.
+    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀. 업그레이드 노드 사이의 규칙.
+    // 3. 적 풀을 가리키는 것: 풀 ID 유일, 단계 표.
     public static class ContentLoader
     {
         public static ContentLoadResult Load(ContentData data)
@@ -25,7 +26,6 @@ namespace BlackHole.Core
             }
 
             TimeLimitDefinition timeLimit = LoadSession(data.Session, diagnostics);
-            int? stageCount = GuardValue("StageCount", diagnostics, () => DefinitionGuard.AtLeastOne(data.StageCount, "stageCount"));
             List<EnemyDefinition> enemies = LoadEnemies(data.Enemies, diagnostics);
             EnemyPlacementDefinition placement = LoadPlacement(data.EnemyPlacement, diagnostics);
             List<UpgradeNodeDefinition> upgrades = LoadUpgrades(data.Upgrades, diagnostics);
@@ -36,6 +36,7 @@ namespace BlackHole.Core
             ContentInvariants.CollectEnemies(enemies, diagnostics, out Dictionary<string, EnemyDefinition> enemiesById);
             ContentInvariants.CollectUpgrades(upgrades, diagnostics, out _);
             List<SupplyRequest> startSupply = LoadSupplyList(data.StartSupply, "StartSupply", enemiesById, diagnostics);
+            List<EnemyPoolDefinition> pools = LoadPools(data.EnemyPools, enemiesById, diagnostics);
 
             if (startSupply.Count > 0 && placement == null)
                 diagnostics.Add(new ContentDiagnostic("EnemyPlacement", "공급이 있으면 출현 배치가 필요하다."));
@@ -43,8 +44,14 @@ namespace BlackHole.Core
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
+            ContentInvariants.CollectPools(pools, diagnostics, out Dictionary<string, EnemyPoolDefinition> poolsById);
+            List<StageDefinition> stages = LoadStages(data.Stages, poolsById, diagnostics);
+
+            if (diagnostics.Count > 0)
+                return Fail(diagnostics);
+
             return new ContentLoadResult(
-                new GameContent(timeLimit, stageCount.Value, enemies, placement, startSupply, upgrades),
+                new GameContent(timeLimit, enemies, placement, startSupply, pools, stages, upgrades),
                 diagnostics);
         }
 
@@ -153,6 +160,95 @@ namespace BlackHole.Core
             }
 
             return requests;
+        }
+
+        // ── 적 풀과 단계 표 ─────────────────────────────────────────────────
+
+        // 없으면 적 풀이 없다. 적 ID는 2단계의 색인으로 정의에 잇는다.
+        private static List<EnemyPoolDefinition> LoadPools(
+            List<EnemyPoolData> items,
+            IReadOnlyDictionary<string, EnemyDefinition> enemies,
+            List<ContentDiagnostic> into)
+        {
+            var pools = new List<EnemyPoolDefinition>();
+
+            if (items == null)
+                return pools;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                EnemyPoolData item = items[i];
+                string at = At("EnemyPools", i, item?.Id);
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "적 풀 데이터가 null이다."));
+                    continue;
+                }
+
+                int errors = into.Count;
+                var members = new List<EnemyDefinition>();
+
+                if (item.Enemies != null)
+                {
+                    for (int j = 0; j < item.Enemies.Count; j++)
+                    {
+                        string id = item.Enemies[j];
+
+                        if (id == null || !enemies.TryGetValue(id, out EnemyDefinition enemy))
+                            into.Add(new ContentDiagnostic($"{at}.Enemies[{j}]", $"정의되지 않은 적 ID '{id}'."));
+                        else
+                            members.Add(enemy);
+                    }
+                }
+
+                if (into.Count > errors)
+                    continue;
+
+                EnemyPoolDefinition pool = Guard(at, into, () => new EnemyPoolDefinition(item.Id, members));
+
+                if (pool != null)
+                    pools.Add(pool);
+            }
+
+            return pools;
+        }
+
+        // Stages[i]가 (i + 1)단계다. 단계는 하나 이상 있어야 한다. 풀 ID는 3단계의 색인으로 정의에 잇는다.
+        private static List<StageDefinition> LoadStages(
+            List<StageData> items,
+            IReadOnlyDictionary<string, EnemyPoolDefinition> pools,
+            List<ContentDiagnostic> into)
+        {
+            var stages = new List<StageDefinition>();
+
+            if (items == null || items.Count == 0)
+            {
+                into.Add(new ContentDiagnostic("Stages", "단계가 하나 이상 필요하다."));
+                return stages;
+            }
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                StageData item = items[i];
+                string at = $"Stages[{i}]";
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "단계 데이터가 null이다."));
+                    continue;
+                }
+
+                if (item.Pool == null || !pools.TryGetValue(item.Pool, out EnemyPoolDefinition pool))
+                {
+                    into.Add(new ContentDiagnostic(at + ".Pool", $"정의되지 않은 적 풀 ID '{item.Pool}'."));
+                    continue;
+                }
+
+                stages.Add(new StageDefinition(i + 1, pool));
+            }
+
+            return stages;
         }
 
         // ── 업그레이드 ──────────────────────────────────────────────────────

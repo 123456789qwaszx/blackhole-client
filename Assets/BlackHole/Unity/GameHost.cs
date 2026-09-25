@@ -11,7 +11,7 @@ namespace BlackHole.Unity
     // - Update: 화면 흐름에 프레임 시간을 넘긴다. 전투 시간은 전투 화면이 열려 있을 때만 흐른다.
     //
     // 콘텐츠: 판 설정과 업그레이드 노드는 SampleContent(C#), 적 종류는 적 종류 목록 에셋,
-    // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋이 채운다.
+    // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
     // 화면 프리팹을 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens).
     // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed class GameHost : MonoBehaviour
@@ -24,6 +24,7 @@ namespace BlackHole.Unity
         [Header("Content")]
         [SerializeField] private EnemyCatalog enemyCatalog;
         [SerializeField] private EnemySupplySetup enemySupply;
+        [SerializeField] private StageTable stageTable;
 
         [Header("UI Layers (비우면 임시 화면을 만든다)")]
         [SerializeField] private RectTransform rootLayer;
@@ -131,15 +132,18 @@ namespace BlackHole.Unity
         {
             content = null;
 
-            if (enemyCatalog == null || enemySupply == null)
+            if (enemyCatalog == null || enemySupply == null || stageTable == null)
             {
-                Debug.LogError("[콘텐츠] GameHost에 적 종류 목록(EnemyCatalog)과 적 공급 설정(EnemySupplySetup)을 연결해야 한다.", this);
+                Debug.LogError(
+                    "[콘텐츠] GameHost에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 단계 표(StageTable)를 연결해야 한다.",
+                    this);
                 return false;
             }
 
             ContentData data = SampleContent.Create();
             enemyCatalog.WriteTo(data);
             enemySupply.WriteTo(data);
+            stageTable.WriteTo(data);
             ContentLoadResult result = ContentLoader.Load(data);
 
             foreach (ContentDiagnostic diagnostic in result.Diagnostics)

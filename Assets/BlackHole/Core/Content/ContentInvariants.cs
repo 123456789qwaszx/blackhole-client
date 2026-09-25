@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // 콘텐츠 전체의 규칙: 적 종류 ID와 업그레이드 노드 ID는 유일하고, 선행 노드는 실재하며,
+    // 콘텐츠 전체의 규칙: 적 종류·적 풀·업그레이드 노드의 ID는 유일하고, 선행 노드는 실재하며,
     // 선행을 따라가면 시작 노드에 닿는다.
     // GameContent 생성자(첫 오류로 생성 실패)와 ContentLoader(경로별 진단 수집)가 함께 쓴다.
     // 개별 정의의 수치 규칙은 각 정의 생성자에 있다 — 여기서 다시 보지 않는다.
@@ -16,6 +16,14 @@ namespace BlackHole.Core
             out Dictionary<string, EnemyDefinition> enemiesById)
         {
             enemiesById = Index(enemies, "Enemies", "적", e => e.Id, into);
+        }
+
+        public static void CollectPools(
+            IReadOnlyList<EnemyPoolDefinition> pools,
+            ICollection<ContentDiagnostic> into,
+            out Dictionary<string, EnemyPoolDefinition> poolsById)
+        {
+            poolsById = Index(pools, "EnemyPools", "적 풀", p => p.Id, into);
         }
 
         public static void CollectUpgrades(

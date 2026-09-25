@@ -59,6 +59,8 @@ namespace BlackHole.Unity
 
         public int Stage => _stage;
         public int StageCount => _content.StageCount;
+        // 지금 진행도의 단계 정의(쓰는 적 풀 포함).
+        public StageDefinition SelectedStage => _content.GetStage(_stage);
         // 마지막으로 조립한 전투의 seed. 전투를 연 적이 없으면 null이다.
         public int? BattleSeed => _battle?.Seed;
 

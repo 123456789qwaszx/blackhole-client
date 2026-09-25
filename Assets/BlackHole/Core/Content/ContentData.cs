@@ -4,16 +4,17 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 저작 형식. 검증 전 값이며 실행에 쓰지 않는다 — ContentLoader만 읽는다.
-    // 적 종류·공급·배치는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup)이 채운다.
+    // 적 종류·공급·배치와 단계 표는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable)이 채운다.
     // 판 설정과 업그레이드 노드는 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
     [Serializable]
     public sealed class ContentData
     {
         public SessionData Session;
-        // 진행도(적의 강도 단계)의 수. 단계는 1부터 이 수까지다. HQ 성장 단계와 다르다.
-        // 단계별 적 풀과 체력·크기 계수 표가 생기면 그 표가 단계의 수를 정한다.
-        public int StageCount;
         public List<EnemyData> Enemies = new List<EnemyData>();
+        // 적 풀. 단계 표가 ID로 가리킨다.
+        public List<EnemyPoolData> EnemyPools = new List<EnemyPoolData>();
+        // 진행도(적의 강도 단계) 표. Stages[i]가 (i + 1)단계다. 줄 수가 단계의 수다. HQ 성장 단계와 다르다.
+        public List<StageData> Stages = new List<StageData>();
         // 출현 위치. 공급이 하나라도 있으면 필요하다.
         public EnemyPlacementData EnemyPlacement;
         // 전투 시작 공급. 판 조립 때(0초) 한 번 공급한다.
@@ -48,6 +49,22 @@ namespace BlackHole.Core
         public string Kind;
         // Orbit
         public bool Clockwise;
+    }
+
+    // 적 풀 하나: 이 풀에 든 적 종류의 ID.
+    [Serializable]
+    public sealed class EnemyPoolData
+    {
+        public string Id;
+        public List<string> Enemies = new List<string>();
+    }
+
+    // 진행도 한 단계. 체력·크기 계수는 단계 표에 더해질 때 이 줄에 붙는다.
+    [Serializable]
+    public sealed class StageData
+    {
+        // 이 단계에서 쓰는 적 풀의 ID.
+        public string Pool;
     }
 
     // HQ(원점)를 둘러싼 출현 띠.

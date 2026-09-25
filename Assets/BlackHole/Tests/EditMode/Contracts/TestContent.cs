@@ -9,15 +9,30 @@ namespace BlackHole.Core.Tests
         public static readonly PlayerId First = new PlayerId(1);
         public static readonly PlayerId Second = new PlayerId(2);
         public const string EnemyId = "test-enemy";
-
+        // 기본 단계 표가 쓰는 풀과 그 풀의 적 종류. 공급하지 않으므로 판에 나오지 않는다.
+        public const string PoolId = "test-pool";
+        public const string PoolEnemyId = "pool-enemy";
         public const int StageCount = 50;
 
-        // 기본: 제한 시간과 단계 수(1~50)만 있고 적과 업그레이드 노드는 없다.
-        public static ContentData Data(float timeLimit = 60) => new ContentData
+        // 기본: 제한 시간과 단계 표(1~50단계, 모두 같은 풀)만 있다. 공급과 업그레이드 노드는 없다.
+        public static ContentData Data(float timeLimit = 60)
         {
-            Session = new SessionData { TimeLimit = timeLimit },
-            StageCount = StageCount
-        };
+            var data = new ContentData { Session = new SessionData { TimeLimit = timeLimit } };
+            data.Enemies.Add(Enemy(PoolEnemyId));
+            data.EnemyPools.Add(Pool(PoolId, PoolEnemyId));
+            AddStages(data, PoolId, StageCount);
+            return data;
+        }
+
+        public static EnemyPoolData Pool(string id, params string[] enemies) =>
+            new EnemyPoolData { Id = id, Enemies = new List<string>(enemies) };
+
+        // 단계 표 뒤에 pool을 쓰는 단계를 count개 붙인다.
+        public static void AddStages(ContentData data, string pool, int count)
+        {
+            for (int i = 0; i < count; i++)
+                data.Stages.Add(new StageData { Pool = pool });
+        }
 
         // 적이 있는 판: 출현 띠 [minDistance, maxDistance]와 전투 시작 공급.
         public static ContentData Arena(float minDistance, float maxDistance, params SupplyData[] supply)

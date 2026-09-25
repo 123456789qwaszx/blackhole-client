@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BlackHole.Sample;
 
@@ -15,17 +16,21 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsEnemyErrorsWithPath", ReportsEnemyErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.SupplyNeedsPlacement", SupplyNeedsPlacement);
+            yield return new Contract("Content.ReportsPoolAndStageErrorsWithPath", ReportsPoolAndStageErrorsWithPath);
+            yield return new Contract("Content.StageTableNumbersStagesFromOne", StageTableNumbersStagesFromOne);
         }
 
         // 적 종류와 출현 배치의 오류. 행동 종류 이름은 로더가, 수치는 정의 생성자가 경로와 함께 보고한다.
         private static void ReportsEnemyErrorsWithPath()
         {
             ContentData data = TestContent.Data();
+            EnemyData chaser = TestContent.Enemy("chaser");
+            chaser.Behavior.Kind = "Chase";
+            EnemyData still = TestContent.Enemy("still");
+            still.Behavior = null;
             data.Enemies.Add(TestContent.Enemy("fragile", health: 0));
-            data.Enemies.Add(TestContent.Enemy("chaser"));
-            data.Enemies[1].Behavior.Kind = "Chase";
-            data.Enemies.Add(TestContent.Enemy("still"));
-            data.Enemies[2].Behavior = null;
+            data.Enemies.Add(chaser);
+            data.Enemies.Add(still);
             data.EnemyPlacement = new EnemyPlacementData { MinDistance = 5, MaxDistance = 2 };
 
             ContentLoadResult result = ContentLoader.Load(data);
@@ -46,10 +51,11 @@ namespace BlackHole.Core.Tests
                 TestContent.Supply(TestContent.EnemyId, 0));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            int duplicate = data.Enemies.Count - 1;
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.Equal(3, result.Diagnostics.Count);
-            TestContent.HasDiagnostic(result, "Enemies[1]", TestContent.EnemyId);
+            TestContent.HasDiagnostic(result, $"Enemies[{duplicate}]", TestContent.EnemyId);
             TestContent.HasDiagnostic(result, "StartSupply[1].Enemy", "ghost");
             TestContent.HasDiagnostic(result, "StartSupply[2]", "count");
         }
@@ -67,34 +73,94 @@ namespace BlackHole.Core.Tests
             TestContent.HasDiagnostic(result, "EnemyPlacement", "배치");
         }
 
-        // 샘플 값 자체는 [임시]라서 검사하지 않는다. 샘플이 로드된다는 것만 본다.
+        // 적 풀 하나의 오류는 적 종류가 올바를 때 보고한다: 없는 적, 빈 풀, 같은 적 두 번.
+        // 풀 ID의 중복과 단계 표의 풀 참조는 풀이 모두 올바를 때 보고한다.
+        private static void ReportsPoolAndStageErrorsWithPath()
+        {
+            ContentData pools = TestContent.Data();
+            pools.EnemyPools.Add(TestContent.Pool("stray", "ghost"));
+            pools.EnemyPools.Add(TestContent.Pool("empty"));
+            pools.EnemyPools.Add(TestContent.Pool("twice", TestContent.PoolEnemyId, TestContent.PoolEnemyId));
+
+            ContentLoadResult result = ContentLoader.Load(pools);
+            Expect.Equal(3, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "EnemyPools[stray].Enemies[0]", "ghost");
+            TestContent.HasDiagnostic(result, "EnemyPools[empty]", "하나 이상");
+            TestContent.HasDiagnostic(result, "EnemyPools[twice]", "두 번");
+
+            ContentData stages = TestContent.Data();
+            stages.EnemyPools.Add(TestContent.Pool("again", TestContent.PoolEnemyId));
+            stages.EnemyPools.Add(TestContent.Pool("again", TestContent.PoolEnemyId));
+            stages.Stages[3].Pool = "nowhere";
+
+            result = ContentLoader.Load(stages);
+            Expect.Equal(2, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "EnemyPools[2]", "again");
+            TestContent.HasDiagnostic(result, "Stages[3].Pool", "nowhere");
+        }
+
+        // 단계 표의 i번째 줄이 (i + 1)단계다. 줄 수가 단계의 수이고, 여러 단계가 같은 풀을 쓸 수 있다.
+        private static void StageTableNumbersStagesFromOne()
+        {
+            ContentData data = TestContent.Data();
+            data.Enemies.Add(TestContent.Enemy("big"));
+            data.EnemyPools.Add(TestContent.Pool("late", "big", TestContent.PoolEnemyId));
+            data.Stages.Clear();
+            TestContent.AddStages(data, TestContent.PoolId, 2);
+            TestContent.AddStages(data, "late", 1);
+
+            GameContent content = TestContent.Load(data);
+            Expect.Equal(3, content.StageCount);
+            Expect.Equal(1, content.GetStage(1).Number);
+            Expect.True(ReferenceEquals(content.GetStage(1).Pool, content.GetStage(2).Pool), "같은 풀을 가리켜야 한다.");
+
+            EnemyPoolDefinition late = content.GetStage(3).Pool;
+            Expect.Equal("late", late.Id);
+            Expect.Equal(2, late.Enemies.Count);
+            Expect.Equal("big", late.Enemies[0].Id);
+            Expect.Equal(TestContent.PoolEnemyId, late.Enemies[1].Id);
+
+            Expect.Throws<ArgumentOutOfRangeException>(() => content.GetStage(0));
+            Expect.Throws<ArgumentOutOfRangeException>(() => content.GetStage(4));
+        }
+
+        // 샘플의 C# 부분(판 설정·업그레이드 노드)은 [임시] 값이라 값 자체는 검사하지 않는다.
+        // 적 종류와 단계 표는 Unity 에셋이 채우므로, 최소 단계 표를 붙여 C# 부분이 로드되는지만 본다.
         private static void SampleLoads()
         {
-            ContentLoadResult result = ContentLoader.Load(SampleContent.Create());
+            ContentData data = SampleContent.Create();
+            data.Enemies.Add(TestContent.Enemy(TestContent.PoolEnemyId));
+            data.EnemyPools.Add(TestContent.Pool(TestContent.PoolId, TestContent.PoolEnemyId));
+            TestContent.AddStages(data, TestContent.PoolId, 1);
+
+            ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(result.Succeeded, "샘플 콘텐츠가 로드되어야 한다: " + string.Join(" | ", result.Diagnostics));
         }
 
         private static void ReportsEveryErrorWithPath()
         {
             ContentData data = TestContent.Data(timeLimit: 0);
-            data.StageCount = 0;
             data.Upgrades.Add(TestContent.Upgrade("bad-price", 0, null));
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(!result.Succeeded && result.Content == null, "오류가 있으면 콘텐츠를 만들지 않는다.");
-            Expect.Equal(3, result.Diagnostics.Count);
+            Expect.Equal(2, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Session.TimeLimit", "duration");
-            TestContent.HasDiagnostic(result, "StageCount", "stageCount");
             TestContent.HasDiagnostic(result, "Upgrades[bad-price]", "price");
         }
 
-        // 판 설정이 없고, 단계 수를 적지 않았다(0).
+        // 판 설정이 없으면 개별 정의 단계에서 멈춘다. 단계 표가 비어 있으면 마지막 단계에서 보고한다.
         private static void ReportsMissingSections()
         {
             ContentLoadResult result = ContentLoader.Load(new ContentData());
-            Expect.Equal(2, result.Diagnostics.Count);
+            Expect.Equal(1, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Session", string.Empty);
-            TestContent.HasDiagnostic(result, "StageCount", "stageCount");
+
+            ContentData noStages = TestContent.Data();
+            noStages.Stages.Clear();
+            result = ContentLoader.Load(noStages);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Stages", "하나 이상");
 
             Expect.True(!ContentLoader.Load(null).Succeeded, "null 데이터는 실패해야 한다.");
         }
