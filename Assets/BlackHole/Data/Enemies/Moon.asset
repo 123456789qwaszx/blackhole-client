@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62ca70292566404596f44063455f757e, type: 3}
-  m_Name: SampleHeavy
+  m_Name: Moon
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
-  id: sample-heavy
-  maxHealth: 30
-  moveSpeed: 0.8
-  size: 0.55
-  clockwise: 1
+  id: moon
+  maxHealth: 20
+  moveSpeed: 1.2
+  size: 0.35
+  clockwise: 0
   sprite: {fileID: 0}
-  color: {r: 0.8, g: 0.58, b: 0.42, a: 1}
+  color: {r: 0.85, g: 0.86, b: 0.9, a: 1}

@@ -3,9 +3,12 @@ using UnityEngine;
 
 namespace BlackHole.Unity
 {
-    // 적 종류 하나의 저작 에셋: 규칙 수치, 행동, 외형. 종류를 더할 때는 코드를 고치지 않고 에셋을 하나 만든다.
+    // 적 종류 하나의 저작 에셋: 규칙 수치, 행동, 외형. 종류를 더할 때는 코드를 고치지 않고
+    // 에셋을 하나 만들어 적 종류 목록(EnemyCatalog)에 넣는다.
     // 규칙 칸은 Core의 저작 형식(EnemyData)으로 옮겨져 ContentLoader가 검증한다.
     // 외형 칸은 Core로 가지 않고 화면(EnemyView)만 읽는다. 규칙과 외형이 한 에셋에 있어 외형 연결이 빠지지 않는다.
+    // 체력·크기는 기본값이다. 최종 값은 단계 계수 등이 더해져 정해진다(그 규칙은 단계 표와 함께 붙는다).
+    // 특수 효과(전기·폭발·처치 버프)는 종류가 아니라 종류에 붙는 특성이다. 사망 효과 시스템이 붙을 때 더한다.
     [CreateAssetMenu(fileName = "EnemyKind", menuName = "BlackHole/Enemy Kind")]
     public sealed class EnemyKind : ScriptableObject
     {

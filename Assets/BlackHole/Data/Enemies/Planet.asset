@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62ca70292566404596f44063455f757e, type: 3}
-  m_Name: SampleLight
+  m_Name: Planet
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
-  id: sample-light
-  maxHealth: 10
-  moveSpeed: 1.5
-  size: 0.3
+  id: planet
+  maxHealth: 60
+  moveSpeed: 0.8
+  size: 0.6
   clockwise: 0
   sprite: {fileID: 0}
-  color: {r: 0.72, g: 0.76, b: 0.85, a: 1}
+  color: {r: 0.35, g: 0.62, b: 0.9, a: 1}

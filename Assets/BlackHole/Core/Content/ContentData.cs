@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 저작 형식. 검증 전 값이며 실행에 쓰지 않는다 — ContentLoader만 읽는다.
-    // 적 종류·공급·배치는 Unity 쪽 에셋(EnemyKind, EnemySupplySetup)이 채운다.
+    // 적 종류·공급·배치는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup)이 채운다.
     // 판 설정과 업그레이드 노드는 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
     [Serializable]
     public sealed class ContentData

@@ -13,9 +13,15 @@ MonoBehaviour:
   m_Name: EnemySupplySetup
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemySupplySetup
   minDistance: 2
-  maxDistance: 4.2
+  maxDistance: 4
   startSupply:
   - kind: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
     count: 8
-  - kind: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+  - kind: {fileID: 11400000, guid: 9f9d1cd12cdd4f5287f2f48b172b2e3c, type: 2}
     count: 2
+  - kind: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+    count: 1
+  - kind: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+    count: 1
+  - kind: {fileID: 11400000, guid: c5af1dc6bc904ac0b41c3d58fd5585d9, type: 2}
+    count: 1
