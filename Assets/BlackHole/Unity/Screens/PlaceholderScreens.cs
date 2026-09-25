@@ -77,9 +77,10 @@ namespace BlackHole.Unity
             return screen.gameObject.AddComponent<SettingsScreen>();
         }
 
+        // 전투 화면은 배경이 없다. 뒤의 전투 장면(적)이 보여야 한다.
         private static UIBase BuildBattle(RectTransform layer)
         {
-            RectTransform screen = Screen(layer, nameof(BattleScreen));
+            RectTransform screen = Screen(layer, nameof(BattleScreen), opaque: false);
             Label(screen, "Heading", "BATTLE", 40, new Vector2(0.5f, 0.95f));
             Label(screen, nameof(BattleScreen.Refs.RemainingText), string.Empty, 96, new Vector2(0.5f, 0.6f));
 
@@ -139,10 +140,13 @@ namespace BlackHole.Unity
             return rect;
         }
 
-        private static RectTransform Screen(RectTransform layer, string name)
+        private static RectTransform Screen(RectTransform layer, string name, bool opaque = true)
         {
             RectTransform screen = Stretch(Child(layer, name));
-            screen.gameObject.AddComponent<Image>().color = Background;
+
+            if (opaque)
+                screen.gameObject.AddComponent<Image>().color = Background;
+
             return screen;
         }
 

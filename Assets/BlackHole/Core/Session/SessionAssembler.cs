@@ -4,14 +4,21 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 검증된 콘텐츠와 참가자의 진행 상태로 한 전투를 새로 조립하는 유일한 진입점.
-    // 정의는 공유하고, 전투의 실행 상태(시간, 상태, 결과)는 전투마다 새로 만든다.
+    // 정의는 공유하고, 전투의 실행 상태(시간, 상태, 결과, 판 안의 적)는 전투마다 새로 만든다.
     // 누가 참가하는지는 콘텐츠가 아니라 판 설정이다 — 호스트가 넘긴다(지금은 로컬 1명).
     //
     // 진행 상태(Gold, 산 노드)는 전투 사이에 이어진다. 새 진행을 시작할지는 호출하는 쪽이 새 PlayerState로 정한다.
-    // 산 노드가 전투를 바꾸는 효과는 효과의 대상(Skill·적·공급)과 함께 지웠다.
+    // 산 노드가 전투를 바꾸는 효과는 효과의 대상 시스템이 돌아올 때 여기서 반영한다.
+    //
+    // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·seed·진행 시간이면 같은 결과가 나온다.
     public static class SessionAssembler
     {
-        public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states)
+        public const int DefaultSeed = 0;
+
+        public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states) =>
+            CreateBattle(content, states, DefaultSeed);
+
+        public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states, int seed)
         {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
@@ -19,7 +26,12 @@ namespace BlackHole.Core
             VerifyParticipants(states);
 
             var players = new List<PlayerState>(states);
-            var session = new GameSession(new TimeLimitRule(content.TimeLimit), players.AsReadOnly());
+            var world = new World(new BattleRandom(seed));
+
+            // 전투 시작 배치. 0초에 한 번 공급한다.
+            world.PlaceStartingEnemies(content.StartSupply, content.EnemyPlacement);
+
+            var session = new GameSession(world, new TimeLimitRule(content.TimeLimit), players.AsReadOnly());
 
             // 모든 검사를 통과한 뒤에 전투에 들인다. 조립이 실패하면 PlayerState는 묶이지 않는다.
             foreach (PlayerState state in players)

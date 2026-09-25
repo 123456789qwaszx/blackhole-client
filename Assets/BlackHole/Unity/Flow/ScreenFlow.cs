@@ -17,6 +17,8 @@ namespace BlackHole.Unity
     {
         private readonly UIManager _ui;
         private readonly GameContent _content;
+        // 전투 화면과 함께 보이는 판 안의 적. 전투 화면이 닫히면 비운다.
+        private readonly EnemyView _enemyView;
         private readonly IReadOnlyList<PlayerId> _participants;
         // 업그레이드 화면을 보는 Player. 지금은 로컬 1명이다.
         private readonly PlayerId _viewer;
@@ -31,6 +33,7 @@ namespace BlackHole.Unity
         public ScreenFlow(
             UIManager ui,
             GameContent content,
+            EnemyView enemyView,
             IReadOnlyList<PlayerId> participants,
             PlayerId viewer,
             UIPresentationSpec titlePresentation,
@@ -40,6 +43,7 @@ namespace BlackHole.Unity
         {
             _ui = ui;
             _content = content;
+            _enemyView = enemyView;
             _participants = participants;
             _viewer = viewer;
             _titlePresentation = titlePresentation;

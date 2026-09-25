@@ -3,17 +3,27 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // 콘텐츠 전체의 규칙: 업그레이드 노드 ID는 유일하고, 선행 노드는 실재하며, 선행을 따라가면 시작 노드에 닿는다.
+    // 콘텐츠 전체의 규칙: 적 종류 ID와 업그레이드 노드 ID는 유일하고, 선행 노드는 실재하며,
+    // 선행을 따라가면 시작 노드에 닿는다.
     // GameContent 생성자(첫 오류로 생성 실패)와 ContentLoader(경로별 진단 수집)가 함께 쓴다.
     // 개별 정의의 수치 규칙은 각 정의 생성자에 있다 — 여기서 다시 보지 않는다.
+    // 정의 객체로 해석되는 참조(공급의 적)는 ContentLoader가 이 색인으로 해석하며 진단한다.
     internal static class ContentInvariants
     {
+        public static void CollectEnemies(
+            IReadOnlyList<EnemyDefinition> enemies,
+            ICollection<ContentDiagnostic> into,
+            out Dictionary<string, EnemyDefinition> enemiesById)
+        {
+            enemiesById = Index(enemies, "Enemies", "적", e => e.Id, into);
+        }
+
         public static void CollectUpgrades(
             IReadOnlyList<UpgradeNodeDefinition> upgrades,
             ICollection<ContentDiagnostic> into,
             out Dictionary<string, UpgradeNodeDefinition> upgradesById)
         {
-            upgradesById = Index(upgrades, into);
+            upgradesById = Index(upgrades, "Upgrades", "업그레이드", u => u.Id, into);
 
             for (int i = 0; i < upgrades.Count; i++)
             {
@@ -31,22 +41,25 @@ namespace BlackHole.Core
             }
         }
 
-        private static Dictionary<string, UpgradeNodeDefinition> Index(
-            IReadOnlyList<UpgradeNodeDefinition> upgrades,
-            ICollection<ContentDiagnostic> into)
+        private static Dictionary<string, T> Index<T>(
+            IReadOnlyList<T> items,
+            string section,
+            string label,
+            Func<T, string> idOf,
+            ICollection<ContentDiagnostic> into) where T : class
         {
-            var byId = new Dictionary<string, UpgradeNodeDefinition>(StringComparer.Ordinal);
+            var byId = new Dictionary<string, T>(StringComparer.Ordinal);
 
-            for (int i = 0; i < upgrades.Count; i++)
+            for (int i = 0; i < items.Count; i++)
             {
-                UpgradeNodeDefinition node = upgrades[i];
+                T item = items[i];
 
-                if (node == null)
-                    into.Add(new ContentDiagnostic($"Upgrades[{i}]", "업그레이드 정의가 null이다."));
-                else if (byId.ContainsKey(node.Id))
-                    into.Add(new ContentDiagnostic($"Upgrades[{i}]", $"업그레이드 ID '{node.Id}'가 중복됐다."));
+                if (item == null)
+                    into.Add(new ContentDiagnostic($"{section}[{i}]", $"{label} 정의가 null이다."));
+                else if (byId.ContainsKey(idOf(item)))
+                    into.Add(new ContentDiagnostic($"{section}[{i}]", $"{label} ID '{idOf(item)}'가 중복됐다."));
                 else
-                    byId.Add(node.Id, node);
+                    byId.Add(idOf(item), item);
             }
 
             return byId;

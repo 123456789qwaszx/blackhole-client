@@ -8,12 +8,32 @@ namespace BlackHole.Core.Tests
     {
         public static readonly PlayerId First = new PlayerId(1);
         public static readonly PlayerId Second = new PlayerId(2);
+        public const string EnemyId = "test-enemy";
 
-        // 기본: 제한 시간만 있고 업그레이드 노드는 없다.
+        // 기본: 제한 시간만 있고 적과 업그레이드 노드는 없다.
         public static ContentData Data(float timeLimit = 60) => new ContentData
         {
             Session = new SessionData { TimeLimit = timeLimit }
         };
+
+        // 적이 있는 판: 출현 띠 [minDistance, maxDistance]와 전투 시작 공급.
+        public static ContentData Arena(float minDistance, float maxDistance, params SupplyData[] supply)
+        {
+            ContentData data = Data();
+            data.EnemyPlacement = new EnemyPlacementData { MinDistance = minDistance, MaxDistance = maxDistance };
+            data.StartSupply = new List<SupplyData>(supply);
+            return data;
+        }
+
+        public static EnemyData Enemy(string id, float health = 10, float speed = 1, float size = 0.3f, bool clockwise = false) =>
+            new EnemyData
+            {
+                Id = id, MaxHealth = health, MoveSpeed = speed, Size = size,
+                Behavior = new EnemyBehaviorData { Kind = "Orbit", Clockwise = clockwise }
+            };
+
+        public static SupplyData Supply(string enemyId, int count) =>
+            new SupplyData { Enemy = enemyId, Count = count };
 
         public static UpgradeData Upgrade(string id, int price, string requires) =>
             new UpgradeData { Id = id, Price = price, Requires = requires };
@@ -27,8 +47,11 @@ namespace BlackHole.Core.Tests
         }
 
         // 새 진행 상태의 Player 1명으로 전투를 조립한다.
-        public static GameSession Session(ContentData data) =>
-            SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) });
+        public static GameSession Session(ContentData data, int seed = SessionAssembler.DefaultSeed) =>
+            SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, seed);
+
+        public static float DistanceToHq(Point2 point) =>
+            (float)System.Math.Sqrt(point.DistanceSquared(BattleSpace.Origin));
 
         public static void HasDiagnostic(ContentLoadResult result, string path, string reason)
         {
