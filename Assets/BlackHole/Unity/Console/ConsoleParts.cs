@@ -7,13 +7,13 @@ using UnityEngine.UI;
 
 namespace BlackHole.Unity
 {
-    // 개발용 콘솔 창(조종 콘솔, 전투 시작·종료 콘솔, 적 요청 콘솔)이 함께 쓰는 부품.
+    // 개발용 콘솔 창(조종 콘솔, 전투 시작·종료 콘솔, 적 명령 콘솔)이 함께 쓰는 부품.
     // 창마다 게임 UI(UIManager)와 따로 자기 Canvas에 그린다. 게임 화면보다 위에 있고, 창 영역의 클릭은 아래 화면으로 새지 않는다.
     // 모든 창은 같은 키(`)로 함께 숨고 보인다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
     internal static class ConsoleParts
     {
         public static readonly Color PanelColor = new Color(0, 0, 0, 0.75f);
-        private static readonly Color ButtonColor = new Color(0.2f, 0.26f, 0.42f);
+        public static readonly Color ButtonColor = new Color(0.2f, 0.26f, 0.42f);
 
         // 창을 숨기고 보이는 키가 이번 프레임에 눌렸는가.
         public static bool TogglePressed()
