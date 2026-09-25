@@ -13,9 +13,9 @@ namespace BlackHole.Core
         UnknownNode
     }
 
-    // 전투 밖 구매 규칙: 선행 노드와 Gold 가격(GAME_RULES 8절).
+    // 전투 밖 구매 규칙: 선행 노드와 Gold 가격.
     // 실패하면 Gold와 구매 상태를 전혀 바꾸지 않는다.
-    // UI는 노드 ID로 요청한다. 정의를 찾고 조건을 보고 기록하는 일은 여기서 한다. 효과는 다음 전투 조립 때 반영된다.
+    // UI는 노드 ID로 요청한다. 정의를 찾고 조건을 보고 기록하는 일은 여기서 한다.
     public static class UpgradePurchase
     {
         public static PurchaseResult Check(PlayerState state, GameContent content, string nodeId)

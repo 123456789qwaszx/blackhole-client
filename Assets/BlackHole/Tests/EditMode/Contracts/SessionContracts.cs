@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core.Tests
 {
-    // B8 Session: 시작 → 진행(시간 분할) → 종료 판정 → 결과 확정 → 재시작(새로 조립).
+    // Session: 시작 → 진행 → 종료 판정 → 결과 확정 → 재시작(새로 조립).
     internal static class SessionContracts
     {
         public static IEnumerable<Contract> Cases()
@@ -65,22 +65,24 @@ namespace BlackHole.Core.Tests
             Expect.Near(1, game.Elapsed);
         }
 
-        // 같은 콘텐츠로 만든 판은 서로 상태를 공유하지 않는다. 재시작은 새 조립이다.
+        // 같은 진행 상태로 만든 다음 전투는 앞 전투의 시간·결과를 이어받지 않는다. 끝난 전투의 결과도 그대로다.
         private static void RestartIsANewAssembly()
         {
             GameContent content = TestContent.Load(TestContent.Data());
-            GameSession first = SessionAssembler.Create(content, new[] { TestContent.First });
+            var state = new PlayerState(TestContent.First);
+            GameSession first = SessionAssembler.CreateBattle(content, new[] { state });
             first.Advance(10);
             first.Stop();
+            SessionResult result = first.Result;
 
-            GameSession next = SessionAssembler.Create(content, new[] { TestContent.First });
+            GameSession next = SessionAssembler.CreateBattle(content, new[] { state });
             Expect.Equal(SessionPhase.Running, next.Phase);
             Expect.Near(0, next.Elapsed);
             Expect.True(next.Result == null, "새 판에는 결과가 없어야 한다.");
-            Expect.True(!ReferenceEquals(first.World, next.World), "월드를 재사용하면 안 된다.");
-            first.World.TryGetPlayer(TestContent.First, out Player before);
-            next.World.TryGetPlayer(TestContent.First, out Player after);
-            Expect.True(!ReferenceEquals(before, after), "Player를 재사용하면 안 된다.");
+
+            next.Advance(1);
+            Expect.True(ReferenceEquals(result, first.Result), "끝난 전투의 결과를 다시 만들면 안 된다.");
+            Expect.Near(10, first.Result.PlayedSeconds);
         }
 
         private static void RejectsInvalidAdvance()

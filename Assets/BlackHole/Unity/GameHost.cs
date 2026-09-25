@@ -1,181 +1,132 @@
+using System.Collections.Generic;
 using BlackHole.Core;
 using BlackHole.Sample;
 using UnityEngine;
 
 namespace BlackHole.Unity
 {
-    // Unity 수명과 한 프레임의 순서를 가진 진입점(조립 루트).
-    // - Awake: 콘텐츠 로드·검증, 화면·소리·입력·HUD·판 시작 흐름 조립. 판은 만들지 않는다.
-    // - OnEnable / OnDisable: 새 진행 시작 / 전투 종료. 최초 활성화와 재활성화가 같은 경로를 쓴다.
+    // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
+    // - Awake: 콘텐츠 로드·검증, UI(UIManager와 화면 4개) 조립, 화면 흐름 조립.
+    // - Start: 타이틀 화면을 연다.
+    // - Update: 화면 흐름에 프레임 시간을 넘긴다. 전투 시간은 전투 화면이 열려 있을 때만 흐른다.
     //
-    // 한 프레임(Update): 입력 읽기 → 새 진행 요청(R, 있으면 그 프레임 끝) → 구매 화면이면 끝
-    //   → 일시정지 전환 → AimPoint 갱신 → 진행 → 전투가 끝났으면 구매 화면으로 → 화면·소리 갱신.
-    // HUD 버튼 요청(구매, 다음 전투, 전투 끝내기)은 OnGUI, 곧 그 프레임의 진행 뒤에 적용된다.
+    // 화면 프리팹을 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens).
+    // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed class GameHost : MonoBehaviour
     {
         // 판에 참가하는 로컬 Player. 지금은 1명이다(Players.Count == 1일 뿐 전역 Player가 아니다).
         private static readonly PlayerId[] LocalPlayers = { new PlayerId(1) };
-        // 마우스 조준이 채우는 AimPoint의 주인. 마우스와 Player를 묶는 것은 이 호스트의 배선이다(Player는 마우스를 모른다).
-        private static readonly PlayerId MouseAimPlayer = LocalPlayers[0];
+        // 업그레이드 화면을 보는 로컬 Player.
+        private static readonly PlayerId LocalViewer = LocalPlayers[0];
 
-        private WorldView _view;
-        private BattleAudio _audio;
-        private HostInput _input;
-        private Hud _hud;
-        private SessionLauncher _launcher;
+        [Header("UI Layers (비우면 임시 화면을 만든다)")]
+        [SerializeField] private RectTransform rootLayer;
+        [SerializeField] private RectTransform panelLayer;
+
+        [Header("Registered Views")]
+        [SerializeField] private UIBase[] views;
+
+        [Header("Presentations (비우면 빈 Presentation)")]
+        [SerializeField] private UIPresentationSpec titlePresentation;
+        [SerializeField] private UIPresentationSpec settingsPresentation;
+        [SerializeField] private UIPresentationSpec battlePresentation;
+        [SerializeField] private UIPresentationSpec upgradePresentation;
+
+        [Header("UI Context")]
+        [SerializeField] private string themeId = "Light";
+        [SerializeField] private string localeId = "ko-KR";
+
+        [Header("Runtime")]
+        [SerializeField] private UIDisplayRefreshDriver displayRefreshDriver;
+
+        private readonly List<UIPresentationSpec> _emptyPresentations = new List<UIPresentationSpec>();
+        private ScreenFlow _flow;
 
         #region Unity 수명
 
         private void Awake()
         {
-            var presentation = new SamplePresentation();
-            Camera camera = ConfigureCamera(presentation);
-            _view = new WorldView(transform, camera, presentation);
-            _audio = new BattleAudio(transform, new SampleSounds());
-
             if (!TryLoadContent(out GameContent content))
             {
                 enabled = false;
                 return;
             }
 
-            _input = new HostInput(camera);
-            _hud = new Hud();
-            _launcher = new SessionLauncher(content, LocalPlayers, _view, _audio);
+            if (rootLayer == null)
+            {
+                PlaceholderScreens.Result placeholder = PlaceholderScreens.Build(transform);
+                rootLayer = placeholder.RootLayer;
+                panelLayer = placeholder.PanelLayer;
+                views = placeholder.Views;
+            }
+
+            var ui = new UIManager(
+                rootLayer,
+                panelLayer,
+                new UIResolver(new UIContext(themeId, localeId)),
+                new UIPresentationApplier());
+
+            foreach (UIBase view in views ?? new UIBase[0])
+            {
+                if (view == null)
+                    continue;
+
+                view.gameObject.SetActive(false);
+                ui.Register(view);
+            }
+
+            _flow = new ScreenFlow(
+                ui,
+                content,
+                LocalPlayers,
+                LocalViewer,
+                OrEmpty(titlePresentation, "Title"),
+                OrEmpty(settingsPresentation, "Settings"),
+                OrEmpty(battlePresentation, "Battle"),
+                OrEmpty(upgradePresentation, "Upgrade"));
+
+            if (displayRefreshDriver != null)
+                displayRefreshDriver.Initialize(ui);
         }
 
-        private void OnEnable()
-        {
-            _launcher?.StartNew();
-        }
+        private void Start() => _flow.OpenTitle();
 
-        private void OnDisable() => _launcher?.Stop();
+        private void Update() => _flow.Tick(Time.deltaTime);
 
         private void OnDestroy()
         {
-            _view?.Dispose();
-            _audio?.Dispose();
-        }
+            _flow?.Dispose();
 
-        #endregion
-
-        #region 프레임
-
-        private void Update()
-        {
-            _input.Read();
-            if (_input.Restart)
-            {
-                _launcher.StartNew();
-                return;
-            }
-
-            // 구매 화면에는 진행 중인 전투가 없다.
-            if (_launcher.InShop)
-                return;
-
-            GameSession session = _launcher.Current;
-            
-            if (_input.TogglePause) 
-                session.TogglePause();
-            
-            session.SetAimPoint(MouseAimPlayer, _input.Aim);
-
-            session.Advance(Time.deltaTime);
-
-            // 시간이 끝났거나 "End session"으로 끝난 전투는 정리하고 구매 화면으로 간다.
-            _launcher.OpenShopIfEnded();
-
-            if (!_launcher.InShop)
-            {
-                _view.Synchronize(session.World);
-                _audio.Synchronize(session);
-            }
-        }
-
-        private void OnGUI()
-        {
-            if (_launcher.InShop)
-            {
-                DrawShop();
-                return;
-            }
-
-            switch (_hud.Draw(_launcher.Current))
-            {
-                case HudRequest.TogglePause: 
-                    _launcher.Current.TogglePause();
-                    break;
-                
-                case HudRequest.Stop: 
-                    _launcher.Stop();
-                    break;
-                
-                case HudRequest.NewRun: 
-                    _launcher.StartNew();
-                    break;
-            }
-        }
-
-        private void DrawShop()
-        {
-            ShopRequest request = _hud.DrawShop(_launcher.Current, _launcher.Progress, _launcher.Upgrades);
-
-            switch (request.Kind)
-            {
-                case ShopRequestKind.Purchase:
-                    _launcher.Purchase(request.State, request.NodeId);
-                    break;
-
-                case ShopRequestKind.NextBattle:
-                    _launcher.NextBattle();
-                    break;
-
-                case ShopRequestKind.NewRun:
-                    _launcher.StartNew();
-                    break;
-            }
+            foreach (UIPresentationSpec presentation in _emptyPresentations)
+                Destroy(presentation);
         }
 
         #endregion
 
         #region 조립
 
-        private Camera ConfigureCamera(SamplePresentation presentation)
-        {
-            Camera camera = Camera.main;
-            
-            if (camera == null)
-            {
-                var cameraObject = new GameObject("Camera");
-                cameraObject.transform.SetParent(transform);
-                camera = cameraObject.AddComponent<Camera>();
-                camera.tag = "MainCamera";
-                cameraObject.AddComponent<AudioListener>();
-            }
-            
-            // 규칙 평면은 z = 0. x, y는 WorldView가 HQ 위치에 맞춘다.
-            camera.transform.position = new Vector3(0, 0, -10);
-            camera.orthographic = true;
-            camera.orthographicSize = presentation.CameraSize;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = presentation.Background;
-            
-            return camera;
-        }
-
-        // 오류가 있는 콘텐츠로는 판을 시작하지 않는다. 모든 진단을 위치와 함께 남긴다.
+        // 오류가 있는 콘텐츠로는 시작하지 않는다. 모든 진단을 위치와 함께 남긴다.
         private bool TryLoadContent(out GameContent content)
         {
-            ContentLoadResult result = 
-                ContentLoader.Load(SampleContent.Create());
-            
+            ContentLoadResult result = ContentLoader.Load(SampleContent.Create());
+
             foreach (ContentDiagnostic diagnostic in result.Diagnostics)
                 Debug.LogError("[콘텐츠] " + diagnostic, this);
-            
+
             content = result.Content;
-            
             return result.Succeeded;
+        }
+
+        private UIPresentationSpec OrEmpty(UIPresentationSpec presentation, string id)
+        {
+            if (presentation != null)
+                return presentation;
+
+            var empty = ScriptableObject.CreateInstance<UIPresentationSpec>();
+            empty.name = id;
+            empty.presentationId = id;
+            _emptyPresentations.Add(empty);
+            return empty;
         }
 
         #endregion
