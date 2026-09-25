@@ -13,6 +13,36 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Session.PauseFreezesTime", PauseFreezesTime);
             yield return new Contract("Session.RestartIsANewAssembly", RestartIsANewAssembly);
             yield return new Contract("Session.RejectsInvalidAdvance", RejectsInvalidAdvance);
+            yield return new Contract("Session.RemembersStageAndSeed", RemembersStageAndSeed);
+            yield return new Contract("Session.RejectsStageOutsideContent", RejectsStageOutsideContent);
+        }
+
+        // 판은 자신을 조립한 진행도(적의 강도 단계)와 seed를 기억한다. 단계를 주지 않으면 첫 단계다.
+        private static void RemembersStageAndSeed()
+        {
+            GameContent content = TestContent.Load(TestContent.Data());
+            GameSession game = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 7, 42);
+            Expect.Equal(7, game.Stage);
+            Expect.Equal(42, game.Seed);
+
+            GameSession plain = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) });
+            Expect.Equal(SessionAssembler.FirstStage, plain.Stage);
+            Expect.Equal(SessionAssembler.DefaultSeed, plain.Seed);
+        }
+
+        // 단계는 1부터 콘텐츠의 단계 수까지다. 범위 밖이면 조립하지 않고, 진행 상태를 전투에 묶지 않는다.
+        private static void RejectsStageOutsideContent()
+        {
+            GameContent content = TestContent.Load(TestContent.Data());
+            var state = new PlayerState(TestContent.First);
+
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, new[] { state }, 0, 1));
+            Expect.Throws<ArgumentOutOfRangeException>(() =>
+                SessionAssembler.CreateBattle(content, new[] { state }, TestContent.StageCount + 1, 1));
+            Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
+
+            GameSession last = SessionAssembler.CreateBattle(content, new[] { state }, TestContent.StageCount, 1);
+            Expect.Equal(TestContent.StageCount, last.Stage);
         }
 
         // 진행 전 제한: 마지막 프레임이 제한 시간을 넘으면 넘는 만큼 진행하지 않는다.

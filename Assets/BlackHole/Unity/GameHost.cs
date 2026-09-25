@@ -6,7 +6,7 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
-    // - Awake: 콘텐츠 로드·검증, 적 화면, UI(UIManager와 화면 4개), 화면 흐름 조립.
+    // - Awake: 콘텐츠 로드·검증, 적 화면, UI(UIManager와 화면 4개), 화면 흐름, 조종 콘솔(개발용) 조립.
     // - Start: 타이틀 화면을 연다.
     // - Update: 화면 흐름에 프레임 시간을 넘긴다. 전투 시간은 전투 화면이 열려 있을 때만 흐른다.
     //
@@ -46,6 +46,7 @@ namespace BlackHole.Unity
         private readonly List<UIPresentationSpec> _emptyPresentations = new List<UIPresentationSpec>();
         private EnemyView _enemyView;
         private ScreenFlow _flow;
+        private ControlConsole _console;
 
         #region Unity 수명
 
@@ -95,14 +96,23 @@ namespace BlackHole.Unity
 
             if (displayRefreshDriver != null)
                 displayRefreshDriver.Initialize(ui);
+
+            // 조종 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
+            if (Debug.isDebugBuild)
+                _console = new ControlConsole(transform, _flow);
         }
 
         private void Start() => _flow.OpenTitle();
 
-        private void Update() => _flow.Tick(Time.deltaTime);
+        private void Update()
+        {
+            _flow.Tick(Time.deltaTime);
+            _console?.Tick();
+        }
 
         private void OnDestroy()
         {
+            _console?.Dispose();
             _flow?.Dispose();
             _enemyView?.Dispose();
 

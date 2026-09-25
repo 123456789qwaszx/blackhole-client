@@ -10,7 +10,7 @@ namespace BlackHole.Core
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
     // 두 단계로 읽는다.
-    // 1. 개별 정의: 판 설정, 적 종류, 출현 배치, 업그레이드 노드.
+    // 1. 개별 정의: 판 설정, 단계 수, 적 종류, 출현 배치, 업그레이드 노드.
     // 2. 목록 규칙과 참조: ID 유일, 공급의 적 참조, 노드 사이의 규칙. 개별 정의가 모두 올바를 때 본다.
     public static class ContentLoader
     {
@@ -25,6 +25,7 @@ namespace BlackHole.Core
             }
 
             TimeLimitDefinition timeLimit = LoadSession(data.Session, diagnostics);
+            int? stageCount = GuardValue("StageCount", diagnostics, () => DefinitionGuard.AtLeastOne(data.StageCount, "stageCount"));
             List<EnemyDefinition> enemies = LoadEnemies(data.Enemies, diagnostics);
             EnemyPlacementDefinition placement = LoadPlacement(data.EnemyPlacement, diagnostics);
             List<UpgradeNodeDefinition> upgrades = LoadUpgrades(data.Upgrades, diagnostics);
@@ -43,7 +44,7 @@ namespace BlackHole.Core
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, enemies, placement, startSupply, upgrades),
+                new GameContent(timeLimit, stageCount.Value, enemies, placement, startSupply, upgrades),
                 diagnostics);
         }
 

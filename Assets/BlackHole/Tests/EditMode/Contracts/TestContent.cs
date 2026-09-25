@@ -10,10 +10,13 @@ namespace BlackHole.Core.Tests
         public static readonly PlayerId Second = new PlayerId(2);
         public const string EnemyId = "test-enemy";
 
-        // 기본: 제한 시간만 있고 적과 업그레이드 노드는 없다.
+        public const int StageCount = 50;
+
+        // 기본: 제한 시간과 단계 수(1~50)만 있고 적과 업그레이드 노드는 없다.
         public static ContentData Data(float timeLimit = 60) => new ContentData
         {
-            Session = new SessionData { TimeLimit = timeLimit }
+            Session = new SessionData { TimeLimit = timeLimit },
+            StageCount = StageCount
         };
 
         // 적이 있는 판: 출현 띠 [minDistance, maxDistance]와 전투 시작 공급.
@@ -46,9 +49,9 @@ namespace BlackHole.Core.Tests
             return result.Content;
         }
 
-        // 새 진행 상태의 Player 1명으로 전투를 조립한다.
+        // 새 진행 상태의 Player 1명으로 첫 단계의 전투를 조립한다.
         public static GameSession Session(ContentData data, int seed = SessionAssembler.DefaultSeed) =>
-            SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, seed);
+            SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, SessionAssembler.FirstStage, seed);
 
         public static float DistanceToHq(Point2 point) =>
             (float)System.Math.Sqrt(point.DistanceSquared(BattleSpace.Origin));

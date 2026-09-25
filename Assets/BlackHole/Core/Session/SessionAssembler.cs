@@ -10,18 +10,25 @@ namespace BlackHole.Core
     // 진행 상태(Gold, 산 노드)는 전투 사이에 이어진다. 새 진행을 시작할지는 호출하는 쪽이 새 PlayerState로 정한다.
     // 산 노드가 전투를 바꾸는 효과는 효과의 대상 시스템이 돌아올 때 여기서 반영한다.
     //
-    // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·seed·진행 시간이면 같은 결과가 나온다.
+    // stage는 진행도(적의 강도 단계, 1 ~ 콘텐츠의 단계 수)다. HQ 성장 단계와 다르다.
+    // 단계별 적 풀과 체력·크기 계수는 단계 표가 생기면 여기서 쓴다. 지금은 판이 어느 단계로 조립됐는지만 기록한다.
+    // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·단계·seed·진행 시간이면 같은 결과가 나온다.
     public static class SessionAssembler
     {
+        public const int FirstStage = 1;
         public const int DefaultSeed = 0;
 
         public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states) =>
-            CreateBattle(content, states, DefaultSeed);
+            CreateBattle(content, states, FirstStage, DefaultSeed);
 
-        public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states, int seed)
+        public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states, int stage, int seed)
         {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
+
+            if (stage < FirstStage || stage > content.StageCount)
+                throw new ArgumentOutOfRangeException(
+                    nameof(stage), $"단계는 {FirstStage}부터 {content.StageCount}까지다. 받은 값: {stage}.");
 
             VerifyParticipants(states);
 
@@ -31,7 +38,7 @@ namespace BlackHole.Core
             // 전투 시작 배치. 0초에 한 번 공급한다.
             world.PlaceStartingEnemies(content.StartSupply, content.EnemyPlacement);
 
-            var session = new GameSession(world, new TimeLimitRule(content.TimeLimit), players.AsReadOnly());
+            var session = new GameSession(world, new TimeLimitRule(content.TimeLimit), stage, seed, players.AsReadOnly());
 
             // 모든 검사를 통과한 뒤에 전투에 들인다. 조립이 실패하면 PlayerState는 묶이지 않는다.
             foreach (PlayerState state in players)

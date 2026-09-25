@@ -10,6 +10,9 @@ namespace BlackHole.Core
     public sealed class ContentData
     {
         public SessionData Session;
+        // 진행도(적의 강도 단계)의 수. 단계는 1부터 이 수까지다. HQ 성장 단계와 다르다.
+        // 단계별 적 풀과 체력·크기 계수 표가 생기면 그 표가 단계의 수를 정한다.
+        public int StageCount;
         public List<EnemyData> Enemies = new List<EnemyData>();
         // 출현 위치. 공급이 하나라도 있으면 필요하다.
         public EnemyPlacementData EnemyPlacement;

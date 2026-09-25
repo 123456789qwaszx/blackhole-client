@@ -77,20 +77,24 @@ namespace BlackHole.Core.Tests
         private static void ReportsEveryErrorWithPath()
         {
             ContentData data = TestContent.Data(timeLimit: 0);
+            data.StageCount = 0;
             data.Upgrades.Add(TestContent.Upgrade("bad-price", 0, null));
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(!result.Succeeded && result.Content == null, "오류가 있으면 콘텐츠를 만들지 않는다.");
-            Expect.Equal(2, result.Diagnostics.Count);
+            Expect.Equal(3, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Session.TimeLimit", "duration");
+            TestContent.HasDiagnostic(result, "StageCount", "stageCount");
             TestContent.HasDiagnostic(result, "Upgrades[bad-price]", "price");
         }
 
+        // 판 설정이 없고, 단계 수를 적지 않았다(0).
         private static void ReportsMissingSections()
         {
             ContentLoadResult result = ContentLoader.Load(new ContentData());
-            Expect.Equal(1, result.Diagnostics.Count);
+            Expect.Equal(2, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Session", string.Empty);
+            TestContent.HasDiagnostic(result, "StageCount", "stageCount");
 
             Expect.True(!ContentLoader.Load(null).Succeeded, "null 데이터는 실패해야 한다.");
         }

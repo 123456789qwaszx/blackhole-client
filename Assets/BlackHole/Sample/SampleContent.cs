@@ -13,6 +13,8 @@ namespace BlackHole.Sample
         {
             // [임시] 한 판의 시간(시간제는 현재 후보).
             Session = new SessionData { TimeLimit = 30 },
+            // 진행도(적의 강도 단계)는 1~50단계다. 단계별 적 풀과 계수 표는 기획 데이터로 따로 만든다.
+            StageCount = 50,
             // [임시] 업그레이드 샘플 트리. 원래는 노드 저작 툴이 만들 데이터다.
             // ID는 CONTENT_DEFINITION의 대표 노드를 그대로 둔다. 효과는 대상 시스템과 함께 지웠다.
             Upgrades = new List<UpgradeData>

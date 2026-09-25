@@ -16,6 +16,8 @@ namespace BlackHole.Core
         private readonly Dictionary<string, UpgradeNodeDefinition> _upgradesById;
 
         public TimeLimitDefinition TimeLimit { get; }
+        // 진행도(적의 강도 단계)의 수. 단계는 1부터 이 수까지다. HQ 성장 단계와 다르다.
+        public int StageCount { get; }
         public IReadOnlyList<EnemyDefinition> Enemies { get; }
         // 출현 위치. 공급이 없으면 null일 수 있다.
         public EnemyPlacementDefinition EnemyPlacement { get; }
@@ -26,12 +28,14 @@ namespace BlackHole.Core
 
         public GameContent(
             TimeLimitDefinition timeLimit,
+            int stageCount,
             IReadOnlyList<EnemyDefinition> enemies,
             EnemyPlacementDefinition enemyPlacement,
             IReadOnlyList<SupplyRequest> startSupply,
             IReadOnlyList<UpgradeNodeDefinition> upgrades)
         {
             TimeLimit = timeLimit ?? throw new ArgumentNullException(nameof(timeLimit));
+            StageCount = DefinitionGuard.AtLeastOne(stageCount, nameof(stageCount));
             Enemies = Copy(enemies);
             EnemyPlacement = enemyPlacement;
             StartSupply = Copy(startSupply);

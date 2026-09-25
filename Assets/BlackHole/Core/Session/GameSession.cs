@@ -28,16 +28,21 @@ namespace BlackHole.Core
 
         public World World { get; }
         public TimeLimitRule TimeLimit { get; }
+        // 이 판을 조립한 진행도(적의 강도 단계)와 난수 seed. 같은 콘텐츠·단계·seed면 같은 판이 나온다.
+        public int Stage { get; }
+        public int Seed { get; }
         public SessionPhase Phase { get; private set; }
         public float Elapsed { get; private set; }
         public float Remaining => TimeLimit.Remaining(Elapsed);
         // 판이 끝나기 전에는 null이다.
         public SessionResult Result { get; private set; }
 
-        internal GameSession(World world, TimeLimitRule timeLimit, IReadOnlyList<PlayerState> players)
+        internal GameSession(World world, TimeLimitRule timeLimit, int stage, int seed, IReadOnlyList<PlayerState> players)
         {
             World = world;
             TimeLimit = timeLimit;
+            Stage = stage;
+            Seed = seed;
             _players = players;
         }
 

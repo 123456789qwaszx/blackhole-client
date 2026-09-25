@@ -11,11 +11,11 @@ namespace BlackHole.Unity
         // 열려 있는 전투 화면. 닫히면 null이다.
         private BattleScreen _battleScreen;
 
-        // 진행 상태로 새 전투를 조립하고 전투 화면을 연다. 조립이 진행 상태를 전투에 묶는다(구매 불가).
-        // 전투마다 seed를 새로 정한다. 같은 전투를 재현할 방법(seed 기록·지정)은 아직 없다.
+        // 진행 상태와 지금의 진행도로 새 전투를 조립하고 전투 화면을 연다. 조립이 진행 상태를 전투에 묶는다(구매 불가).
+        // 전투마다 seed를 새로 정한다. 전투가 쓴 seed는 조종 콘솔에 보인다(지정하는 방법은 아직 없다).
         private void GoToBattle()
         {
-            _battle = SessionAssembler.CreateBattle(_content, _progress, Environment.TickCount);
+            _battle = SessionAssembler.CreateBattle(_content, _progress, _stage, Environment.TickCount);
 
             _ui.SwitchRoot<BattleScreen>(
                 _battlePresentation,

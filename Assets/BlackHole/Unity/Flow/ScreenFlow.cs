@@ -29,6 +29,9 @@ namespace BlackHole.Unity
 
         private PlayerState[] _progress;
         private GameSession _battle;
+        // 진행도: 적의 강도 단계(1 ~ 콘텐츠의 단계 수). HQ 성장 단계와 다르다.
+        // 다음에 조립하는 전투가 이 단계로 만들어진다. 지금 바꾸는 곳은 조종 콘솔뿐이다.
+        private int _stage = SessionAssembler.FirstStage;
 
         public ScreenFlow(
             UIManager ui,
@@ -53,6 +56,15 @@ namespace BlackHole.Unity
         }
 
         public void OpenTitle() => GoToTitle();
+
+        public int Stage => _stage;
+        public int StageCount => _content.StageCount;
+        // 마지막으로 조립한 전투의 seed. 전투를 연 적이 없으면 null이다.
+        public int? BattleSeed => _battle?.Seed;
+
+        // 진행도를 바꾼다. 범위 밖의 값은 가장 가까운 단계가 된다. 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
+        public void SetStage(int stage) =>
+            _stage = Math.Max(SessionAssembler.FirstStage, Math.Min(StageCount, stage));
 
         // 한 프레임. 전투 화면이 열려 있을 때만 전투 시간이 흐른다.
         public void Tick(float delta) => TickBattle(delta);
