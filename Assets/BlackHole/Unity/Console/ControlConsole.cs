@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
 using BlackHole.Core;
 using TMPro;
 using UnityEngine;
@@ -10,7 +12,10 @@ namespace BlackHole.Unity
 {
     // 조종 콘솔(개발용). 진행도(적의 강도 단계)와 전투의 seed를 보여 주고, 진행도만 바꾼다.
     // 진행도를 바꾸면 다음에 조립하는 전투부터 쓰인다. 진행 중인 전투는 바뀌지 않는다.
-    // 아래에는 지금 진행도가 쓰는 적 풀과 그 풀에 든 적 종류(ID)를 보여 준다.
+    //
+    // 아래에는 적 풀과 풀의 종류마다 "지금 살아 있는 수 / 동시 최대 수"를 보여 준다.
+    // - 전투 화면에서는 그 전투의 단계 풀과 지금 살아 있는 수(매 프레임).
+    // - 그 밖의 화면에서는 선택한 진행도의 풀. 전투가 없으므로 살아 있는 수는 '-'다.
     //
     // 게임 UI(UIManager)와 따로 자기 Canvas에 그린다. 게임 화면보다 위에 있고, 콘솔 영역의 클릭은 아래 화면으로 새지 않는다.
     // ` 키로 숨기고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
@@ -24,10 +29,16 @@ namespace BlackHole.Unity
         private readonly TMP_Text _stageText;
         private readonly TMP_Text _seedText;
         private readonly TMP_Text _poolText;
-        private readonly TMP_Text _poolKindsText;
+        private readonly TMP_Text _poolEntriesText;
+        private readonly StringBuilder _builder = new StringBuilder();
         private int _shownStage = -1;
         private int? _shownSeed;
         private bool _seedShown;
+        // 풀 표시가 마지막으로 그린 것. 바뀔 때만 다시 쓴다.
+        private EnemyPoolDefinition _shownPool;
+        private int _shownPoolStage;
+        private bool _shownLive;
+        private int[] _shownCounts = new int[0];
 
         public ControlConsole(Transform parent, ScreenFlow flow)
         {
@@ -74,7 +85,7 @@ namespace BlackHole.Unity
             Text(panel, "Note", "Stage applies from the next battle.", 18);
 
             _poolText = Text(panel, "Pool", string.Empty, 28);
-            _poolKindsText = Text(panel, "PoolKinds", string.Empty, 22);
+            _poolEntriesText = Text(panel, "PoolEntries", string.Empty, 22);
 
             Refresh();
         }
@@ -98,10 +109,6 @@ namespace BlackHole.Unity
             {
                 _shownStage = _flow.Stage;
                 _stageText.text = $"Stage  {_shownStage} / {_flow.StageCount}";
-
-                EnemyPoolDefinition pool = _flow.SelectedStage.Pool;
-                _poolText.text = $"Pool  {pool.Id}";
-                _poolKindsText.text = "  " + string.Join(", ", KindIds(pool));
             }
 
             int? seed = _flow.BattleSeed;
@@ -112,16 +119,67 @@ namespace BlackHole.Unity
                 _shownSeed = seed;
                 _seedText.text = seed.HasValue ? $"Seed  {seed.Value}" : "Seed  -";
             }
+
+            RefreshPool();
         }
 
-        private static string[] KindIds(EnemyPoolDefinition pool)
+        private void RefreshPool()
         {
-            var ids = new string[pool.Enemies.Count];
+            GameSession battle = _flow.ActiveBattle;
+            bool live = battle != null;
+            EnemyPoolDefinition pool;
+            int stage;
 
-            for (int i = 0; i < ids.Length; i++)
-                ids[i] = pool.Enemies[i].Id;
+            if (live)
+            {
+                pool = battle.World.Pool;
+                stage = battle.Stage;
+            }
+            else
+            {
+                StageDefinition selected = _flow.SelectedStage;
+                pool = selected.Pool;
+                stage = selected.Number;
+            }
 
-            return ids;
+            IReadOnlyList<EnemyPoolEntry> entries = pool.Entries;
+            bool changed = pool != _shownPool || stage != _shownPoolStage || live != _shownLive;
+
+            if (changed)
+                _shownCounts = new int[entries.Count];
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                int count = live ? battle.World.CountAlive(entries[i].Enemy) : -1;
+
+                if (count != _shownCounts[i])
+                {
+                    _shownCounts[i] = count;
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+                return;
+
+            _shownPool = pool;
+            _shownPoolStage = stage;
+            _shownLive = live;
+            _poolText.text = live ? $"Pool  {pool.Id}  (battle, stage {stage})" : $"Pool  {pool.Id}  (stage {stage})";
+
+            _builder.Clear();
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (i > 0)
+                    _builder.Append('\n');
+
+                _builder.Append("  ").Append(entries[i].Enemy.Id).Append("<pos=9em>");
+                _builder.Append(live ? _shownCounts[i].ToString() : "-");
+                _builder.Append(" / ").Append(entries[i].MaxAlive);
+            }
+
+            _poolEntriesText.text = _builder.ToString();
         }
 
         private void StageButton(RectTransform parent, int delta)

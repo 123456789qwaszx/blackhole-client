@@ -3,38 +3,56 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
+    // 적 풀의 항목 하나: 나올 수 있는 적 종류와, 그 종류가 판에 동시에 살아 있을 수 있는 최대 수(출현 제한).
+    public readonly struct EnemyPoolEntry
+    {
+        public EnemyDefinition Enemy { get; }
+        public int MaxAlive { get; }
+
+        public EnemyPoolEntry(EnemyDefinition enemy, int maxAlive)
+        {
+            if (maxAlive < 1)
+                throw new ArgumentOutOfRangeException(nameof(maxAlive), "1 이상의 정수가 필요하다.");
+
+            Enemy = enemy ?? throw new ArgumentNullException(nameof(enemy));
+            MaxAlive = maxAlive;
+        }
+    }
+
     // 단계에서 나올 수 있는 적 종류의 묶음. 여러 단계가 같은 풀을 쓸 수 있다.
-    // 풀에 든 종류가 모두 그대로 나오는 것이 아니다. 무엇이 얼마나 나올지는 풀을 거르는 규칙(적 비율, 출현 제한)이
-    // 정한다 — 그 규칙은 아직 없고, 지금 전투의 적은 전투 시작 공급이 정한다.
+    // 공급이 요청한 적은 이 풀을 거쳐서만 나온다(PoolFilter): 풀에 없는 종류와, 최대 수에 닿은 종류는 나오지 않는다.
     public sealed class EnemyPoolDefinition
     {
         public string Id { get; }
-        // 풀에 든 적 종류(저작 순서).
-        public IReadOnlyList<EnemyDefinition> Enemies { get; }
+        // 풀의 항목(저작 순서). 한 종류는 한 번만 든다.
+        public IReadOnlyList<EnemyPoolEntry> Entries { get; }
 
-        public EnemyPoolDefinition(string id, IReadOnlyList<EnemyDefinition> enemies)
+        public EnemyPoolDefinition(string id, IReadOnlyList<EnemyPoolEntry> entries)
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("ID가 비어 있다.", nameof(id));
 
-            if (enemies == null || enemies.Count == 0)
-                throw new ArgumentException("적 종류가 하나 이상 필요하다.", nameof(enemies));
+            if (entries == null || entries.Count == 0)
+                throw new ArgumentException("적 종류가 하나 이상 필요하다.", nameof(entries));
 
-            var copy = new EnemyDefinition[enemies.Count];
+            var copy = new EnemyPoolEntry[entries.Count];
+            var seen = new HashSet<EnemyDefinition>();
 
             for (int i = 0; i < copy.Length; i++)
             {
-                EnemyDefinition enemy = enemies[i]
-                    ?? throw new ArgumentException($"Enemies[{i}]가 비어 있다.", nameof(enemies));
+                EnemyPoolEntry entry = entries[i];
 
-                if (Array.IndexOf(copy, enemy, 0, i) >= 0)
-                    throw new ArgumentException($"적 종류 '{enemy.Id}'가 두 번 들어 있다.", nameof(enemies));
+                if (entry.Enemy == null)
+                    throw new ArgumentException($"Entries[{i}]의 적 종류가 비어 있다.", nameof(entries));
 
-                copy[i] = enemy;
+                if (!seen.Add(entry.Enemy))
+                    throw new ArgumentException($"적 종류 '{entry.Enemy.Id}'가 두 번 들어 있다.", nameof(entries));
+
+                copy[i] = entry;
             }
 
             Id = id;
-            Enemies = Array.AsReadOnly(copy);
+            Entries = Array.AsReadOnly(copy);
         }
     }
 

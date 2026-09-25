@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core.Tests
 {
-    // 적: 전투 시작 공급·배치, HQ 공전, 피해와 사망 확정, 판 정리(GAME_RULES 7~9·12절).
+    // 적: 전투 시작 공급·풀 여과·배치, HQ 공전, 피해와 사망 확정, 판 정리(GAME_RULES 7~9·12절).
+    // 공급된 적은 판의 단계 풀을 거쳐서만 나오므로, 계약은 공급하는 종류를 기본 풀에 넣는다(TestContent.Allow).
     internal static class EnemyContracts
     {
         private static readonly Damage Hit = new Damage(4, TestContent.First);
@@ -18,6 +19,63 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.DeathRecordsLastOneAdvance", DeathRecordsLastOneAdvance);
             yield return new Contract("Enemy.BattleCleanupIsNotAKill", BattleCleanupIsNotAKill);
             yield return new Contract("Enemy.EachBattleHasItsOwnEnemies", EachBattleHasItsOwnEnemies);
+            yield return new Contract("Enemy.PoolFilterDropsKindsOutsideThePool", PoolFilterDropsKindsOutsideThePool);
+            yield return new Contract("Enemy.PoolFilterCapsAliveCountPerKind", PoolFilterCapsAliveCountPerKind);
+            yield return new Contract("Enemy.BattleUsesItsStagePool", BattleUsesItsStagePool);
+        }
+
+        // 공급이 요청해도 이 판의 단계 풀에 없는 종류는 나오지 않는다. 걸러진 요청은 버린다.
+        private static void PoolFilterDropsKindsOutsideThePool()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("inside", 2), TestContent.Supply("outside", 3));
+            data.Enemies.Add(TestContent.Enemy("inside"));
+            data.Enemies.Add(TestContent.Enemy("outside"));
+            TestContent.Allow(data, "inside");
+            GameSession game = TestContent.Session(data);
+
+            Expect.Equal(2, game.World.Enemies.Count);
+            Expect.Equal(2, game.World.CountAlive(game.World.Enemies[0].Definition));
+            foreach (Enemy enemy in game.World.Enemies)
+                Expect.Equal("inside", enemy.Definition.Id);
+        }
+
+        // 한 종류가 동시에 살아 있을 수 있는 수는 풀의 최대 수까지다. 살아 있는 수는 사망 때 준다.
+        private static void PoolFilterCapsAliveCountPerKind()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 5));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1));
+            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 3);
+            GameSession game = TestContent.Session(data);
+
+            EnemyDefinition kind = game.World.Enemies[0].Definition;
+            Expect.Equal(3, game.World.Enemies.Count);
+            Expect.Equal(3, game.World.CountAlive(kind));
+
+            game.World.DealDamage(game.World.Enemies[0], Hit);
+            Expect.Equal(2, game.World.CountAlive(kind));
+            Expect.Equal(2, game.World.Enemies.Count);
+        }
+
+        // 판은 자신을 조립한 단계의 풀을 쓴다. 같은 공급이라도 단계가 다르면 나오는 적이 다르다.
+        private static void BattleUsesItsStagePool()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("small", 2), TestContent.Supply("big", 2));
+            data.Enemies.Add(TestContent.Enemy("small"));
+            data.Enemies.Add(TestContent.Enemy("big"));
+            TestContent.Allow(data, "small");
+            data.EnemyPools.Add(TestContent.Pool("late", "big"));
+            data.Stages[1].Pool = "late";
+            GameContent content = TestContent.Load(data);
+
+            GameSession early = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 1, 0);
+            GameSession late = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 2, 0);
+
+            Expect.Equal(TestContent.PoolId, early.World.Pool.Id);
+            Expect.Equal("late", late.World.Pool.Id);
+            Expect.Equal("small", early.World.Enemies[0].Definition.Id);
+            Expect.Equal(2, early.World.Enemies.Count);
+            Expect.Equal("big", late.World.Enemies[0].Definition.Id);
+            Expect.Equal(2, late.World.Enemies.Count);
         }
 
         // 요청마다 정해진 수가 요청 순서대로 나온다. 모두 HQ로부터 띠 [2, 4] 안에 있고, 체력은 가득 차 있다.
@@ -26,6 +84,8 @@ namespace BlackHole.Core.Tests
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply("a", 3), TestContent.Supply("b", 2));
             data.Enemies.Add(TestContent.Enemy("a", health: 10));
             data.Enemies.Add(TestContent.Enemy("b", health: 25));
+            TestContent.Allow(data, "a");
+            TestContent.Allow(data, "b");
             GameSession game = TestContent.Session(data);
 
             IReadOnlyList<Enemy> enemies = game.World.Enemies;
@@ -49,6 +109,7 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(1, 5, TestContent.Supply(TestContent.EnemyId, 4));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            TestContent.Allow(data, TestContent.EnemyId);
 
             IReadOnlyList<Enemy> first = TestContent.Session(data, seed: 7).World.Enemies;
             IReadOnlyList<Enemy> again = TestContent.Session(data, seed: 7).World.Enemies;
@@ -72,6 +133,8 @@ namespace BlackHole.Core.Tests
                 TestContent.Supply("ccw", 1), TestContent.Supply("cw", 1));
             data.Enemies.Add(TestContent.Enemy("ccw", speed: 1.5f));
             data.Enemies.Add(TestContent.Enemy("cw", speed: 1.5f, clockwise: true));
+            TestContent.Allow(data, "ccw");
+            TestContent.Allow(data, "cw");
             GameSession game = TestContent.Session(data);
 
             Enemy ccw = game.World.Enemies[0];
@@ -173,6 +236,7 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 1));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: health));
+            TestContent.Allow(data, TestContent.EnemyId);
             return data;
         }
 

@@ -6,11 +6,13 @@ namespace BlackHole.Core
     // - 출현: 정의와 위치로 적을 만들고 번호를 준다. 실행 수치는 이때 정해진다.
     // - 이동: 살아 있는 적이 행동에 따라 움직인다.
     // - 피해: 살아 있는 적만 받는다. 처음 죽은 순간 목록에서 빠지고 사망 기록을 한 번 남긴다.
+    // - 종류별 살아 있는 수: 출현 때 늘고 사망 때 준다. 풀 여과 장치의 출현 제한이 읽는다.
     // 사망 보상(HQ EXP·Gold)과 사망 효과는 그 시스템이 사망 기록이나 이 절차에 붙는다.
     // 판이 끝나며 남은 적이 사라지는 것은 처치가 아니다 — 판을 버릴 뿐 이 절차를 거치지 않는다.
     internal sealed class EnemyRoster
     {
         private readonly List<Enemy> _alive = new List<Enemy>();
+        private readonly Dictionary<EnemyDefinition, int> _aliveByKind = new Dictionary<EnemyDefinition, int>();
         private readonly List<DeathRecord> _deaths = new List<DeathRecord>();
         private int _nextEnemyId = 1;
         private long _nextDeathSequence = 1;
@@ -26,6 +28,10 @@ namespace BlackHole.Core
             Deaths = _deaths.AsReadOnly();
         }
 
+        // 지금 살아 있는 이 종류의 적 수.
+        public int CountAlive(EnemyDefinition kind) =>
+            kind != null && _aliveByKind.TryGetValue(kind, out int count) ? count : 0;
+
         public Enemy Spawn(EnemyDefinition definition, Point2 position)
         {
             var enemy = new Enemy(
@@ -36,6 +42,7 @@ namespace BlackHole.Core
                 EnemyBehaviors.Create(definition.Behavior));
 
             _alive.Add(enemy);
+            _aliveByKind[definition] = CountAlive(definition) + 1;
             return enemy;
         }
 
@@ -52,7 +59,10 @@ namespace BlackHole.Core
                 return false;
 
             _deaths.Add(new DeathRecord(_nextDeathSequence++, enemy));
-            _alive.Remove(enemy);
+
+            if (_alive.Remove(enemy))
+                _aliveByKind[enemy.Definition] = CountAlive(enemy.Definition) - 1;
+
             return true;
         }
 

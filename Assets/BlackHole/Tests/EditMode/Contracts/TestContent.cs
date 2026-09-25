@@ -24,8 +24,37 @@ namespace BlackHole.Core.Tests
             return data;
         }
 
-        public static EnemyPoolData Pool(string id, params string[] enemies) =>
-            new EnemyPoolData { Id = id, Enemies = new List<string>(enemies) };
+        // 풀의 항목 수 제한이 계약에 끼어들지 않게 하는 넉넉한 최대 수.
+        public const int RoomyMax = 100;
+
+        // 모든 항목의 최대 수가 넉넉한 풀.
+        public static EnemyPoolData Pool(string id, params string[] enemies)
+        {
+            var pool = new EnemyPoolData { Id = id };
+
+            foreach (string enemy in enemies)
+                pool.Entries.Add(Entry(enemy, RoomyMax));
+
+            return pool;
+        }
+
+        public static EnemyPoolEntryData Entry(string enemy, int maxAlive) =>
+            new EnemyPoolEntryData { Enemy = enemy, MaxAlive = maxAlive };
+
+        // 기본 단계 표의 풀(모든 단계가 쓴다)에 이 종류를 넣는다. 공급된 적은 풀에 있어야 나온다.
+        public static void Allow(ContentData data, string enemy, int maxAlive = RoomyMax)
+        {
+            foreach (EnemyPoolData pool in data.EnemyPools)
+            {
+                if (pool.Id == PoolId)
+                {
+                    pool.Entries.Add(Entry(enemy, maxAlive));
+                    return;
+                }
+            }
+
+            throw new System.InvalidOperationException("기본 풀이 없다.");
+        }
 
         // 단계 표 뒤에 pool을 쓰는 단계를 count개 붙인다.
         public static void AddStages(ContentData data, string pool, int count)

@@ -187,25 +187,38 @@ namespace BlackHole.Core
                 }
 
                 int errors = into.Count;
-                var members = new List<EnemyDefinition>();
+                var entries = new List<EnemyPoolEntry>();
 
-                if (item.Enemies != null)
+                if (item.Entries != null)
                 {
-                    for (int j = 0; j < item.Enemies.Count; j++)
+                    for (int j = 0; j < item.Entries.Count; j++)
                     {
-                        string id = item.Enemies[j];
+                        EnemyPoolEntryData entry = item.Entries[j];
+                        string entryAt = $"{at}.Entries[{j}]";
 
-                        if (id == null || !enemies.TryGetValue(id, out EnemyDefinition enemy))
-                            into.Add(new ContentDiagnostic($"{at}.Enemies[{j}]", $"정의되지 않은 적 ID '{id}'."));
-                        else
-                            members.Add(enemy);
+                        if (entry == null)
+                        {
+                            into.Add(new ContentDiagnostic(entryAt, "풀 항목이 null이다."));
+                            continue;
+                        }
+
+                        if (entry.Enemy == null || !enemies.TryGetValue(entry.Enemy, out EnemyDefinition enemy))
+                        {
+                            into.Add(new ContentDiagnostic(entryAt + ".Enemy", $"정의되지 않은 적 ID '{entry.Enemy}'."));
+                            continue;
+                        }
+
+                        EnemyPoolEntry? loaded = GuardValue(entryAt, into, () => new EnemyPoolEntry(enemy, entry.MaxAlive));
+
+                        if (loaded.HasValue)
+                            entries.Add(loaded.Value);
                     }
                 }
 
                 if (into.Count > errors)
                     continue;
 
-                EnemyPoolDefinition pool = Guard(at, into, () => new EnemyPoolDefinition(item.Id, members));
+                EnemyPoolDefinition pool = Guard(at, into, () => new EnemyPoolDefinition(item.Id, entries));
 
                 if (pool != null)
                     pools.Add(pool);

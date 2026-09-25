@@ -73,18 +73,22 @@ namespace BlackHole.Core.Tests
             TestContent.HasDiagnostic(result, "EnemyPlacement", "배치");
         }
 
-        // 적 풀 하나의 오류는 적 종류가 올바를 때 보고한다: 없는 적, 빈 풀, 같은 적 두 번.
+        // 적 풀 하나의 오류는 적 종류가 올바를 때 보고한다: 없는 적, 1 미만의 최대 수, 빈 풀, 같은 적 두 번.
         // 풀 ID의 중복과 단계 표의 풀 참조는 풀이 모두 올바를 때 보고한다.
         private static void ReportsPoolAndStageErrorsWithPath()
         {
             ContentData pools = TestContent.Data();
             pools.EnemyPools.Add(TestContent.Pool("stray", "ghost"));
+            var zero = new EnemyPoolData { Id = "zero" };
+            zero.Entries.Add(TestContent.Entry(TestContent.PoolEnemyId, 0));
+            pools.EnemyPools.Add(zero);
             pools.EnemyPools.Add(TestContent.Pool("empty"));
             pools.EnemyPools.Add(TestContent.Pool("twice", TestContent.PoolEnemyId, TestContent.PoolEnemyId));
 
             ContentLoadResult result = ContentLoader.Load(pools);
-            Expect.Equal(3, result.Diagnostics.Count);
-            TestContent.HasDiagnostic(result, "EnemyPools[stray].Enemies[0]", "ghost");
+            Expect.Equal(4, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "EnemyPools[stray].Entries[0].Enemy", "ghost");
+            TestContent.HasDiagnostic(result, "EnemyPools[zero].Entries[0]", "maxAlive");
             TestContent.HasDiagnostic(result, "EnemyPools[empty]", "하나 이상");
             TestContent.HasDiagnostic(result, "EnemyPools[twice]", "두 번");
 
@@ -116,9 +120,10 @@ namespace BlackHole.Core.Tests
 
             EnemyPoolDefinition late = content.GetStage(3).Pool;
             Expect.Equal("late", late.Id);
-            Expect.Equal(2, late.Enemies.Count);
-            Expect.Equal("big", late.Enemies[0].Id);
-            Expect.Equal(TestContent.PoolEnemyId, late.Enemies[1].Id);
+            Expect.Equal(2, late.Entries.Count);
+            Expect.Equal("big", late.Entries[0].Enemy.Id);
+            Expect.Equal(TestContent.RoomyMax, late.Entries[0].MaxAlive);
+            Expect.Equal(TestContent.PoolEnemyId, late.Entries[1].Enemy.Id);
 
             Expect.Throws<ArgumentOutOfRangeException>(() => content.GetStage(0));
             Expect.Throws<ArgumentOutOfRangeException>(() => content.GetStage(4));

@@ -11,7 +11,7 @@ namespace BlackHole.Core
     // 산 노드가 전투를 바꾸는 효과는 효과의 대상 시스템이 돌아올 때 여기서 반영한다.
     //
     // stage는 진행도(적의 강도 단계, 1 ~ 콘텐츠의 단계 수)다. HQ 성장 단계와 다르다.
-    // 단계별 적 풀과 체력·크기 계수는 단계 표가 생기면 여기서 쓴다. 지금은 판이 어느 단계로 조립됐는지만 기록한다.
+    // 그 단계의 적 풀이 이 판의 풀 여과 장치가 된다. 체력·크기 계수는 단계 표에 붙을 때 여기서 쓴다.
     // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·단계·seed·진행 시간이면 같은 결과가 나온다.
     public static class SessionAssembler
     {
@@ -33,7 +33,7 @@ namespace BlackHole.Core
             VerifyParticipants(states);
 
             var players = new List<PlayerState>(states);
-            var world = new World(new BattleRandom(seed));
+            var world = new World(new BattleRandom(seed), content.GetStage(stage).Pool);
 
             // 전투 시작 배치. 0초에 한 번 공급한다.
             world.PlaceStartingEnemies(content.StartSupply, content.EnemyPlacement);

@@ -100,10 +100,10 @@ namespace BlackHole.Core
                 if (pool == null)
                     continue;
 
-                foreach (EnemyDefinition enemy in pool.Enemies)
+                foreach (EnemyPoolEntry entry in pool.Entries)
                 {
-                    if (!_enemiesById.TryGetValue(enemy.Id, out EnemyDefinition known) || known != enemy)
-                        into.Add(new ContentDiagnostic($"EnemyPools[{pool.Id}]", $"이 콘텐츠의 적 종류가 아니다: '{enemy.Id}'."));
+                    if (!_enemiesById.TryGetValue(entry.Enemy.Id, out EnemyDefinition known) || known != entry.Enemy)
+                        into.Add(new ContentDiagnostic($"EnemyPools[{pool.Id}]", $"이 콘텐츠의 적 종류가 아니다: '{entry.Enemy.Id}'."));
                 }
             }
         }

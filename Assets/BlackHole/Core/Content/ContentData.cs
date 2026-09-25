@@ -51,12 +51,21 @@ namespace BlackHole.Core
         public bool Clockwise;
     }
 
-    // 적 풀 하나: 이 풀에 든 적 종류의 ID.
+    // 적 풀 하나: 이 풀의 항목(적 종류와 동시 최대 수).
     [Serializable]
     public sealed class EnemyPoolData
     {
         public string Id;
-        public List<string> Enemies = new List<string>();
+        public List<EnemyPoolEntryData> Entries = new List<EnemyPoolEntryData>();
+    }
+
+    [Serializable]
+    public sealed class EnemyPoolEntryData
+    {
+        // 적 종류의 ID.
+        public string Enemy;
+        // 이 종류가 판에 동시에 살아 있을 수 있는 최대 수(출현 제한).
+        public int MaxAlive;
     }
 
     // 진행도 한 단계. 체력·크기 계수는 단계 표에 더해질 때 이 줄에 붙는다.

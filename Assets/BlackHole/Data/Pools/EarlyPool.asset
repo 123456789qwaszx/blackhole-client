@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: EarlyPool
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyPool
   id: early
-  kinds:
-  - {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
-  - {fileID: 11400000, guid: 9f9d1cd12cdd4f5287f2f48b172b2e3c, type: 2}
+  entries:
+  - kind: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+    maxAlive: 6
+  - kind: {fileID: 11400000, guid: 9f9d1cd12cdd4f5287f2f48b172b2e3c, type: 2}
+    maxAlive: 2

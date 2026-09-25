@@ -63,6 +63,8 @@ namespace BlackHole.Unity
         public StageDefinition SelectedStage => _content.GetStage(_stage);
         // 마지막으로 조립한 전투의 seed. 전투를 연 적이 없으면 null이다.
         public int? BattleSeed => _battle?.Seed;
+        // 전투 화면에서 진행 중인 전투. 전투 화면이 아니면 null이다.
+        public GameSession ActiveBattle => _battleScreen != null ? _battle : null;
 
         // 진행도를 바꾼다. 범위 밖의 값은 가장 가까운 단계가 된다. 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
         public void SetStage(int stage) =>
