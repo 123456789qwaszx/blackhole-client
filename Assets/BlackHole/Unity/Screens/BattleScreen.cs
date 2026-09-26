@@ -1,38 +1,25 @@
-using System;
 using TMPro;
 using UnityEngine;
 
 namespace BlackHole.Unity
 {
-    // 전투 화면. 남은 시간과 일시정지 여부를 받아 보여 주고, 일시정지·종료 버튼을 알린다.
+    // 전투 화면. 남은 시간을 받아 보여 준다.
     // 전투 Session을 모른다 — 표시 값은 ScreenFlow가 넘긴다. 진행 중인 판이 없으면 비어 있는 표시(ShowIdle)다.
+    // 일시정지와 전투 시작·종료는 지금 전투 시작·종료 콘솔(개발용)에 있다.
     public sealed class BattleScreen : UIRoot<BattleScreen.Refs>
     {
         public enum Refs
         {
             RemainingText,
-            PauseBtn_Button,
-            PauseBtn_Text,
-            EndBtn_Button,
         }
 
-        public event Action PauseClicked;
-        public event Action EndClicked;
-
         private TMP_Text _remaining;
-        private TMP_Text _pauseLabel;
         private int _shownTenths = -1;
-        private bool? _shownPaused;
 
         protected override void OnInitialize()
         {
             ScreenRefs.WarnMissing<Refs>(this);
-
             _remaining = View.Text(Refs.RemainingText);
-            _pauseLabel = View.Text(Refs.PauseBtn_Text);
-
-            BindEvent(View.Button(Refs.PauseBtn_Button), _ => PauseClicked?.Invoke());
-            BindEvent(View.Button(Refs.EndBtn_Button), _ => EndClicked?.Invoke());
         }
 
         // 진행 중인 판이 없을 때의 표시. 매 프레임 불러도 된다.
@@ -43,16 +30,10 @@ namespace BlackHole.Unity
                 _shownTenths = int.MinValue;
                 _remaining.text = "-";
             }
-
-            if (_shownPaused != false && _pauseLabel != null)
-            {
-                _shownPaused = false;
-                _pauseLabel.text = "Pause";
-            }
         }
 
         // 매 프레임 불러도 된다. 보이는 값이 바뀔 때만 글자를 고친다.
-        public void Show(float remainingSeconds, bool paused)
+        public void Show(float remainingSeconds)
         {
             int tenths = Mathf.CeilToInt(remainingSeconds * 10);
 
@@ -60,12 +41,6 @@ namespace BlackHole.Unity
             {
                 _shownTenths = tenths;
                 _remaining.text = (tenths / 10f).ToString("F1");
-            }
-
-            if (paused != _shownPaused && _pauseLabel != null)
-            {
-                _shownPaused = paused;
-                _pauseLabel.text = paused ? "Resume" : "Pause";
             }
         }
     }

@@ -13,6 +13,7 @@ namespace BlackHole.Unity
     // 전투 시작·종료 콘솔(개발용). 조종 콘솔과 다른 창이다(왼쪽 위).
     //
     // 시작·종료 버튼은 오케스트레이터(BattleOrchestrator)에 요청할 뿐이다. 순서와 책임은 오케스트레이터에 있다.
+    // 일시정지 버튼은 진행 중인 판을 멈추고 다시 돌린다(전투 시스템). 판이 없거나 끝났으면 누를 수 없다.
     // 버튼 아래에는 적·전투 시스템의 시작·종료 체크리스트가, 그 아래에는 Gold와 마지막 판의 원자료가 나온다.
     // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
     // 종료 사유는 지금 시간 종료로 통일한다.
@@ -27,6 +28,8 @@ namespace BlackHole.Unity
         private readonly BattleSystem _battle;
         private readonly GameObject _canvas;
         private readonly Button _startButton;
+        private readonly Button _pauseButton;
+        private readonly TMP_Text _pauseLabel;
         private readonly Button _endButton;
         private readonly TMP_Text _startStepsText;
         private readonly TMP_Text _endStepsText;
@@ -34,6 +37,7 @@ namespace BlackHole.Unity
         private readonly TMP_Text _rawDataText;
         private readonly StringBuilder _builder = new StringBuilder();
 
+        private bool? _shownPaused;
         private int _shownStartVersion = -1;
         private int _shownEndVersion = -1;
         private long[] _shownGold;
@@ -54,6 +58,8 @@ namespace BlackHole.Unity
 
             _startButton = ButtonOf(panel, "StartBattle", "Start battle", ButtonWidth, () => _orchestrator.RequestStart());
             _startStepsText = Text(panel, "StartSteps", string.Empty, 20);
+            _pauseButton = ButtonOf(panel, "PauseBattle", "Pause", ButtonWidth, () => _battle.TogglePause());
+            _pauseLabel = _pauseButton.GetComponentInChildren<TMP_Text>();
             _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth,
                 () => _orchestrator.RequestEnd(SessionEndReason.TimeExpired));
             _endStepsText = Text(panel, "EndSteps", string.Empty, 20);
@@ -78,6 +84,16 @@ namespace BlackHole.Unity
         {
             SetInteractable(_startButton, _orchestrator.CanStart);
             SetInteractable(_endButton, _orchestrator.CanEnd);
+
+            GameSession session = _battle.IsRunning ? _battle.Session : null;
+            bool paused = session != null && session.Phase == SessionPhase.Paused;
+            SetInteractable(_pauseButton, session != null && session.Phase != SessionPhase.Ended);
+
+            if (paused != _shownPaused)
+            {
+                _shownPaused = paused;
+                _pauseLabel.text = paused ? "Resume" : "Pause";
+            }
 
             if (_battle.StartSteps.Version != _shownStartVersion)
             {

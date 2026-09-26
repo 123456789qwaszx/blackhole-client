@@ -46,7 +46,6 @@ namespace BlackHole.Unity
         private readonly TMP_Text _detailMassText;
         private readonly TMP_Text _detailGoldenText;
         private readonly TMP_Text _detailStats;
-        private readonly TMP_Text _detailSource;
         private readonly StringBuilder _builder = new StringBuilder();
 
         private int _shownStage = -1;
@@ -107,7 +106,6 @@ namespace BlackHole.Unity
             // 황금이 되는 종류에만 보인다.
             _detailGoldenText = Text(detail, "Golden", string.Empty, 22);
             _detailStats = Text(detail, "Stats", string.Empty, 22);
-            _detailSource = Text(detail, "Source", string.Empty, 18);
             _detailPanel.SetActive(false);
 
             Refresh();
@@ -322,10 +320,6 @@ namespace BlackHole.Unity
             }
 
             _detailStats.text = _builder.ToString();
-
-            _detailSource.text = battle != null
-                ? $"Battle stats (stage {battle.Stage}), fixed at battle start. Nodes bought now apply from the next battle."
-                : "Next battle's stats from owned nodes (upgrade console).";
         }
 
         // 0.001 → "0.1%". 황금 비율은 자릿수 단위로 바뀌므로 작은 값도 읽히게 쓴다.

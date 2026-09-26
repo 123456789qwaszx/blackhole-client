@@ -11,9 +11,6 @@ namespace BlackHole.Unity
     // GameHost에 사용자 UI를 연결하면 쓰지 않는다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
     internal static class PlaceholderScreens
     {
-        private static readonly Color ButtonColor = new Color(0.2f, 0.26f, 0.42f);
-        private static readonly Vector2 MenuButton = new Vector2(420, 72);
-
         public readonly struct Result
         {
             public RectTransform RootLayer { get; }
@@ -49,10 +46,6 @@ namespace BlackHole.Unity
             RectTransform screen = Stretch(Child(layer, nameof(BattleScreen)));
             Label(screen, "Heading", "BATTLE", 40, new Vector2(0.5f, 0.95f));
             Label(screen, nameof(BattleScreen.Refs.RemainingText), string.Empty, 96, new Vector2(0.5f, 0.6f));
-
-            RectTransform menu = Row(screen, "Menu", new Vector2(0.5f, 0.15f), 24);
-            MenuButtonOf(menu, nameof(BattleScreen.Refs.PauseBtn_Button), "Pause");
-            MenuButtonOf(menu, nameof(BattleScreen.Refs.EndBtn_Button), "End battle");
 
             return screen.gameObject.AddComponent<BattleScreen>();
         }
@@ -95,52 +88,6 @@ namespace BlackHole.Unity
             rect.anchorMax = anchor;
             rect.sizeDelta = new Vector2(1600, size * 1.6f);
             return Text(rect, text, size);
-        }
-
-        private static RectTransform Row(RectTransform parent, string name, Vector2 anchor, float spacing)
-        {
-            RectTransform rect = Group(parent, name, anchor);
-            var layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
-            Configure(layout, spacing);
-            return rect;
-        }
-
-        private static RectTransform Group(RectTransform parent, string name, Vector2 anchor)
-        {
-            RectTransform rect = Child(parent, name);
-            rect.anchorMin = anchor;
-            rect.anchorMax = anchor;
-
-            var fitter = rect.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            return rect;
-        }
-
-        private static void Configure(HorizontalOrVerticalLayoutGroup layout, float spacing)
-        {
-            layout.spacing = spacing;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-        }
-
-        // 버튼 글자의 이름은 프레임워크 예제의 관례를 따른다: PauseBtn_Button → PauseBtn_Text.
-        private static void MenuButtonOf(RectTransform parent, string name, string text)
-        {
-            RectTransform rect = Child(parent, name);
-
-            var image = rect.gameObject.AddComponent<Image>();
-            image.color = ButtonColor;
-            rect.gameObject.AddComponent<Button>().targetGraphic = image;
-
-            var element = rect.gameObject.AddComponent<LayoutElement>();
-            element.preferredWidth = MenuButton.x;
-            element.preferredHeight = MenuButton.y;
-
-            Text(Stretch(Child(rect, name.Replace("_Button", "_Text"))), text, 32);
         }
 
         private static TMP_Text Text(RectTransform rect, string text, float size)

@@ -93,7 +93,7 @@ namespace BlackHole.Unity
                 ui.Register(view);
             }
 
-            _flow = new ScreenFlow(ui, _battle, _orchestrator, OrEmpty(battlePresentation, "Battle"));
+            _flow = new ScreenFlow(ui, _battle, OrEmpty(battlePresentation, "Battle"));
 
             if (displayRefreshDriver != null)
                 displayRefreshDriver.Initialize(ui);
