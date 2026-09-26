@@ -28,11 +28,13 @@ namespace BlackHole.Core
     // 재시작은 같은 객체의 부분 초기화가 아니라 새 조립이다(SessionAssembler).
     //
     // 수명: 조립(Preparing) → Begin(전투 시작 공급, Running) → 끝(Ended: 시간 종료 또는 종료 요청)
-    //      → 남은 적 정리(처치 아님) → 원자료 만들기. 이 순서를 누가 언제 부를지는 판 바깥(오케스트레이터)이 정한다.
+    //      → 남은 적 정리(처치 아님) → 원자료 만들기 → 결산. 이 순서를 누가 언제 부를지는 판 바깥(오케스트레이터)이 정한다.
+    // 진행 상태(Gold)를 바꾸는 것은 결산뿐이다. 전투 중에는 진행 상태가 바뀌지 않으므로 저장은 전투 밖에서만 하면 된다.
     public sealed class GameSession
     {
         private readonly IReadOnlyList<PlayerState> _players;
         private readonly IReadOnlyList<SupplyRequest> _startSupply;
+        private bool _settled;
 
         public World World { get; }
         public TimeLimitRule TimeLimit { get; }
@@ -120,12 +122,30 @@ namespace BlackHole.Core
             return World.ClearRemainingEnemies();
         }
 
-        // 끝난 판의 원자료(조립 조건, 끝난 사유와 시간, 종류별 처치 수, 번 Gold)를 만든다.
-        // 진행 상태는 바꾸지 않는다. 번 Gold를 진행 상태에 더하는 결산은 판 바깥(오케스트레이터)이 한 번 한다.
+        // 끝난 판의 원자료(조립 조건, 끝난 사유와 시간, 종류별 처치 수, 번 Gold)를 만든다. 진행 상태는 바꾸지 않는다.
         public BattleRawData CreateRawData()
         {
             RequireEnded();
             return new BattleRawData(Stage, Seed, Result.Reason, Result.PlayedSeconds, World.Kills(), World.EarnedGold);
+        }
+
+        // 결산을 마쳤는가.
+        public bool IsSettled => _settled;
+
+        // 결산: 끝난 판이 번 Gold를 참가자의 진행 상태에 더한다. 한 판에 한 번만 더하고, 다시 불러도 아무 일도 없다.
+        // 지금 실제 구성은 로컬 Player 1명이다. 다인 플레이의 보상 귀속은 미정이라 참가자가 둘 이상이면 아무도 받지 않는다
+        // (d71c0f4의 전제와 같다).
+        public void Settle()
+        {
+            RequireEnded();
+
+            if (_settled)
+                return;
+
+            _settled = true;
+
+            if (_players.Count == 1)
+                _players[0].EarnGold(World.EarnedGold);
         }
 
         // 결과를 확정하고 진행 상태를 전투에서 풀어 준다.

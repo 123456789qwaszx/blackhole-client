@@ -18,7 +18,8 @@ namespace BlackHole.Unity
     // 종료 단계:
     //   1. 종료 요청(사유)             2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
     //   3. 죽은 적의 처리 완료          4. 처치 집계와 번 Gold를 계산해 보관(원자료)
-    //   5. 화면의 연출 정리             6. 모두 끝났으면 완전 초기화
+    //   5. 결산(번 Gold를 진행 상태에)   6. 화면의 연출 정리
+    //   7. 모두 끝났으면 완전 초기화
     // 종료 뒤에 남는 것은 UI와 원자료(LastRawData)뿐이다. 판을 시작했던 다른 흔적은 없다.
     internal sealed class BattleSystem
     {
@@ -39,6 +40,7 @@ namespace BlackHole.Unity
             "Enemies on screen: 0",
             "Dead enemies processed",
             "Kill tally stored",
+            "Gold settled",
             "Presentation cleared",
             "Fully reset");
 
@@ -134,17 +136,21 @@ namespace BlackHole.Unity
                 // 3. 죽은 적의 처리 완료(사망 효과·보상 처리가 붙으면 그것이 끝났는지까지).
                 Verify(2, !Session.World.HasPendingDeathProcessing);
 
-                // 4. 처치 집계와 번 Gold를 계산해 보관. 진행 상태에 더하는 결산은 오케스트레이터가 이 원자료로 한다.
+                // 4. 처치 집계와 번 Gold를 계산해 보관.
                 LastRawData = Session.CreateRawData();
                 Verify(3, LastRawData != null);
 
-                // 5. 화면의 연출 정리. 지운 객체는 프레임 끝에 사라지므로 한 프레임 기다린 뒤 확인한다.
+                // 5. 결산: 판이 번 Gold를 진행 상태에 한 번 더한다. 앞선 정리가 이 뒤에서 실패했다가 다시 와도 두 번 더하지 않는다.
+                Session.Settle();
+                Verify(4, Session.IsSettled);
+
+                // 6. 화면의 연출 정리. 지운 객체는 프레임 끝에 사라지므로 한 프레임 기다린 뒤 확인한다.
                 _enemyView.Reset();
                 await Awaitable.NextFrameAsync();
-                Verify(4, _enemyView.IsClear);
+                Verify(5, _enemyView.IsClear);
 
-                // 6. 완전 초기화: 판을 버리고, 진행 상태가 전투에서 풀렸는지 확인한다.
-                Verify(5, PlayersReleased());
+                // 7. 완전 초기화: 판을 버리고, 진행 상태가 전투에서 풀렸는지 확인한다.
+                Verify(6, PlayersReleased());
                 Session = null;
                 _players = null;
                 _timeExpiredRaised = false;

@@ -181,12 +181,12 @@
 그 적이 번 Gold = 그 적의 Gold (색 기본 Gold × 종류의 Gold 계수, 판 조립 때 계산)  × (황금이면 황금 배율)
 사망 확정 순간     그 값을 이 판의 합계(World.EarnedGold)에 더한다
 판이 끝나면        원자료(BattleRawData.EarnedGold)에 합계가 남는다
-결산              오케스트레이터가 원자료의 합계를 진행 상태(PlayerState.Gold)에 한 번 더한다
+결산              판(GameSession.Settle)이 합계를 진행 상태(PlayerState.Gold)에 한 번 더한다
 ```
 
 - 값은 사망 확정 절차(`EnemyRoster.RecordDeath`)에서 확정된다. 피해 사망과 파괴 요청 사망이 같은 절차를 지나므로 둘 다 든다. 흡수 연출을 기다리지 않는다. 전투 정리(Cleanup)는 처치가 아니므로 Gold가 없다(GAME_RULES 9절).
 - **유저 데이터는 전투 밖에서만 바뀐다.** 판은 진행 상태를 바꾸지 않고, 결산이 판이 끝난 뒤 한 번 바꾼다. 그래서 저장은 휴식 공간에서만 하면 되고, 전투 중에 앱이 꺼지면 그 판의 Gold는 들어가지 않는다. 성능 원칙 §3("전투 중 계산할 필요가 없는 것은 Rest Phase에서 결정한다")과 같은 경계다. 저장 자체는 F04다.
-- 정리가 실패해 멈추면(Faulted) 원자료가 나오지 않아 결산하지 않는다. 다시 요청해 정리가 끝났을 때 한 번 결산한다. 결산이 두 번 일어나지 않는다.
+- 결산은 엔진과 상관없는 규칙이라 Core의 판이 가진다. 끝난 판에서만 할 수 있고, 한 판에 한 번만 더한다(다시 불러도 아무 일도 없다). Unity 쪽 적·전투 시스템은 정리 순서(원자료 보관 다음)에서 부르기만 한다. 그래서 정리가 뒤 단계에서 실패했다가 다시 와도 두 번 더하지 않는다.
 - 떠오르는 숫자나 황금 파괴 연출은 표현 쪽이 사망 기록을 읽어서 한다. 사망 기록에 번 Gold와 색·황금 여부를 복사하는 일은 그 표현을 만들 때 더한다.
 - 이정표 완료 보상(2.1의 큰돈)은 처치 보상이 아니다. 이 계획 밖이다(이정표·F04).
 
@@ -208,7 +208,7 @@
 
 ### 4.6 수령자와 Gold의 수 형식
 
-- 수령자: 지금 실제 구성은 로컬 Player 1명이다. 결산 때 참가자가 1명이면 그 진행 상태가 받는다. 다인 플레이의 보상 귀속은 미정이므로 둘 이상이면 아무도 받지 않는다. 이전 구현(`d71c0f4`의 `World.DealDamage`)과 같은 전제이며, 새 귀속 규칙을 만들지 않는다.
+- 수령자: 지금 실제 구성은 로컬 Player 1명이다. 결산(`GameSession.Settle`) 때 참가자가 1명이면 그 진행 상태가 받는다. 다인 플레이의 보상 귀속은 미정이므로 둘 이상이면 아무도 받지 않는다. 이전 구현(`d71c0f4`의 `World.DealDamage`)과 같은 전제이며, 새 귀속 규칙을 만들지 않는다.
 - Gold는 `int`에서 `long`으로 바꾼다. 원작 금액은 B(십억)·T(조) 단위까지 오르고(스크린샷의 $536.6B, SKILL_TREE_PLAN 8.2), 황금 배율이 4200까지 오른다. `int`는 약 21억에서 넘친다.
 
 ## 5. 지금 코드에서 바뀌는 곳
@@ -216,7 +216,7 @@
 | 자리 | 파일 | 티켓 |
 |---|---|---|
 | 적 수치에 Gold | `Core/Enemies/EnemyDefinition.cs`(`EnemyStats`), `Core/Content/ContentData.cs`(`EnemyData`), `ContentLoader`, Unity `EnemyKind` 에셋 | BC-002 |
-| 판의 Gold 합계와 결산 | `Core/Enemies/EnemyRoster.cs`(`RecordDeath`), `Core/World/World.cs`(`EarnedGold`), `Core/Session/BattleRawData.cs`·`GameSession.cs`, `Unity/Battle/BattleOrchestrator.cs`(결산) | BC-002 |
+| 판의 Gold 합계와 결산 | `Core/Enemies/EnemyRoster.cs`(`RecordDeath`), `Core/World/World.cs`(`EarnedGold`), `Core/Session/BattleRawData.cs`, `Core/Session/GameSession.cs`(`Settle`), `Unity/Battle/BattleSystem.cs`(정리 순서에서 부름) | BC-002 |
 | Gold 형식 | `Core/Players/PlayerState.cs` | BC-002 |
 | 색 등급 표·질량 단계 표 | `EnemyDefinition`, `EnemyData`, `ContentLoader`, Unity `EnemyKind` 에셋 | BC-003 |
 | 판 구성표 (종류, 색) | `Core/Enemies/EnemyStatTable.cs`, `SessionAssembler`(질량 단계 입력) | BC-003 |

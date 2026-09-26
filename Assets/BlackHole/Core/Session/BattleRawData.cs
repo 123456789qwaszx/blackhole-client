@@ -28,7 +28,7 @@ namespace BlackHole.Core
         // 전투 정리로 사라진 적은 처치가 아니므로 들지 않는다.
         public IReadOnlyList<EnemyKillCount> Kills { get; }
         public int TotalKills { get; }
-        // 이 판에서 번 Gold. 사망 순간마다 그 적의 Gold가 더해진 합계다. 결산이 이것을 진행 상태에 더한다.
+        // 이 판에서 번 Gold. 사망 순간마다 그 적의 Gold가 더해진 합계이며, 결산(GameSession.Settle)이 진행 상태에 더한 값과 같다.
         public long EarnedGold { get; }
 
         internal BattleRawData(

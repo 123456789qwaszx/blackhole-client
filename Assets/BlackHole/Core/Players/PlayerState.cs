@@ -36,7 +36,7 @@ namespace BlackHole.Core
             Id = id;
         }
 
-        // Gold를 더한다. 전투 중에는 부르지 않는다 — 판이 끝난 뒤 결산이 그 판의 원자료(EarnedGold)로 한 번 부른다.
+        // Gold를 더한다. 전투 중에는 부르지 않는다 — 판이 끝난 뒤 결산(GameSession.Settle)이 그 판이 번 Gold로 한 번 부른다.
         // 그래서 진행 상태는 전투 밖에서만 바뀌고, 저장 시점도 전투 밖이다.
         public void EarnGold(long amount)
         {

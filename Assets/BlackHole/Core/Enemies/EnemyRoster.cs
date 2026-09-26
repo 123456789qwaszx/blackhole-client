@@ -24,7 +24,7 @@ namespace BlackHole.Core
         public IReadOnlyList<Enemy> Alive { get; }
         // 마지막 진행 동안 확정된 사망. 다음 진행이 시작될 때 비운다.
         public IReadOnlyList<DeathRecord> Deaths { get; }
-        // 이 판에서 확정된 사망의 Gold 합계. 진행 상태에는 판이 끝난 뒤 결산이 더한다 — 전투 중에는 진행 상태를 바꾸지 않는다.
+        // 이 판에서 확정된 사망의 Gold 합계. 진행 상태에는 판이 끝난 뒤 결산(GameSession.Settle)이 더한다.
         public long EarnedGold { get; private set; }
 
         public EnemyRoster()
