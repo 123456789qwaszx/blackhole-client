@@ -89,7 +89,7 @@ namespace BlackHole.Core
                 if (into.Count > errors)
                     continue;
 
-                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, item.MoveSpeed, tiers, massLevels, behavior));
+                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, item.MoveSpeed, tiers, massLevels, item.GoldenMultiplier, behavior));
 
                 if (enemy != null)
                     enemies.Add(enemy);

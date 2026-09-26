@@ -26,6 +26,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
             yield return new Contract("Enemy.TierStatsComeFromTheMassLevel", TierStatsComeFromTheMassLevel);
             yield return new Contract("Enemy.TierRatioHoldsAtEveryCount", TierRatioHoldsAtEveryCount);
+            yield return new Contract("Enemy.GoldenIsFixedAtSpawnAndMultipliesGold", GoldenIsFixedAtSpawnAndMultipliesGold);
             yield return new Contract("Enemy.KillsAreTalliedByKind", KillsAreTalliedByKind);
             yield return new Contract("Enemy.SpawnRequestsWaitForTheNextStep", SpawnRequestsWaitForTheNextStep);
             yield return new Contract("Enemy.FilteredSpawnRequestsAreDropped", FilteredSpawnRequestsAreDropped);
@@ -238,6 +239,69 @@ namespace BlackHole.Core.Tests
                 Expect.Equal(1, single.World.Enemies[i].Tier);
             }
         }
+
+        // 황금은 생성 때 그 종류의 황금 비율(몫 방식)로 정해지고 바뀌지 않는다. 황금이면 Gold에 황금 배율이 곱해진 값을 받는다.
+        // 황금 비율이 0(기본)이면 황금이 없고, 1이면 모두 황금이다. 비율 0.5로 10마리면 정확히 5마리다.
+        // 황금 비율을 바꿔도 색과 위치의 순서는 같다(난수 스트림이 다르다).
+        // 황금이 되지 않는 종류의 황금 비율(0 초과)과 범위 밖의 비율은 조립이 거부한다.
+        private static void GoldenIsFixedAtSpawnAndMultipliesGold()
+        {
+            ContentData data = TestContent.Arena(1, 3, TestContent.Supply(TestContent.EnemyId, 10));
+            EnemyData kindData = TestContent.Tiered(TestContent.EnemyId, 1, false,
+                TestContent.Tier(10, 0.2f, 3),
+                TestContent.Tier(10, 0.2f, 4));
+            kindData.MassLevels.Add(TestContent.MassLevel(1, 1, 0.5f, 0.5f));
+            kindData.GoldenMultiplier = 50;
+            data.Enemies.Add(kindData);
+            data.Enemies.Add(TestContent.Enemy("plain"));
+            TestContent.Allow(data, TestContent.EnemyId);
+            GameContent content = TestContent.Load(data);
+            content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
+            content.TryGetEnemy("plain", out EnemyDefinition plain);
+
+            GameSession none = GoldenBattle(content, null);
+            GameSession half = GoldenBattle(content, new Dictionary<EnemyDefinition, float> { { kind, 0.5f } });
+            GameSession all = GoldenBattle(content, new Dictionary<EnemyDefinition, float> { { kind, 1f } });
+            int golden = 0;
+            long expected = 0;
+
+            for (int i = 0; i < 10; i++)
+            {
+                Enemy enemy = half.World.Enemies[i];
+                long gold = enemy.Tier == 0 ? 3 : 4;
+
+                if (enemy.IsGolden)
+                {
+                    golden++;
+                    gold *= 50;
+                }
+
+                Expect.Equal(gold, enemy.Stats.Gold);
+                expected += gold;
+                Expect.True(!none.World.Enemies[i].IsGolden, "황금 비율 0이면 황금이 없다.");
+                Expect.True(all.World.Enemies[i].IsGolden, "황금 비율 1이면 모두 황금이다.");
+                Expect.Equal(none.World.Enemies[i].Tier, enemy.Tier);
+                Expect.Equal(none.World.Enemies[i].Position, enemy.Position);
+            }
+
+            Expect.Equal(5, golden);
+
+            foreach (Enemy enemy in new List<Enemy>(half.World.Enemies))
+                half.World.DealDamage(enemy, new Damage(10, TestContent.First));
+
+            Expect.Equal(expected, half.World.EarnedGold);
+
+            var state = new PlayerState(TestContent.First);
+            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(
+                content, new[] { state }, 1, 0, null, new Dictionary<EnemyDefinition, float> { { plain, 0.1f } }));
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(
+                content, new[] { state }, 1, 0, null, new Dictionary<EnemyDefinition, float> { { kind, 1.5f } }));
+            Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
+        }
+
+        private static GameSession GoldenBattle(GameContent content, IReadOnlyDictionary<EnemyDefinition, float> goldenRatios) =>
+            TestContent.Begun(SessionAssembler.CreateBattle(
+                content, new[] { new PlayerState(TestContent.First) }, SessionAssembler.FirstStage, 3, null, goldenRatios));
 
         // 색 등급 둘(비율만 다름)인 종류를 count마리 공급한 판.
         private static GameSession TierSession(int count, int seed, float first, float second)

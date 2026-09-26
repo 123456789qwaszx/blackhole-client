@@ -11,8 +11,9 @@ namespace BlackHole.Unity
     // 시작 순서: (Skill 준비·사운드·조준 — 그 시스템이 붙으면 이 앞에) → 적·전투 시스템 시작.
     // 종료 순서: (Skill 정리 — 붙으면 이 앞에) → 적·전투 시스템 정리(결산 포함) → (사운드 정리, 조준 정리 — 붙으면 이 뒤에).
     //
-    // 진행 상태(PlayerState)와 다음 전투의 진행도(적의 강도 단계)·종류별 질량 단계를 가진다.
-    // 질량 단계는 지금 개발용 콘솔이 고른다. 업그레이드 시스템이 돌아오면 산 노드(종류별 질량 증가)에서 정해진다.
+    // 진행 상태(PlayerState)와 다음 전투의 진행도(적의 강도 단계)·종류별 질량 단계·종류별 황금 비율을 가진다.
+    // 질량 단계와 황금 비율은 지금 개발용 콘솔이 고른다. 업그레이드 시스템이 돌아오면 산 노드
+    // (종류별 질량 증가, 황금 소행성 추가·황금 비율)에서 정해진다.
     // 진행 상태를 바꾸는 것은 판의 결산(GameSession.Settle)뿐이며, 적·전투 시스템의 정리 순서 안에서 한 번 일어난다.
     // 전투 중에는 진행 상태가 바뀌지 않으므로 저장은 전투 밖(휴식 공간)에서만 하면 된다.
     // 콘솔·전투 화면의 버튼과 판의 시간 종료는 모두 여기로 요청한다. 나중의 GoToBattle·GoToUpgrade도 여기를 쓴다.
@@ -24,6 +25,7 @@ namespace BlackHole.Unity
         private PlayerState[] _progress;
         private int _stage = SessionAssembler.FirstStage;
         private readonly Dictionary<EnemyDefinition, int> _massLevels = new Dictionary<EnemyDefinition, int>();
+        private readonly Dictionary<EnemyDefinition, float> _goldenRatios = new Dictionary<EnemyDefinition, float>();
 
         public int Stage => _stage;
         public int StageCount => _content.StageCount;
@@ -56,6 +58,18 @@ namespace BlackHole.Unity
         public void SetMassLevel(EnemyDefinition kind, int level) =>
             _massLevels[kind] = Math.Max(0, Math.Min(kind.MassLevels.Count - 1, level));
 
+        // 다음 전투에서 이 종류의 황금 비율(0 ~ 1). 고르지 않은 종류는 0이다.
+        public float GoldenRatioOf(EnemyDefinition kind) =>
+            _goldenRatios.TryGetValue(kind, out float ratio) ? ratio : 0;
+
+        // 황금 비율을 바꾼다. 0 ~ 1 밖의 값은 가장 가까운 값이 되고, 황금이 되지 않는 종류는 바꾸지 않는다.
+        // 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
+        public void SetGoldenRatio(EnemyDefinition kind, float ratio)
+        {
+            if (kind.CanBeGolden)
+                _goldenRatios[kind] = Math.Max(0, Math.Min(1, ratio));
+        }
+
         public async Task StartBattleAsync()
         {
             if (!CanStart)
@@ -68,7 +82,7 @@ namespace BlackHole.Unity
                 // 진행 상태는 처음 시작할 때 만들고, 이후 전투에 이어진다(저장은 없다).
                 _progress ??= NewProgress();
                 // 전투마다 seed를 새로 정한다. 쓴 seed는 판과 원자료에 남는다.
-                await _battle.StartAsync(_progress, _stage, Environment.TickCount, _massLevels);
+                await _battle.StartAsync(_progress, _stage, Environment.TickCount, _massLevels, _goldenRatios);
             }
             finally
             {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 한 판의 적 목록과 사망 절차. 적 시스템이 판 안에서 가진 상태는 여기에 모인다.
-    // - 출현: 정의·색 등급·이 판의 수치·위치로 적을 만들고 번호를 준다. 수치는 판의 적 수치 표(EnemyStatTable)에서 온다.
+    // - 출현: 정의·색 등급·황금 여부·이 판의 수치·위치로 적을 만들고 번호를 준다. 수치는 판의 적 수치 표(EnemyStatTable)에서 온다.
     // - 이동: 살아 있는 적이 행동에 따라 움직인다.
     // - 피해: 살아 있는 적만 받는다. 처음 죽은 순간 목록에서 빠지고, 사망 기록을 한 번 남기고, 처치 수에 들고, 그 적의 Gold가 이 판의 합계에 든다.
     // - 파괴: 피해·HP 계산 없이 사망을 확정한다. 이 목록에 살아 있는 적만 죽고, 그 뒤는 피해로 죽을 때와 같다.
@@ -48,12 +48,13 @@ namespace BlackHole.Core
             return System.Array.AsReadOnly(kills);
         }
 
-        public Enemy Spawn(EnemyDefinition definition, int tier, EnemyStats stats, Point2 position)
+        public Enemy Spawn(EnemyDefinition definition, int tier, bool golden, EnemyStats stats, Point2 position)
         {
             var enemy = new Enemy(
                 new EnemyId(_nextEnemyId++),
                 definition,
                 tier,
+                golden,
                 stats,
                 position,
                 EnemyBehaviors.Create(definition.Behavior));

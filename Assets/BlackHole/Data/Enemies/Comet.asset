@@ -24,5 +24,6 @@ MonoBehaviour:
     - 1
     healthMultiplier: 1
     goldMultiplier: 1
+  goldenMultiplier: 0
   clockwise: 0
   sprite: {fileID: 0}

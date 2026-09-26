@@ -78,7 +78,7 @@ namespace BlackHole.Core
         }
     }
 
-    // 적 종류 하나의 공유 정의: 이동 속도, 색 등급 표, 질량 단계 표, 행동.
+    // 적 종류 하나의 공유 정의: 이동 속도, 색 등급 표, 질량 단계 표, 황금 배율, 행동.
     // 종류는 계열(소행성·행성·별·달·혜성)이고 색은 종류 안에 둔다(BATTLE_COMPOSITION_PLAN 4.1). 색이 없는 종류는 색 등급이 한 줄이다.
     // HQ EXP와 사망 효과는 그 시스템이 붙을 때 더한다. 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
     public sealed class EnemyDefinition
@@ -89,6 +89,10 @@ namespace BlackHole.Core
         public IReadOnlyList<EnemyTier> Tiers { get; }
         // 질량 단계 표. MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음).
         public IReadOnlyList<MassLevelDefinition> MassLevels { get; }
+        // 황금일 때 그 적의 Gold에 곱하는 값. 0이면 이 종류는 황금이 되지 않는다(원작은 소행성만, 기본 50배).
+        // 황금은 종류가 아니라 생성 때 정해지는 특성이다. 얼마나 섞일지(황금 비율)는 판 조립이 받는다.
+        public float GoldenMultiplier { get; }
+        public bool CanBeGolden => GoldenMultiplier > 0;
         public EnemyBehaviorDefinition Behavior { get; }
 
         public EnemyDefinition(
@@ -96,8 +100,12 @@ namespace BlackHole.Core
             float moveSpeed,
             IReadOnlyList<EnemyTier> tiers,
             IReadOnlyList<MassLevelDefinition> massLevels,
+            float goldenMultiplier,
             EnemyBehaviorDefinition behavior)
         {
+            if (float.IsNaN(goldenMultiplier) || float.IsInfinity(goldenMultiplier) || goldenMultiplier < 0)
+                throw new ArgumentOutOfRangeException(nameof(goldenMultiplier), "0 이상의 유한한 값이 필요하다.");
+
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("ID가 비어 있다.", nameof(id));
 
@@ -122,14 +130,19 @@ namespace BlackHole.Core
             MoveSpeed = DefinitionGuard.Positive(moveSpeed, nameof(moveSpeed));
             Tiers = Array.AsReadOnly(Copy(tiers));
             MassLevels = Array.AsReadOnly(Copy(massLevels));
+            GoldenMultiplier = goldenMultiplier;
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
         }
 
         // 질량 단계 massLevel에서 색 등급 tier의 실행 수치.
         // HP = 색의 기본 HP × 단계의 HP 계수, Gold = 색의 기본 Gold × 단계의 Gold 계수(반올림 [임시]), 크기 = 색의 크기, 속도 = 종류의 속도.
+        // 황금이면 Gold에 황금 배율을 한 번 더 곱한다(반올림). HP·크기는 같은 색과 같다 [임시].
         // 판 조립(EnemyStatTable)과 다음 판을 미리 보는 콘솔이 같은 계산을 쓴다.
-        public EnemyStats StatsAt(int massLevel, int tier)
+        public EnemyStats StatsAt(int massLevel, int tier, bool golden = false)
         {
+            if (golden && !CanBeGolden)
+                throw new ArgumentException($"'{Id}'는 황금이 되지 않는다.", nameof(golden));
+
             if (massLevel < 0 || massLevel >= MassLevels.Count)
                 throw new ArgumentOutOfRangeException(
                     nameof(massLevel), $"'{Id}'의 질량 단계는 0부터 {MassLevels.Count - 1}까지다. 받은 값: {massLevel}.");
@@ -140,9 +153,16 @@ namespace BlackHole.Core
 
             MassLevelDefinition level = MassLevels[massLevel];
             EnemyTier row = Tiers[tier];
-            long gold = checked((long)Math.Round(row.Gold * (double)level.GoldMultiplier, MidpointRounding.AwayFromZero));
+            long gold = Multiply(row.Gold, level.GoldMultiplier);
+
+            if (golden)
+                gold = Multiply(gold, GoldenMultiplier);
+
             return new EnemyStats(row.MaxHealth * level.HealthMultiplier, MoveSpeed, row.Size, gold);
         }
+
+        private static long Multiply(long gold, float multiplier) =>
+            checked((long)Math.Round(gold * (double)multiplier, MidpointRounding.AwayFromZero));
 
         private static T[] Copy<T>(IReadOnlyList<T> source)
         {

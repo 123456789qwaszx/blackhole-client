@@ -15,15 +15,13 @@ namespace BlackHole.Core
     // stage는 진행도(적의 강도 단계, 1 ~ 콘텐츠의 단계 수)다. HQ 성장 단계와 다르다.
     // 그 단계의 적 풀이 이 판의 풀 여과 장치가 된다 — 어떤 종류가 나오는가(이정표·종류 해금, BATTLE_COMPOSITION_PLAN 3절).
     // massLevels는 종류별 질량 단계다 — 종류 안의 색 비율과 HP·Gold 계수. 없는 종류는 0이다.
-    // 지금은 개발용 콘솔이 고르고, 업그레이드 시스템이 돌아오면 산 노드(종류별 질량 증가)에서 정해진다.
-    // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·단계·질량 단계·seed·진행 시간이면 같은 결과가 나온다.
+    // goldenRatios는 종류별 황금 비율(0 ~ 1)이다. 없는 종류는 0이고, 황금이 되는 종류만 0보다 클 수 있다.
+    // 둘 다 지금은 개발용 콘솔이 고르고, 업그레이드 시스템이 돌아오면 산 노드(질량 증가, 황금 소행성 추가·황금 비율)에서 정해진다.
+    // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·단계·판 구성·seed·진행 시간이면 같은 결과가 나온다.
     public static class SessionAssembler
     {
         public const int FirstStage = 1;
         public const int DefaultSeed = 0;
-
-        // 판의 난수 용도. 출현 위치는 seed의 기본 스트림(0)을, 색 등급의 몫은 이 스트림을 쓴다.
-        private const int TierStream = 1;
 
         public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states) =>
             CreateBattle(content, states, FirstStage, DefaultSeed);
@@ -33,7 +31,8 @@ namespace BlackHole.Core
             IReadOnlyList<PlayerState> states,
             int stage,
             int seed,
-            IReadOnlyDictionary<EnemyDefinition, int> massLevels = null)
+            IReadOnlyDictionary<EnemyDefinition, int> massLevels = null,
+            IReadOnlyDictionary<EnemyDefinition, float> goldenRatios = null)
         {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
@@ -45,12 +44,11 @@ namespace BlackHole.Core
             VerifyParticipants(states);
 
             var players = new List<PlayerState>(states);
-            // 적의 수치(Gold 포함)와 색 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
+            // 적의 수치(Gold 포함)와 색·황금 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
             var world = new World(
-                new BattleRandom(seed),
-                new BattleRandom(seed, TierStream),
+                seed,
                 content.GetStage(stage).Pool,
-                new EnemyStatTable(content.Enemies, massLevels),
+                new EnemyStatTable(content.Enemies, massLevels, goldenRatios),
                 content.EnemyPlacement);
             var session = new GameSession(
                 world,

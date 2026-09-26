@@ -10,16 +10,27 @@ namespace BlackHole.Core
     // 적이 생기고 죽는 일은 요청으로 들어와 쌓이고, Step의 정해진 자리에서 요청 순서대로 처리된다.
     // - 파괴 요청(RequestDestroy) → 13절 3. Damage / Death 자리: 그 적의 사망을 확정한다(피해·HP 계산 없음).
     // - 생성 요청(RequestSpawn)  → 13절 7. Enemy Supply 자리: 풀 여과 장치를 거쳐 한 마리씩 생성한다.
-    //   한 마리마다: 풀 여과 → 색 등급(그 종류의 색 비율, 몫 방식) → 위치. 수치는 판의 적 수치 표에서 (종류, 색 등급)의 값이다.
+    //   한 마리마다: 풀 여과 → 색 등급(그 종류의 색 비율) → 황금 여부(그 종류의 황금 비율) → 위치.
+    //   색과 황금은 몫 방식(QuotaPicker)으로 정한다. 수치는 판의 적 수치 표에서 (종류, 색 등급, 황금)의 값이다.
     // 같은 Step에서 사망이 생성보다 먼저다. 그래서 죽어서 비운 자리(풀의 최대 수)에 같은 Step의 생성이 들어갈 수 있다.
     // 생성된 적은 다음 Step부터 움직이고 공격 대상이 된다. 처리되지 않은 요청은 판 정리가 버린다.
+    //
+    // 판의 난수는 seed 하나에서 용도마다 스트림을 따로 만든다. 한 용도의 비율을 바꿔도 다른 용도의 순서는 그대로다
+    // (예: 황금 비율을 바꿔도 색과 위치의 순서는 같다).
     public sealed class World
     {
+        private const int PlacementStream = 0;
+        private const int TierStream = 1;
+        private const int GoldenStream = 2;
+
         private readonly EnemyRoster _enemies = new EnemyRoster();
         private readonly PoolFilter _filter;
         private readonly EnemyPlacementDefinition _placement;
-        // 종류마다 색 등급을 고르는 몫. 판 조립 때 만들고 판 동안 이어진다(공급이 여러 번이어도 비율이 판 전체에 걸쳐 맞는다).
+        private readonly BattleRandom _placementRandom;
+        // 종류마다 색 등급과 황금 여부를 고르는 몫. 판 조립 때 만들고 판 동안 이어진다(공급이 여러 번이어도 비율이 판 전체에 걸쳐 맞는다).
+        // 황금 몫은 황금 비율이 0보다 큰 종류에만 있고, 칸은 (보통, 황금) 둘이다.
         private readonly Dictionary<EnemyDefinition, QuotaPicker> _tierPickers = new Dictionary<EnemyDefinition, QuotaPicker>();
+        private readonly Dictionary<EnemyDefinition, QuotaPicker> _goldenPickers = new Dictionary<EnemyDefinition, QuotaPicker>();
         private readonly List<SupplyRequest> _spawnRequests = new List<SupplyRequest>();
         private readonly List<Enemy> _destroyRequests = new List<Enemy>();
 
@@ -32,29 +43,32 @@ namespace BlackHole.Core
         public IReadOnlyList<Enemy> PendingDestroys { get; }
         // 이 판의 단계가 쓰는 적 풀. 생성 요청은 이 풀을 거쳐서만 적이 된다.
         public EnemyPoolDefinition Pool { get; }
-        // 이 판의 종류별 질량 단계·색 비율과 (종류, 색 등급)별 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
+        // 이 판의 종류별 질량 단계·색 비율·황금 비율과 (종류, 색 등급, 황금)별 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
         public EnemyStatTable Stats { get; }
-        // 출현 위치의 난수. 판 조립 때 seed로 만든다. 색 등급의 몫은 다른 스트림을 쓴다(색 비율을 바꿔도 위치 순서는 같다).
-        internal BattleRandom Random { get; }
 
-        internal World(
-            BattleRandom random,
-            BattleRandom tierRandom,
-            EnemyPoolDefinition pool,
-            EnemyStatTable stats,
-            EnemyPlacementDefinition placement)
+        internal World(int seed, EnemyPoolDefinition pool, EnemyStatTable stats, EnemyPlacementDefinition placement)
         {
-            Random = random;
             Pool = pool ?? throw new ArgumentNullException(nameof(pool));
             Stats = stats ?? throw new ArgumentNullException(nameof(stats));
             _placement = placement;
+            _placementRandom = new BattleRandom(seed, PlacementStream);
             _filter = new PoolFilter(pool);
             PendingSpawns = _spawnRequests.AsReadOnly();
             PendingDestroys = _destroyRequests.AsReadOnly();
 
-            // 종류마다 처음 몫을 콘텐츠 순서로 흩뜨린다. 같은 콘텐츠·질량 단계·seed면 같은 색 순서가 나온다.
+            // 종류마다 처음 몫을 콘텐츠 순서로 흩뜨린다. 같은 콘텐츠·판 구성·seed면 같은 색·황금 순서가 나온다.
+            var tierRandom = new BattleRandom(seed, TierStream);
+            var goldenRandom = new BattleRandom(seed, GoldenStream);
+
             foreach (EnemyDefinition kind in stats.Kinds)
+            {
                 _tierPickers.Add(kind, new QuotaPicker(stats.TierRatiosOf(kind), tierRandom));
+
+                float golden = stats.GoldenRatioOf(kind);
+
+                if (golden > 0)
+                    _goldenPickers.Add(kind, new QuotaPicker(new[] { 1 - golden, golden }, goldenRandom));
+            }
         }
 
         // 지금 살아 있는 이 종류의 적 수.
@@ -116,7 +130,8 @@ namespace BlackHole.Core
 
         // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 풀 여과 장치를 거쳐 배치 띠 안에 생성한다.
         // 거른 요청은 버린다 — 나중에 자리가 나도 다시 나오지 않는다. 전투 시작 공급은 Begin(0초)이 바로 부른다.
-        // 색 등급은 여과를 통과한 뒤에 고른다. 최대 수는 종류 단위라 색 때문에 걸러지는 일은 없고, 걸러진 요청은 몫을 쓰지 않는다.
+        // 색 등급과 황금은 여과를 통과한 뒤에 고른다. 최대 수는 종류 단위라 색·황금 때문에 걸러지는 일은 없고,
+        // 걸러진 요청은 몫을 쓰지 않는다.
         internal void ProcessSpawnRequests()
         {
             foreach (SupplyRequest request in _spawnRequests)
@@ -127,7 +142,8 @@ namespace BlackHole.Core
                         continue;
 
                     int tier = _tierPickers[request.Enemy].Pick();
-                    _enemies.Spawn(request.Enemy, tier, Stats.Of(request.Enemy, tier), _placement.Pick(Random));
+                    bool golden = _goldenPickers.TryGetValue(request.Enemy, out QuotaPicker goldenPicker) && goldenPicker.Pick() == 1;
+                    _enemies.Spawn(request.Enemy, tier, golden, Stats.Of(request.Enemy, tier, golden), _placement.Pick(_placementRandom));
                 }
             }
 

@@ -13,6 +13,7 @@ namespace BlackHole.Unity
     // 종류는 계열(소행성·행성·별·달·혜성)이고 색은 종류 안에 둔다(BATTLE_COMPOSITION_PLAN 4.1).
     // - 색 등급: 같은 윤곽(스프라이트)에 색마다 색·크기·HP·Gold가 다르다. 색이 없는 종류는 한 줄이다.
     // - 질량 단계: 질량 증가를 산 수마다 한 줄. 색마다 나오는 비율과 HP·Gold 계수. 판 조립 때 한 줄이 골라진다.
+    // - 황금 배율: 황금은 종류가 아니라 생성 때 정해지는 특성이다. 황금이면 Gold에 이 값을 곱한다. 0이면 황금이 되지 않는다.
     // 특수 효과(전기·폭발·처치 버프)는 종류가 아니라 종류에 붙는 특성이다. 사망 효과 시스템이 붙을 때 더한다.
     [CreateAssetMenu(fileName = "EnemyKind", menuName = "BlackHole/Enemy Kind")]
     public sealed class EnemyKind : ScriptableObject
@@ -52,6 +53,10 @@ namespace BlackHole.Unity
         [Header("질량 단계 (0 = 질량 증가를 사지 않음)")]
         [SerializeField] private List<MassLevel> massLevels = new List<MassLevel>();
 
+        [Header("황금")]
+        [Tooltip("황금일 때 Gold에 곱하는 값. 0이면 이 종류는 황금이 되지 않는다(원작은 소행성만, 기본 50). 얼마나 섞일지는 판 조립이 정한다.")]
+        [SerializeField] private float goldenMultiplier;
+
         [Header("행동: HQ 공전")]
         [SerializeField] private bool clockwise;
 
@@ -71,6 +76,7 @@ namespace BlackHole.Unity
             {
                 Id = id,
                 MoveSpeed = moveSpeed,
+                GoldenMultiplier = goldenMultiplier,
                 Behavior = new EnemyBehaviorData { Kind = "Orbit", Clockwise = clockwise },
             };
 

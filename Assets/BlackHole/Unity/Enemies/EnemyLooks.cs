@@ -11,6 +11,11 @@ namespace BlackHole.Unity
     {
         private const int DiscPixels = 64;
 
+        // 황금 천체의 속 색. 원작의 황금 소행성은 원래 색의 윤곽에 속이 노랗다(BATTLE_COMPOSITION_PLAN 2.1).
+        public static readonly Color GoldenFill = new Color(1f, 0.82f, 0.2f);
+        // 황금 천체에서 노란 속이 차지하는 크기(윤곽 대비). 나머지 테두리가 원래 색으로 보인다 [임시].
+        public const float GoldenFillScale = 0.65f;
+
         private readonly Dictionary<string, EnemyKind> _kinds = new Dictionary<string, EnemyKind>(StringComparer.Ordinal);
         private readonly Texture2D _discTexture;
         private readonly Sprite _disc;

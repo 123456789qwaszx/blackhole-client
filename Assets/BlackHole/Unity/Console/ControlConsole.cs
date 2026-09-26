@@ -18,7 +18,8 @@ namespace BlackHole.Unity
     // - 판이 있으면 그 판의 단계 풀과 지금 살아 있는 수(매 프레임).
     // - 판이 없으면 선택한 진행도의 풀. 살아 있는 수는 '-'다.
     // 종류 줄을 누르면 그 종류의 수치·형태·특성이 아래의 설명창에 나온다. 같은 줄을 다시 누르면 닫힌다.
-    // 설명창은 색 등급마다 비율·HP·크기·Gold를 한 줄씩 보여 주고, 다음 전투의 질량 단계를 바꾸는 버튼이 있다.
+    // 설명창은 색 등급마다 비율·HP·크기·Gold(황금이 되는 종류는 황금 Gold도)를 한 줄씩 보여 주고,
+    // 다음 전투의 질량 단계와 황금 비율(황금이 되는 종류만)을 바꾸는 버튼이 있다.
     // 적의 수치는 전투 Session이 시작되기 전에 정해지고 전투 중에는 바뀌지 않는다. 그래서 설명창은
     // 판이 있으면 그 판의 수치를, 없으면 다음 전투의 질량 단계로 계산한 수치를 보여 준다.
     //
@@ -43,6 +44,8 @@ namespace BlackHole.Unity
         private readonly Image _detailForm;
         private readonly TMP_Text _detailFormText;
         private readonly TMP_Text _detailMassText;
+        private readonly TMP_Text _detailGoldenText;
+        private readonly GameObject _detailGoldenButtons;
         private readonly TMP_Text _detailStats;
         private readonly TMP_Text _detailSource;
         private readonly StringBuilder _builder = new StringBuilder();
@@ -104,6 +107,14 @@ namespace BlackHole.Unity
             HorizontalLayout(massButtons, 8);
             MassButton(massButtons, -1);
             MassButton(massButtons, +1);
+
+            // 황금이 되는 종류에만 보인다.
+            _detailGoldenText = Text(detail, "Golden", string.Empty, 22);
+            RectTransform goldenButtons = Child(detail, "GoldenButtons");
+            HorizontalLayout(goldenButtons, 8);
+            GoldenButton(goldenButtons, -1);
+            GoldenButton(goldenButtons, +1);
+            _detailGoldenButtons = goldenButtons.gameObject;
 
             _detailStats = Text(detail, "Stats", string.Empty, 22);
             _detailSource = Text(detail, "Source", string.Empty, 18);
@@ -273,12 +284,29 @@ namespace BlackHole.Unity
                 ? $"Mass level  {level} / {kind.MassLevels.Count - 1}  (next {next})"
                 : $"Mass level  {level} / {kind.MassLevels.Count - 1}";
 
+            bool canBeGolden = kind.CanBeGolden;
+            _detailGoldenText.gameObject.SetActive(canBeGolden);
+            _detailGoldenButtons.SetActive(canBeGolden);
+
+            if (canBeGolden)
+            {
+                float nextGolden = _orchestrator.GoldenRatioOf(kind);
+                float golden = battle != null ? battle.World.Stats.GoldenRatioOf(kind) : nextGolden;
+                string multiplier = Number(kind.GoldenMultiplier);
+                _detailGoldenText.text = battle != null
+                    ? $"Golden  {Percent(golden)}  x{multiplier} Gold  (next {Percent(nextGolden)})"
+                    : $"Golden  {Percent(golden)}  x{multiplier} Gold";
+            }
+
             _builder.Clear();
             _builder.Append("Speed<pos=6em>").Append(Number(kind.MoveSpeed)).Append('\n');
             _builder.Append("Behavior<pos=6em>").Append(Describe(kind.Behavior)).Append('\n');
             // 특성(전기·폭발·처치 버프)은 종류에 붙는다. 특성 시스템이 붙기 전에는 없다.
             _builder.Append("Traits<pos=6em>none\n");
             _builder.Append("Tier<pos=3em>Ratio<pos=7em>HP<pos=11em>Size<pos=15em>Gold");
+
+            if (canBeGolden)
+                _builder.Append("<pos=19em>Golden");
 
             for (int tier = 0; tier < kind.Tiers.Count; tier++)
             {
@@ -290,14 +318,23 @@ namespace BlackHole.Unity
                 _builder.Append("<pos=7em>").Append(Number(stats.MaxHealth));
                 _builder.Append("<pos=11em>").Append(Number(stats.Size));
                 _builder.Append("<pos=15em>").Append(stats.Gold);
+
+                if (canBeGolden)
+                {
+                    EnemyStats golden = battle != null ? battle.World.Stats.Of(kind, tier, true) : kind.StatsAt(level, tier, true);
+                    _builder.Append("<pos=19em>").Append(golden.Gold);
+                }
             }
 
             _detailStats.text = _builder.ToString();
 
             _detailSource.text = battle != null
-                ? $"Battle stats (stage {battle.Stage}), fixed at battle start. Mass level buttons apply from the next battle."
-                : "Next battle's stats. Mass level buttons apply from the next battle.";
+                ? $"Battle stats (stage {battle.Stage}), fixed at battle start. Buttons apply from the next battle."
+                : "Next battle's stats. Buttons apply from the next battle.";
         }
+
+        // 0.001 → "0.1%". 황금 비율은 자릿수 단위로 바뀌므로 작은 값도 읽히게 쓴다.
+        private static string Percent(float ratio) => (ratio * 100).ToString("0.###") + "%";
 
         // 가장 많이 나오는 색 등급(같으면 앞 번호). 형태 미리보기의 색으로 쓴다.
         private static int MostCommon(IReadOnlyList<float> ratios)
@@ -341,6 +378,27 @@ namespace BlackHole.Unity
                     return;
 
                 _orchestrator.SetMassLevel(_selected, _orchestrator.MassLevelOf(_selected) + delta);
+                _detailDirty = true;
+            });
+
+        // 개발용 황금 비율 단계. 원작은 행성 노드가 황금 비율을 자릿수 단위로 올린다(BATTLE_COMPOSITION_PLAN 2.1).
+        private static readonly float[] GoldenSteps = { 0, 0.001f, 0.01f, 0.1f, 1 };
+
+        // 설명창의 종류에서 다음 전투의 황금 비율을 한 단계 바꾼다.
+        private void GoldenButton(RectTransform parent, int delta) =>
+            ButtonOf(parent, $"Golden{delta:+0;-0}", delta > 0 ? "golden x10" : "golden /10", 150, () =>
+            {
+                if (_selected == null)
+                    return;
+
+                float current = _orchestrator.GoldenRatioOf(_selected);
+                int step = 0;
+
+                while (step + 1 < GoldenSteps.Length && GoldenSteps[step + 1] <= current)
+                    step++;
+
+                step = Math.Max(0, Math.Min(GoldenSteps.Length - 1, step + delta));
+                _orchestrator.SetGoldenRatio(_selected, GoldenSteps[step]);
                 _detailDirty = true;
             });
 

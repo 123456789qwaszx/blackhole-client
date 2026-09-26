@@ -101,6 +101,7 @@ namespace BlackHole.Core.Tests
                 "stranger", 1,
                 new[] { new EnemyTier(1, 1, 0) },
                 new[] { new MassLevelDefinition(new[] { 1f }, 1, 1) },
+                0,
                 new OrbitBehaviorDefinition(false));
 
         public static SupplyData Supply(string enemyId, int count) =>

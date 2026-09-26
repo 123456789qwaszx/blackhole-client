@@ -37,6 +37,8 @@ namespace BlackHole.Core
         public List<EnemyTierData> Tiers = new List<EnemyTierData>();
         // 질량 단계 표. MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음). 하나 이상.
         public List<MassLevelData> MassLevels = new List<MassLevelData>();
+        // 황금일 때 Gold에 곱하는 값. 0이면 황금이 되지 않는다.
+        public float GoldenMultiplier;
         public EnemyBehaviorData Behavior;
     }
 

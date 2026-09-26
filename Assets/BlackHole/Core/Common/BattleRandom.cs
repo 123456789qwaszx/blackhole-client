@@ -2,7 +2,7 @@ namespace BlackHole.Core
 {
     // 한 전투의 난수. 판 조립 때 seed로 하나 만들고 판이 끝나면 버린다.
     // seed와 입력과 진행 시간이 같으면 같은 값이 같은 순서로 나온다(기준 상황 재현, S12).
-    // 엔진의 난수를 쓰지 않는다. 지금 쓰는 곳은 적의 출현 배치와 색 등급의 몫(QuotaPicker)이다.
+    // 엔진의 난수를 쓰지 않는다. 지금 쓰는 곳은 적의 출현 배치와 색 등급·황금의 몫(QuotaPicker)이며, 용도마다 스트림이 다르다(World).
     internal sealed class BattleRandom
     {
         private uint _state;

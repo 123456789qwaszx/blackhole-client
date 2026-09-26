@@ -29,7 +29,9 @@ namespace BlackHole.Core
         public EnemyDefinition Definition { get; }
         // 색 등급(종류의 색 등급 표 번호). 출현 때 정해지고 바뀌지 않는다. 화면은 이 번호의 색으로 그린다.
         public int Tier { get; }
-        // 실행 수치. 출현 때 판의 적 수치 표에서 (종류, 색 등급)의 값을 받고 바뀌지 않는다.
+        // 황금인가. 출현 때 정해지고 바뀌지 않는다 — 사망 때 굴리지 않는다. 황금이면 Stats.Gold에 황금 배율이 들어 있다.
+        public bool IsGolden { get; }
+        // 실행 수치. 출현 때 판의 적 수치 표에서 (종류, 색 등급, 황금)의 값을 받고 바뀌지 않는다.
         public EnemyStats Stats { get; }
         public float Health { get; private set; }
         public bool IsAlive { get; private set; } = true;
@@ -37,11 +39,13 @@ namespace BlackHole.Core
         // 마지막으로 피해를 준 Player. 기록일 뿐이며 보상 귀속 규칙으로 쓰지 않는다(귀속 정책은 미정).
         public PlayerId? LastDamageSource { get; private set; }
 
-        internal Enemy(EnemyId id, EnemyDefinition definition, int tier, EnemyStats stats, Point2 position, IEnemyBehavior behavior)
+        internal Enemy(
+            EnemyId id, EnemyDefinition definition, int tier, bool golden, EnemyStats stats, Point2 position, IEnemyBehavior behavior)
         {
             Id = id;
             Definition = definition;
             Tier = tier;
+            IsGolden = golden;
             Stats = stats;
             Health = stats.MaxHealth;
             Position = position;
