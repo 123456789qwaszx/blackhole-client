@@ -23,6 +23,7 @@
 | [REFERENCE_ANALYSIS_ENEMY](REFERENCE_ANALYSIS_ENEMY.md) | 원작 천체(Enemy)의 생성·파괴 형식 분석 |
 | [NODE_SYSTEM_SURVEY](NODE_SYSTEM_SURVEY.md) | 기존 노드 트리·노드 편집기·스탯 보정 구현 조사 (F01·F02·F03·F07) |
 | [UPGRADE_LINK_PLAN](UPGRADE_LINK_PLAN.md) | 업그레이드 화면과 전투를 한 루프로 잇고, 판이 참가자별 업그레이드 표를 받게 하기 (UL-001~004) |
+| [SKILL_SYSTEM_PLAN](SKILL_SYSTEM_PLAN.md) | 스킬 샌드박스(별도 레포)와의 비교, 규칙 출처 가르기, 스킬·사망 효과·처치 버프를 전투에 들이는 방법 (SK-001~007) |
 | [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
 | [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
 | [AUTHORING_PAIN](AUTHORING_PAIN.md) | 현재 형식의 저작 시험 결과와 Authoring Pain 목록 (CA-002~, CA-006의 입력) |
