@@ -117,7 +117,7 @@
 | `SkillCatalogAsset` | Unity 스킬 설정 에셋 하나. Breaker 칸과 레이저 칸을 따로 둔다 → `ContentData` [제안]. 칸을 나누면 "종류에 맞는 칸만 채우기"(AUTHORING_PAIN AP8)가 생기지 않는다 |
 | `BreakerRuntime`·`LaserRuntime` | `BreakerSkill`·`LaserSkill` (Core/Skills) |
 | `SkillRuntime.Create` | 판 조립(`SessionAssembler`)이 참가자마다 콘텐츠의 스킬을 만든다 |
-| `SkillBattle`(조립·순서·켜기끄기) | 조립은 `SessionAssembler`, 순서는 `World.Step`, 켜기·끄기는 참가자 |
+| `SkillBattle`(조립·순서·켜기끄기) | 조립은 `SessionAssembler`, 순서는 `World.Step`, 켜기·끄기는 스킬 자신(`SetEnabled`: 끄면 주기와 예고를 버린다) |
 | `SkillBattle.Aim` | 판 안의 참가자의 `AimPoint` (5.4) |
 | `PlayerCombatStats` | 가져오지 않는다(4절 9). `CritChance`·`CritMultiplier`는 Breaker 정의에 둔다 |
 | `SkillDamage`(치명타 판정, `SkillHit` 기록) | Breaker 안의 치명타 판정과 적중 기록 |
@@ -175,7 +175,8 @@ World.Step(delta)
 | Core | `Skills/BreakerDefinition`, `Skills/BreakerSkill`(Tick 기록 `BreakerTick` 포함) | 새로 만든다 | SK-002 |
 | Core | `Skills/LaserDefinition`, `Skills/LaserSkill` | 새로 만든다 | SK-003 |
 | Core | `World/World` | 참가자 목록, Step 2·4 자리 | SK-002·005 |
-| Core | `World/BattlePlayer` [제안] | 조준점·스킬·켜기끄기·버프 | SK-002·004·006 |
+| Core | `World/BattlePlayer` [제안] | 조준점·스킬·버프 | SK-002·006 |
+| Core | `Skills/BreakerSkill`, `Skills/LaserSkill` | 켜기·끄기(`SetEnabled`, 개발용 콘솔만 부른다) | SK-004 |
 | Core | `Session/SessionAssembler`, `Session/GameSession` | 참가자마다 스킬을 만든다, `SetAimPoint` | SK-002 |
 | Core | `Common/BattleRandom` | 판 seed에서 스트림 나누기 | SK-003 |
 | Core | `Content/ContentData`, `ContentLoader`, `GameContent` | 스킬 저작 형식·검증, 적의 사망 효과 칸 | SK-002·003·005 |
@@ -200,7 +201,7 @@ World.Step(delta)
 | SK-003 | `Skill.LaserAimsAtTelegraphStartAndPiercesOnFire` — 예고 뒤 조준점이 움직여도 경로가 같다. 경로 폭 안의 적 전부 |
 | SK-003 | `Skill.LaserSkipsAimOutsideBoundaryAndStopsWithTheBattle` — 조준점이 없거나 경계 밖이면 그 주기는 예고 없이 지나가고, 끝난 판의 예고는 발사하지 않는다 |
 | SK-003 | `Skill.LaserStartIsReproducibleAndSeparateFromSpawns` — 같은 seed면 같은 시작점. 레이저 난수는 따로 돌아 출현 배치가 뽑는 횟수에 흔들리지 않는다(치명타 스트림은 SK-006) |
-| SK-004 | `Skill.DisabledSkillDropsItsTimerAndPendingShots` |
+| SK-004 | `Skill.DisabledSkillDropsItsTimerAndPendingShots` — 끈 스킬은 공격하지 않고 예고 중인 발사를 버린다. 다시 켜면 켠 뒤 첫 Step부터 처음처럼 돈다 |
 | SK-005 | `Death.EffectDamageSkipsEffectOwners` — 연쇄·폭발 모두 |
 | SK-005 | `Death.ChainEndsAtHopLimitWithoutRevisit` |
 | SK-005 | `Death.EffectKillsCountInTheSameStep` |
@@ -228,7 +229,7 @@ World.Step(delta)
 | SK-001 | 이 PLAN: 두 레포 비교, 규칙 출처 가르기, 가져오는 방법 | — | 완료 (사용자 검토, D2 확정) |
 | SK-002 | 조준점과 Breaker: 판 안의 참가자·조준점, Breaker 정의·저작 형식·에셋, Step 2, 조준 입력, Breaker 원 표시, 계약 | SK-001 | 구현(계약 64개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-003 | 관통 레이저: 정의·저작 형식, 예고·발사, 경계 반지름, 난수 스트림, 예고·발사선 표시, 계약 | SK-002 | 구현(계약 67개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
-| SK-004 | 스킬 콘솔: 스킬마다 켜기·끄기, 수치 창 | SK-003 | 대기 |
+| SK-004 | 스킬 콘솔: 스킬마다 켜기·끄기, 수치 창 (왼쪽 가운데, 고른 켜짐은 판 사이에 이어짐) | SK-003 | 구현(계약 68개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-005 | 사망 효과: 적 종류의 사망 효과 칸, Step 4, 연쇄 번개·폭발, 샘플 종류와 풀 [임시], 번개·폭발 표시, 계약 | SK-002 | 대기 |
 | SK-006 | 처치 버프와 Breaker 치명타: 달·혜성, 참가자 버프, 치명타 판정, 콘솔의 남은 시간, 치명타 표시, 계약 | SK-004·005 | 대기 |
 | SK-007 | 문서: SYSTEM_CATALOG S02·S04·S06 상태와 이 PLAN의 티켓 상태 | SK-006 | 대기 |

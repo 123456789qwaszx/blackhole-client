@@ -40,6 +40,8 @@ namespace BlackHole.Core
         private float _untilNextTick;
 
         public BreakerDefinition Definition { get; }
+        // 켜져 있는가. 꺼진 Breaker는 공격하지 않는다. 지금 끄고 켜는 곳은 개발용 스킬 콘솔뿐이다(게임 규칙으로 끄는 일은 없다).
+        public bool Enabled { get; private set; } = true;
         // 지금까지 일어난 Tick 수. 빈 Tick도 센다.
         public int TickCount { get; private set; }
         // 마지막 Tick이 피해를 준 적의 수. 빈 Tick이면 0이다.
@@ -53,11 +55,24 @@ namespace BlackHole.Core
             Ticks = _ticks.AsReadOnly();
         }
 
+        // 끄면 돌던 주기를 버린다. 다시 켜면 처음부터 돈다: 켠 뒤 첫 Step에 첫 Tick.
+        public void SetEnabled(bool enabled)
+        {
+            if (Enabled == enabled)
+                return;
+
+            Enabled = enabled;
+            _untilNextTick = 0;
+        }
+
         internal void BeginAdvance() => _ticks.Clear();
 
         // 한 Step 동안 주기가 여러 번 차면 그만큼 Tick한다. 같은 Step 안의 Tick은 같은 조준점과 같은 적 위치를 본다.
         internal void Advance(float delta, BattlePlayer owner, World world)
         {
+            if (!Enabled)
+                return;
+
             _untilNextTick -= delta;
 
             while (_untilNextTick <= TimeEpsilon)

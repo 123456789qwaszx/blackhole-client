@@ -20,6 +20,43 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Skill.LaserAimsAtTelegraphStartAndPiercesOnFire", LaserAimsAtTelegraphStartAndPiercesOnFire);
             yield return new Contract("Skill.LaserSkipsAimOutsideBoundaryAndStopsWithTheBattle", LaserSkipsAimOutsideBoundaryAndStopsWithTheBattle);
             yield return new Contract("Skill.LaserStartIsReproducibleAndSeparateFromSpawns", LaserStartIsReproducibleAndSeparateFromSpawns);
+            yield return new Contract("Skill.DisabledSkillDropsItsTimerAndPendingShots", DisabledSkillDropsItsTimerAndPendingShots);
+        }
+
+        // 끈 스킬은 공격하지 않고, 돌던 주기와 예고 중인 발사를 버린다(발사하지 않는다).
+        // 다시 켜면 처음부터 돈다: 켠 뒤 첫 Step에 Breaker는 Tick하고 레이저는 새로 예고한다. 번호는 이어진다.
+        private static void DisabledSkillDropsItsTimerAndPendingShots()
+        {
+            ContentData data = Arena(radius: 5, count: 3, health: 100, damage: 1);
+            data.Laser = new LaserData { Damage = 1, Interval = 1, Width = 20, TelegraphDuration = 0.4f, BoundaryRadius = Boundary };
+            GameSession game = TestContent.Session(data);
+            BattlePlayer player = game.World.Players[0];
+            game.SetAimPoint(TestContent.First, BattleSpace.Origin);
+
+            game.Advance(0.1f);
+            Expect.Equal(1, player.Breaker.TickCount);
+            Expect.Equal(1, player.Laser.PendingShots.Count);
+
+            player.Breaker.SetEnabled(false);
+            player.Laser.SetEnabled(false);
+            Expect.True(!player.Breaker.Enabled && !player.Laser.Enabled, "끈 스킬은 꺼져 있다.");
+            Expect.Equal(0, player.Laser.PendingShots.Count);
+
+            game.Advance(1.3f);
+            Expect.Equal(1, player.Breaker.TickCount);
+            Expect.Equal(0, player.Laser.FireCount);
+            Expect.Equal(0, player.Laser.PendingShots.Count);
+
+            foreach (Enemy enemy in game.World.Enemies)
+                Expect.Near(99, enemy.Health);
+
+            player.Breaker.SetEnabled(true);
+            player.Laser.SetEnabled(true);
+            game.Advance(0.1f);
+            Expect.Equal(2, player.Breaker.TickCount);
+            Expect.Equal(1, player.Laser.PendingShots.Count);
+            Expect.Equal(2, player.Laser.PendingShots[0].Number);
+            Expect.Near(0.3f, player.Laser.PendingShots[0].Remaining);
         }
 
         // 스킬 칸이 없으면 판에 그 스킬이 없고, 판은 그대로 돈다. 칸이 있으면 수치를 검사해 경로와 함께 보고한다.

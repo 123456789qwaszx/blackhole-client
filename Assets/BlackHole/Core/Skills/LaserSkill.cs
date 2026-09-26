@@ -69,6 +69,8 @@ namespace BlackHole.Core
         private int _telegraphCount;
 
         public LaserDefinition Definition { get; }
+        // 켜져 있는가. 꺼진 레이저는 예고도 발사도 하지 않는다. 지금 끄고 켜는 곳은 개발용 스킬 콘솔뿐이다(게임 규칙으로 끄는 일은 없다).
+        public bool Enabled { get; private set; } = true;
         // 예고 중인 발사(예고한 순서). 화면은 이것으로 예고선을 그린다.
         public IReadOnlyList<LaserShot> PendingShots { get; }
         // 마지막 진행 동안의 발사(발사한 순서). 다음 진행이 시작될 때 비운다.
@@ -85,10 +87,24 @@ namespace BlackHole.Core
             Fires = _fires.AsReadOnly();
         }
 
+        // 끄면 돌던 주기와 예고 중인 발사를 버린다(발사하지 않는다). 다시 켜면 처음부터 돈다: 켠 뒤 첫 Step에 첫 예고.
+        public void SetEnabled(bool enabled)
+        {
+            if (Enabled == enabled)
+                return;
+
+            Enabled = enabled;
+            _untilNextTelegraph = 0;
+            _pending.Clear();
+        }
+
         internal void BeginAdvance() => _fires.Clear();
 
         internal void Advance(float delta, BattlePlayer owner, World world)
         {
+            if (!Enabled)
+                return;
+
             for (int i = 0; i < _pending.Count; i++)
                 _pending[i] = _pending[i].Elapse(delta);
 
