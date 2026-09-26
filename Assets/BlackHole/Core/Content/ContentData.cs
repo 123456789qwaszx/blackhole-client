@@ -12,6 +12,7 @@ namespace BlackHole.Core
         public SessionData Session;
         // 스킬은 종류마다 칸이 따로 있다. 비어 있으면 판에 그 스킬이 없다.
         public BreakerData Breaker;
+        public LaserData Laser;
         public List<EnemyData> Enemies = new List<EnemyData>();
         // 적 풀. 단계 표가 ID로 가리킨다.
         public List<EnemyPoolData> EnemyPools = new List<EnemyPoolData>();
@@ -38,6 +39,20 @@ namespace BlackHole.Core
         public float Interval;
         // 조준점을 중심으로 한 공격 원의 반지름.
         public float Radius;
+    }
+
+    [Serializable]
+    public sealed class LaserData
+    {
+        public float Damage;
+        // 예고를 시작하는 주기(초).
+        public float Interval;
+        // 발사선의 굵기.
+        public float Width;
+        // 예고가 보이는 시간(초).
+        public float TelegraphDuration;
+        // 시작점이 놓이는 경계 원의 반지름(HQ 중심).
+        public float BoundaryRadius;
     }
 
     [Serializable]

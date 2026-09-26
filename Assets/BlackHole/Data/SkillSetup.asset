@@ -15,3 +15,8 @@ MonoBehaviour:
   breakerDamage: 2
   breakerInterval: 1
   breakerRadius: 1.5
+  laserDamage: 3
+  laserInterval: 4
+  laserWidth: 0.5
+  laserTelegraphDuration: 0.4
+  laserBoundaryRadius: 11

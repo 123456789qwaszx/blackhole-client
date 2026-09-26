@@ -27,6 +27,7 @@ namespace BlackHole.Core
 
             TimeLimitDefinition timeLimit = LoadSession(data.Session, diagnostics);
             BreakerDefinition breaker = LoadBreaker(data.Breaker, diagnostics);
+            LaserDefinition laser = LoadLaser(data.Laser, diagnostics);
             List<EnemyDefinition> enemies = LoadEnemies(data.Enemies, diagnostics);
             EnemyPlacementDefinition placement = LoadPlacement(data.EnemyPlacement, diagnostics);
 
@@ -50,7 +51,7 @@ namespace BlackHole.Core
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, breaker, enemies, placement, startSupply, pools, stages),
+                new GameContent(timeLimit, breaker, laser, enemies, placement, startSupply, pools, stages),
                 diagnostics);
         }
 
@@ -71,6 +72,16 @@ namespace BlackHole.Core
                 return null;
 
             return Guard("Breaker", into, () => new BreakerDefinition(item.Damage, item.Interval, item.Radius));
+        }
+
+        // 없으면 판에 레이저가 없다.
+        private static LaserDefinition LoadLaser(LaserData item, List<ContentDiagnostic> into)
+        {
+            if (item == null)
+                return null;
+
+            return Guard("Laser", into, () =>
+                new LaserDefinition(item.Damage, item.Interval, item.Width, item.TelegraphDuration, item.BoundaryRadius));
         }
 
         // ── 적 ──────────────────────────────────────────────────────────────

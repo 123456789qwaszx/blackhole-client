@@ -193,12 +193,13 @@ World.Step(delta)
 
 | 티켓 | 계약 |
 |---|---|
-| SK-002 | `Skill.BreakerIsOptionalButValidatedAtLoad` — Breaker 칸이 없으면 Breaker 없이 판이 돌고, 잘못된 수치는 경로와 함께 보고 |
+| SK-002·003 | `Skill.SkillsAreOptionalButValidatedAtLoad` — 스킬 칸이 없으면 그 스킬 없이 판이 돌고, 잘못된 수치는 경로와 함께 보고 |
 | SK-002 | `Skill.BreakerHitsEveryAliveEnemyInsideAimRadius` — 첫 Step에 Tick, 범위 안 전부, 밖은 제외, 조준점 없으면 빈 Tick |
 | SK-002 | `Skill.DamageGoesThroughWorldOnce` — 같은 Tick에 겹쳐도 사망 기록·처치 수는 한 번 |
 | SK-002 | `Skill.NothingCarriesIntoNextBattle` — 끝난 판은 공격하지 않고, 새 판의 타이머·예고는 처음부터 |
 | SK-003 | `Skill.LaserAimsAtTelegraphStartAndPiercesOnFire` — 예고 뒤 조준점이 움직여도 경로가 같다. 경로 폭 안의 적 전부 |
-| SK-003 | `Skill.SameSeedSameLaser` — 같은 seed·입력이면 같은 시작점. 치명타 판정이 시작점 순서를 바꾸지 않는다 |
+| SK-003 | `Skill.LaserSkipsAimOutsideBoundaryAndStopsWithTheBattle` — 조준점이 없거나 경계 밖이면 그 주기는 예고 없이 지나가고, 끝난 판의 예고는 발사하지 않는다 |
+| SK-003 | `Skill.LaserStartIsReproducibleAndSeparateFromSpawns` — 같은 seed면 같은 시작점. 레이저 난수는 따로 돌아 출현 배치가 뽑는 횟수에 흔들리지 않는다(치명타 스트림은 SK-006) |
 | SK-004 | `Skill.DisabledSkillDropsItsTimerAndPendingShots` |
 | SK-005 | `Death.EffectDamageSkipsEffectOwners` — 연쇄·폭발 모두 |
 | SK-005 | `Death.ChainEndsAtHopLimitWithoutRevisit` |
@@ -226,7 +227,7 @@ World.Step(delta)
 |---|---|---|---|
 | SK-001 | 이 PLAN: 두 레포 비교, 규칙 출처 가르기, 가져오는 방법 | — | 완료 (사용자 검토, D2 확정) |
 | SK-002 | 조준점과 Breaker: 판 안의 참가자·조준점, Breaker 정의·저작 형식·에셋, Step 2, 조준 입력, Breaker 원 표시, 계약 | SK-001 | 구현(계약 64개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
-| SK-003 | 관통 레이저: 정의·저작 형식, 예고·발사, 경계 반지름, 난수 스트림, 예고·발사선 표시, 계약 | SK-002 | 대기 |
+| SK-003 | 관통 레이저: 정의·저작 형식, 예고·발사, 경계 반지름, 난수 스트림, 예고·발사선 표시, 계약 | SK-002 | 구현(계약 67개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-004 | 스킬 콘솔: 스킬마다 켜기·끄기, 수치 창 | SK-003 | 대기 |
 | SK-005 | 사망 효과: 적 종류의 사망 효과 칸, Step 4, 연쇄 번개·폭발, 샘플 종류와 풀 [임시], 번개·폭발 표시, 계약 | SK-002 | 대기 |
 | SK-006 | 처치 버프와 Breaker 치명타: 달·혜성, 참가자 버프, 치명타 판정, 콘솔의 남은 시간, 치명타 표시, 계약 | SK-004·005 | 대기 |

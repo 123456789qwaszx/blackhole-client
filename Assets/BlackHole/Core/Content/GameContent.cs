@@ -19,6 +19,7 @@ namespace BlackHole.Core
         public TimeLimitDefinition TimeLimit { get; }
         // 스킬. 없으면 null이고 판에 그 스킬이 없다.
         public BreakerDefinition Breaker { get; }
+        public LaserDefinition Laser { get; }
         public IReadOnlyList<EnemyDefinition> Enemies { get; }
         // 출현 위치. 공급이 없으면 null일 수 있다.
         public EnemyPlacementDefinition EnemyPlacement { get; }
@@ -33,6 +34,7 @@ namespace BlackHole.Core
         public GameContent(
             TimeLimitDefinition timeLimit,
             BreakerDefinition breaker,
+            LaserDefinition laser,
             IReadOnlyList<EnemyDefinition> enemies,
             EnemyPlacementDefinition enemyPlacement,
             IReadOnlyList<SupplyRequest> startSupply,
@@ -41,6 +43,7 @@ namespace BlackHole.Core
         {
             TimeLimit = timeLimit ?? throw new ArgumentNullException(nameof(timeLimit));
             Breaker = breaker;
+            Laser = laser;
             Enemies = Copy(enemies);
             EnemyPlacement = enemyPlacement;
             StartSupply = Copy(startSupply);

@@ -44,7 +44,7 @@ namespace BlackHole.Core
             {
                 upgrades.Add(state.Id, nodes == null ? new UpgradeTable(Array.Empty<Upgrade>()) : NodePurchase.UpgradesFor(state, nodes));
                 // 판 안의 참가자: 콘텐츠의 스킬을 모두 받는다. 스킬 수치는 아직 업그레이드 표를 읽지 않는다(SKILL_SYSTEM_PLAN 2절).
-                battlePlayers.Add(new BattlePlayer(state.Id, content.Breaker));
+                battlePlayers.Add(new BattlePlayer(state.Id, content.Breaker, content.Laser, seed));
             }
 
             // 적의 수치는 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
