@@ -6,13 +6,16 @@ using UnityEngine.UI;
 
 namespace BlackHole.Unity
 {
-    // 화면 프리팹이 연결되기 전에 쓰는 임시 화면. Canvas와 전투 화면을 코드로 만든다.
+    // 화면 프리팹이 연결되기 전에 쓰는 임시 화면. Canvas와 화면(업그레이드, 전투)을 코드로 만든다.
     // 자식 이름은 화면 클래스의 Refs와 같다 — 실제 프리팹도 같은 이름을 쓰면 화면 클래스가 그대로 붙는다.
     // GameHost에 사용자 UI를 연결하면 쓰지 않는다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
     internal static class PlaceholderScreens
     {
         private static readonly Color ButtonColor = new Color(0.2f, 0.26f, 0.42f);
         private static readonly Vector2 MenuButton = new Vector2(420, 72);
+        private static readonly Color Backdrop = new Color(0.08f, 0.08f, 0.11f);
+        private const float HeaderHeight = 110;
+        private const float FooterHeight = 110;
 
         public readonly struct Result
         {
@@ -36,13 +39,33 @@ namespace BlackHole.Unity
             RectTransform rootLayer = Stretch(Child(canvas, "RootLayer"));
             RectTransform panelLayer = Stretch(Child(canvas, "PanelLayer"));
 
-            var views = new UIBase[] { BuildBattle(rootLayer) };
+            var views = new UIBase[] { BuildUpgrade(rootLayer), BuildBattle(rootLayer) };
             return new Result(rootLayer, panelLayer, views);
         }
 
         #region 화면
 
         // 자식을 모두 만든 뒤 화면 클래스를 붙인다. 화면 클래스는 붙는 순간 자식을 이름으로 찾는다.
+        // 업그레이드 화면: 어두운 배경, 위쪽 글자(Gold, 제목, 산 노드 수), 가운데 트리 영역, 아래쪽 전투 시작 버튼.
+        private static UIBase BuildUpgrade(RectTransform layer)
+        {
+            RectTransform screen = Stretch(Child(layer, nameof(UpgradeScreen)));
+            screen.gameObject.AddComponent<Image>().color = Backdrop;
+
+            RectTransform viewport = Stretch(Child(screen, nameof(UpgradeScreen.Refs.TreeViewport)));
+            viewport.offsetMin = new Vector2(0, FooterHeight);
+            viewport.offsetMax = new Vector2(0, -HeaderHeight);
+
+            Label(screen, nameof(UpgradeScreen.Refs.GoldText), string.Empty, 36, new Vector2(0.2f, 0.955f));
+            Label(screen, "Heading", "UPGRADES", 40, new Vector2(0.5f, 0.955f));
+            Label(screen, nameof(UpgradeScreen.Refs.ProgressText), string.Empty, 36, new Vector2(0.8f, 0.955f));
+
+            RectTransform footer = Row(screen, "Footer", new Vector2(0.5f, 0.05f), 24);
+            MenuButtonOf(footer, nameof(UpgradeScreen.Refs.StartBattleBtn_Button), "Start battle");
+
+            return screen.gameObject.AddComponent<UpgradeScreen>();
+        }
+
         // 전투 화면은 배경이 없다. 뒤의 전투 장면(적)이 보여야 한다.
         private static UIBase BuildBattle(RectTransform layer)
         {

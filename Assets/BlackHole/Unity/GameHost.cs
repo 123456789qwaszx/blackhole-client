@@ -6,14 +6,15 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
-    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면, 적·전투 시스템, 오케스트레이터, UI(UIManager와 전투 화면),
-    //   화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·노드 콘솔(개발용) 조립.
-    // - Start: 전투 화면을 연다. 판은 아직 없다 — 전투 시작은 오케스트레이터에 요청한다(지금은 전투 시작·종료 콘솔의 Start).
+    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면, 적·전투 시스템, 오케스트레이터, UI(UIManager와 업그레이드·전투 화면),
+    //   화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔(개발용) 조립.
+    // - Start: 업그레이드 화면을 연다. 전투는 업그레이드 화면의 Start battle(또는 전투 시작·종료 콘솔)로 오케스트레이터에 요청한다.
+    //   그 뒤로 화면은 전투 시스템의 상태를 따른다(ScreenFlow).
     // - Update: 적·전투 시스템 → 화면 → 콘솔 순서로 한 프레임을 넘긴다.
     //
     // 콘텐츠: 판 설정은 SampleContent(C#), 적 종류는 적 종류 목록 에셋,
     // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
-    // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다.
+    // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다. 업그레이드 화면은 같은 에셋의 격자 칸으로 노드를 놓는다.
     // 화면 프리팹을 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens).
     // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed class GameHost : MonoBehaviour
@@ -36,6 +37,7 @@ namespace BlackHole.Unity
 
         [Header("Presentations (비우면 빈 Presentation)")]
         [SerializeField] private UIPresentationSpec battlePresentation;
+        [SerializeField] private UIPresentationSpec upgradePresentation;
 
         [Header("UI Context")]
         [SerializeField] private string themeId = "Light";
@@ -53,13 +55,13 @@ namespace BlackHole.Unity
         private ControlConsole _console;
         private BattleLifecycleConsole _lifecycleConsole;
         private EnemyCommandConsole _commandConsole;
-        private NodeConsole _nodeConsole;
+        private UpgradeConsole _upgradeConsole;
 
         #region Unity 수명
 
         private void Awake()
         {
-            if (!TryLoadContent(out GameContent content) || !TryLoadNodeTree(out NodeTree nodeTree))
+            if (!TryLoadContent(out GameContent content) || !TryLoadNodeTree(out NodeTreeData layout, out NodeTree nodeTree))
             {
                 enabled = false;
                 return;
@@ -69,6 +71,8 @@ namespace BlackHole.Unity
             _enemyView = new EnemyView(transform, _enemyLooks);
             _battle = new BattleSystem(content, _enemyView);
             _orchestrator = new BattleOrchestrator(content, _battle, LocalPlayers);
+            // 업그레이드 화면과 콘솔이 보는 진행 상태: 지금 실제 구성인 로컬 Player 1명.
+            PlayerState viewer = _orchestrator.Progress[0];
 
             if (rootLayer == null)
             {
@@ -93,22 +97,30 @@ namespace BlackHole.Unity
                 ui.Register(view);
             }
 
-            _flow = new ScreenFlow(ui, _battle, _orchestrator, OrEmpty(battlePresentation, "Battle"));
+            _flow = new ScreenFlow(
+                ui,
+                _battle,
+                _orchestrator,
+                nodeTree,
+                layout,
+                viewer,
+                OrEmpty(battlePresentation, "Battle"),
+                OrEmpty(upgradePresentation, "Upgrade"));
 
             if (displayRefreshDriver != null)
                 displayRefreshDriver.Initialize(ui);
 
-            // 조종 콘솔, 전투 시작·종료 콘솔, 적 명령 콘솔, 노드 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
+            // 조종 콘솔, 전투 시작·종료 콘솔, 적 명령 콘솔, 업그레이드 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
             if (Debug.isDebugBuild)
             {
                 _console = new ControlConsole(transform, _orchestrator, _battle, _enemyLooks);
                 _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle);
                 _commandConsole = new EnemyCommandConsole(transform, _battle, content.Enemies);
-                _nodeConsole = new NodeConsole(transform, nodeTree, _orchestrator.Progress[0]);
+                _upgradeConsole = new UpgradeConsole(transform, viewer, nodeTree);
             }
         }
 
-        private void Start() => _flow.OpenBattleScreen();
+        private void Start() => _flow.OpenUpgradeScreen();
 
         private void Update()
         {
@@ -117,12 +129,12 @@ namespace BlackHole.Unity
             _console?.Tick();
             _lifecycleConsole?.Tick();
             _commandConsole?.Tick();
-            _nodeConsole?.Tick();
+            _upgradeConsole?.Tick();
         }
 
         private void OnDestroy()
         {
-            _nodeConsole?.Dispose();
+            _upgradeConsole?.Dispose();
             _commandConsole?.Dispose();
             _lifecycleConsole?.Dispose();
             _console?.Dispose();
@@ -165,9 +177,10 @@ namespace BlackHole.Unity
             return result.Succeeded;
         }
 
-        // 오류가 있는 노드 트리로도 시작하지 않는다.
-        private bool TryLoadNodeTree(out NodeTree tree)
+        // 오류가 있는 노드 트리로도 시작하지 않는다. 업그레이드 화면은 트리(규칙)와 함께 저작 데이터(격자 칸)도 받는다.
+        private bool TryLoadNodeTree(out NodeTreeData layout, out NodeTree tree)
         {
+            layout = null;
             tree = null;
 
             if (nodeCatalog == null)
@@ -176,7 +189,8 @@ namespace BlackHole.Unity
                 return false;
             }
 
-            NodeTreeLoadResult result = NodeTreeLoader.Load(nodeCatalog.ToData());
+            layout = nodeCatalog.ToData();
+            NodeTreeLoadResult result = NodeTreeLoader.Load(layout);
 
             foreach (ContentDiagnostic diagnostic in result.Diagnostics)
                 Debug.LogError("[노드 트리] " + diagnostic, this);

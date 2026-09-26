@@ -20,12 +20,31 @@ namespace BlackHole.Core
 
         // 노드 ID(저작 순서).
         public IReadOnlyList<string> Nodes { get; }
+        // 선 목록. 한 선은 한 번만 나온다. 화면이 선을 그릴 때 읽는다.
+        public IReadOnlyList<(string A, string B)> Links { get; }
 
         internal NodeGraph(List<string> nodes, HashSet<string> starts, Dictionary<string, IReadOnlyList<string>> neighbors)
         {
             Nodes = nodes.AsReadOnly();
             _starts = starts;
             _neighbors = neighbors;
+
+            var links = new List<(string, string)>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (string id in nodes)
+            {
+                // 저작 순서로 이미 지나간 노드와의 선은 그쪽에서 적었다.
+                foreach (string neighbor in neighbors[id])
+                {
+                    if (seen.Contains(neighbor))
+                        links.Add((neighbor, id));
+                }
+
+                seen.Add(id);
+            }
+
+            Links = links.AsReadOnly();
         }
 
         public bool Contains(string id) => id != null && _neighbors.ContainsKey(id);

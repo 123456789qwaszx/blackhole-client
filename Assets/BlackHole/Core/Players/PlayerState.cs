@@ -59,8 +59,29 @@ namespace BlackHole.Core
         internal void Buy(NodeDefinition node)
         {
             Gold -= node.Price;
-            _owned.Add(node.Id);
-            _ownedNodes.Add(node.Id);
+            Own(node.Id);
+        }
+
+        // 아래는 개발용 치트(ProgressCheats)만 부른다. 구매 규칙을 거치지 않는다.
+
+        // 가진 Gold보다 많이 빼면 0이 된다. 실제로 뺀 양을 돌려준다.
+        internal long TakeGold(long amount)
+        {
+            long taken = Math.Min(amount, Gold);
+            Gold -= taken;
+            return taken;
+        }
+
+        internal void Own(string nodeId)
+        {
+            if (_owned.Add(nodeId))
+                _ownedNodes.Add(nodeId);
+        }
+
+        internal void ForgetAllNodes()
+        {
+            _owned.Clear();
+            _ownedNodes.Clear();
         }
 
         internal void EnterBattle()
