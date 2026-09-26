@@ -23,11 +23,7 @@ namespace BlackHole.Core.Tests
         public static IEnumerable<Contract> All()
         {
             foreach (Contract contract in HarnessContracts.Cases()) yield return contract;
-            foreach (Contract contract in ContentContracts.Cases()) yield return contract;
-            foreach (Contract contract in SessionContracts.Cases()) yield return contract;
-            foreach (Contract contract in EnemyContracts.Cases()) yield return contract;
             foreach (Contract contract in ProgressContracts.Cases()) yield return contract;
-            foreach (Contract contract in UpgradeContracts.Cases()) yield return contract;
             foreach (Contract contract in NodeContracts.Cases()) yield return contract;
             foreach (Contract contract in AuthoringContracts.Cases()) yield return contract;
         }

@@ -4,15 +4,15 @@ using BlackHole.Core;
 
 namespace BlackHole.Core.Tests
 {
-    // 노드 트리: 그래프(시작 노드와 선으로 드러남)와 구매(전투 밖에서 Gold로 산다). 산 노드의 업그레이드는 UpgradeTable이 된다.
+    // 노드 트리: 그래프(시작 노드와 선으로 드러남)와 구매(Gold로 산다).
     internal static class NodeContracts
     {
+        private static readonly PlayerId First = new PlayerId(1);
+
         public static IEnumerable<Contract> Cases()
         {
             yield return new Contract("Node.RevealedByStartOrAnyOwnedNeighbor", RevealedByStartOrAnyOwnedNeighbor);
             yield return new Contract("Node.FailedPurchaseChangesNothing", FailedPurchaseChangesNothing);
-            yield return new Contract("Node.CannotPurchaseDuringBattle", CannotPurchaseDuringBattle);
-            yield return new Contract("Node.OwnedNodesBecomeTheUpgradeTable", OwnedNodesBecomeTheUpgradeTable);
             yield return new Contract("Node.LoaderReportsBrokenNodesAndLinks", LoaderReportsBrokenNodesAndLinks);
             yield return new Contract("Node.EveryNodeIsReachableFromAStartNode", EveryNodeIsReachableFromAStartNode);
         }
@@ -28,7 +28,7 @@ namespace BlackHole.Core.Tests
                 Node("c", 1),
                 Node("d", 50, false, "b", "c", "far"),
                 Node("far", 1));
-            var state = new PlayerState(TestContent.First);
+            var state = new PlayerState(First);
             state.EarnGold(10);
 
             Expect.Equal(NodeState.Purchasable, NodePurchase.StateOf(state, tree, "s"));
@@ -54,7 +54,7 @@ namespace BlackHole.Core.Tests
         private static void FailedPurchaseChangesNothing()
         {
             NodeTree tree = Load(Node("s", 10, true, "a"), Node("a", 10));
-            var state = new PlayerState(TestContent.First);
+            var state = new PlayerState(First);
             state.EarnGold(15);
 
             Expect.Equal(PurchaseResult.Hidden, NodePurchase.TryPurchase(state, tree, "a"));
@@ -71,56 +71,16 @@ namespace BlackHole.Core.Tests
             Expect.Equal(1, state.OwnedNodes.Count);
         }
 
-        // 전투에 들어가 있는 동안에는 살 수 없다. 전투가 끝나면 다시 살 수 있다.
-        private static void CannotPurchaseDuringBattle()
-        {
-            GameContent content = TestContent.Load(TestContent.Data());
-            NodeTree tree = Load(Node("s", 1, true));
-            var state = new PlayerState(TestContent.First);
-            state.EarnGold(5);
-
-            GameSession battle = SessionAssembler.CreateBattle(content, new[] { state });
-            Expect.Equal(PurchaseResult.InBattle, NodePurchase.TryPurchase(state, tree, "s"));
-            Expect.Equal(NodeState.Revealed, NodePurchase.StateOf(state, tree, "s"));
-            Expect.Equal(5L, state.Gold);
-
-            battle.RequestEnd(SessionEndReason.TimeExpired);
-            Expect.Equal(PurchaseResult.Purchased, NodePurchase.TryPurchase(state, tree, "s"));
-        }
-
-        // 산 노드의 업그레이드만 모인다. 사지 않은 노드의 업그레이드는 섞이지 않는다.
-        private static void OwnedNodesBecomeTheUpgradeTable()
-        {
-            NodeTree tree = Load(
-                Grants(Node("s", 1, true, "a", "b"), Up("damage", UpgradeOperation.Add, 2)),
-                Grants(Node("a", 1), Up("damage", UpgradeOperation.Percent, 0.5f)),
-                Grants(Node("b", 1), Up("damage", UpgradeOperation.Multiply, 10)));
-            var state = new PlayerState(TestContent.First);
-            state.EarnGold(10);
-
-            Expect.Equal(10f, NodePurchase.UpgradesFor(state, tree).Apply("damage", 10));
-
-            NodePurchase.TryPurchase(state, tree, "s");
-            NodePurchase.TryPurchase(state, tree, "a");
-
-            // (10 + 2) × 1.5
-            Expect.Near(18f, NodePurchase.UpgradesFor(state, tree).Apply("damage", 10));
-        }
-
-        // 노드 하나의 오류(ID, 가격, 업그레이드)와 노드 사이의 오류(중복 ID, 선)를 경로와 함께 모두 보고한다.
+        // 노드 하나의 오류(ID, 가격)와 노드 사이의 오류(중복 ID, 선)를 경로와 함께 모두 보고한다.
         private static void LoaderReportsBrokenNodesAndLinks()
         {
             NodeTreeLoadResult nodes = NodeTreeLoader.Load(Tree(
                 Node("", 1, true),
-                Node("free", 0),
-                Grants(Node("nan", 1), Up("damage", UpgradeOperation.Add, float.NaN)),
-                Grants(Node("nameless", 1), Up(" ", UpgradeOperation.Add, 1))));
+                Node("free", 0)));
 
             Expect.True(!nodes.Succeeded, "잘못된 노드가 있으면 트리가 없어야 한다.");
             HasDiagnostic(nodes, "Nodes[0]", "ID가 비어 있다");
             HasDiagnostic(nodes, "Nodes[free]", "양의 정수");
-            HasDiagnostic(nodes, "Nodes[nan].Upgrades[0]", "유한한 값");
-            HasDiagnostic(nodes, "Nodes[nameless].Upgrades[0]", "수치 이름이 비어 있다");
 
             NodeTreeLoadResult links = NodeTreeLoader.Load(Tree(
                 Node("s", 1, true, "s", "ghost", ""),
@@ -147,15 +107,6 @@ namespace BlackHole.Core.Tests
 
         private static NodeData Node(string id, long price, bool start = false, params string[] links) =>
             new NodeData { Id = id, Price = price, Start = start, Links = new List<string>(links) };
-
-        private static NodeData Grants(NodeData node, params UpgradeData[] upgrades)
-        {
-            node.Upgrades.AddRange(upgrades);
-            return node;
-        }
-
-        private static UpgradeData Up(string stat, UpgradeOperation operation, float value) =>
-            new UpgradeData { Stat = stat, Operation = operation, Value = value };
 
         private static NodeTreeData Tree(params NodeData[] nodes) =>
             new NodeTreeData { Nodes = new List<NodeData>(nodes) };

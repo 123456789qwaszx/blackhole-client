@@ -9,7 +9,6 @@
   <ItemGroup>
     <!-- 엔진 없는 규칙(Core), 엔진 없는 저작 규칙(Authoring), NUnit에 의존하지 않는 계약만 컴파일한다. -->
     <Compile Include="../../Assets/BlackHole/Core/**/*.cs" />
-    <Compile Include="../../Assets/BlackHole/Sample/**/*.cs" />
     <Compile Include="../../Assets/BlackHole/Authoring/**/*.cs" />
     <Compile Include="../../Assets/BlackHole/Tests/EditMode/Contracts/**/*.cs" />
     <Compile Include="Program.cs" />

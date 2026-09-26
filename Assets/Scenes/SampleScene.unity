@@ -404,9 +404,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8a576f4c54a40039b3e6860fe948215, type: 3}
   m_Name: 
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.GameHost
-  enemyCatalog: {fileID: 11400000, guid: ded2d6b762d0427189db081f4023c81a, type: 2}
-  enemySupply: {fileID: 11400000, guid: 1506d53a97654897bc5d7b4126a28333, type: 2}
-  stageTable: {fileID: 11400000, guid: 2119f531773848c9843f106b4555b50e, type: 2}
   nodeCatalog: {fileID: 11400000, guid: dc906d29ddfc4d0089200fffb6c6e8be, type: 2}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

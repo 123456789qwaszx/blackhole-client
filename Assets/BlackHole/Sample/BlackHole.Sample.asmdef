@@ -1,6 +1,0 @@
-{
-  "name": "BlackHole.Sample",
-  "rootNamespace": "BlackHole.Sample",
-  "references": ["BlackHole.Core"],
-  "noEngineReferences": true
-}

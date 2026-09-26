@@ -21,9 +21,9 @@ namespace BlackHole.Core
         public override string ToString() => $"Player {Value}";
     }
 
-    // Player 한 명의 진행 상태: Gold와 산 노드. 전투 사이에 유지된다(앱 종료 후 저장은 하지 않는다).
-    // 새 진행은 새 PlayerState로 시작한다. 판은 PlayerState 목록을 받는다 — 지금 1명일 뿐 하나로 고정된 것이 아니다.
-    // 산 노드는 전투 밖에서만 바뀐다(NodePurchase.TryPurchase, 전투 중에는 살 수 없다).
+    // Player 한 명의 진행 상태: Gold와 산 노드. 앱 종료 후 저장은 하지 않는다(F04).
+    // 새 진행은 새 PlayerState로 시작한다. 지금 1명일 뿐 하나로 고정된 것이 아니다.
+    // 산 노드는 구매 규칙(NodePurchase.TryPurchase)으로만 늘어난다.
     public sealed class PlayerState
     {
         private readonly List<string> _ownedNodes = new List<string>();
@@ -34,8 +34,6 @@ namespace BlackHole.Core
         public long Gold { get; private set; }
         // 산 노드의 ID(산 순서). ID로 기록하므로 트리를 다시 불러와도 이어진다.
         public IReadOnlyList<string> OwnedNodes { get; }
-        // 진행 중인 전투에 들어가 있는가. 한 진행 상태는 한 번에 한 전투에만 들어간다.
-        public bool InBattle { get; private set; }
 
         public PlayerState(PlayerId id)
         {
@@ -62,15 +60,5 @@ namespace BlackHole.Core
             _owned.Add(node.Id);
             _ownedNodes.Add(node.Id);
         }
-
-        internal void EnterBattle()
-        {
-            if (InBattle)
-                throw new InvalidOperationException($"{Id}는 이미 진행 중인 전투에 들어가 있다.");
-
-            InBattle = true;
-        }
-
-        internal void LeaveBattle() => InBattle = false;
     }
 }

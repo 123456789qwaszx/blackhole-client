@@ -233,8 +233,7 @@ namespace BlackHole.Authoring
         }
 
         // 도구만 보는 검사. 게임 규칙의 검사는 NodeTreeLoader가 한다.
-        // - 한 칸에 노드 둘: 화면에서 겹친다.
-        // - 1보다 작은 곱하기: 값을 줄인다. "10% 더"를 곱하기 0.1로 적는 실수를 잡는다.
+        // 한 칸에 노드가 둘 있으면 화면에서 겹친다.
         public static List<ContentDiagnostic> Check(NodeTreeData tree)
         {
             var diagnostics = new List<ContentDiagnostic>();
@@ -253,31 +252,9 @@ namespace BlackHole.Authoring
                     diagnostics.Add(new ContentDiagnostic(at, $"칸 ({node.X}, {node.Y})에서 '{first.Id}'와 겹친다."));
                 else
                     cells.Add((node.X, node.Y), node);
-
-                List<UpgradeData> upgrades = node.Upgrades ?? new List<UpgradeData>();
-
-                for (int j = 0; j < upgrades.Count; j++)
-                {
-                    UpgradeData upgrade = upgrades[j];
-
-                    if (upgrade != null && upgrade.Operation == UpgradeOperation.Multiply && upgrade.Value < 1)
-                        diagnostics.Add(new ContentDiagnostic($"{at}.Upgrades[{j}]",
-                            $"곱하기 {Number(upgrade.Value)}는 값을 줄인다. 10% 늘리려면 비율 0.1 또는 곱하기 1.1이다."));
-                }
             }
 
             return diagnostics;
-        }
-
-        // 값의 뜻: 더하기 +1, 비율 +25%, 곱하기 ×10.
-        public static string Notation(UpgradeOperation operation, float value)
-        {
-            switch (operation)
-            {
-                case UpgradeOperation.Add: return (value >= 0 ? "+" : string.Empty) + Number(value);
-                case UpgradeOperation.Percent: return (value >= 0 ? "+" : string.Empty) + Number(value * 100) + "%";
-                default: return "×" + Number(value);
-            }
         }
 
         private static List<string> LinksOf(NodeData node) => node.Links ??= new List<string>();
@@ -296,7 +273,5 @@ namespace BlackHole.Authoring
         // NodeTreeLoader와 같은 경로 모양이다. 진단을 누르면 도구가 이 경로로 노드를 찾는다.
         private static string At(int index, string id) =>
             string.IsNullOrWhiteSpace(id) ? $"Nodes[{index}]" : $"Nodes[{id}]";
-
-        private static string Number(float value) => value.ToString("0.###", CultureInfo.InvariantCulture);
     }
 }

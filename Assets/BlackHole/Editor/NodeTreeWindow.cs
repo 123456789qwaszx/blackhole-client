@@ -18,7 +18,7 @@ namespace BlackHole.EditorTools
     //   둘 잇기, 이웃끼리 잇기(격자 이웃을 그 순간 잇는 저작 명령), 선택끼리 끊기, 선 모두 지우기. 편집 규칙은 NodeTreeAuthoring에 있다.
     // - 검사: 고칠 때마다 게임과 같은 로더(NodeTreeLoader)로 불러 보고, 도구 검사(겹친 칸, 값을 줄이는 곱하기)를 더한다.
     //   진단을 누르면 그 노드로 간다.
-    // - 구매 미리보기: 게임과 같은 규칙(NodeGraph의 드러남, NodePurchase의 구매)으로 노드를 사 보며 네 가지 상태와 업그레이드 합계를 본다.
+    // - 구매 미리보기: 게임과 같은 규칙(NodeGraph의 드러남, NodePurchase의 구매)으로 노드를 사 보며 네 가지 상태를 본다.
     //   Gold는 무한이다. 산 노드를 다시 누르면 미리보기에서만 되돌린다(게임에는 환불이 없다).
     // 고친 내용은 Undo로 되돌릴 수 있고, 저장 버튼이나 프로젝트 저장으로 에셋에 쓴다.
     internal sealed class NodeTreeWindow : EditorWindow, INodeCanvasHost
@@ -545,58 +545,10 @@ namespace BlackHole.EditorTools
             if (!anyLink)
                 _panel.Add(Note("없음. Shift+끌기로 다른 노드와 잇는다."));
 
-            _panel.Add(Header("업그레이드"));
-
-            for (int i = 0; i < node.Upgrades.Count; i++)
-                _panel.Add(UpgradeRow(node, i));
-
-            _panel.Add(new Button(() => Edit("업그레이드 더하기", tree =>
-                NodeTreeAuthoring.Find(tree, node.Id).Upgrades.Add(new UpgradeData { Stat = string.Empty, Operation = UpgradeOperation.Add, Value = 1 })))
-            {
-                text = "업그레이드 더하기",
-            });
-
             var remove = new Button(OnDeletePressed) { text = "노드 지우기" };
             remove.style.marginTop = 12;
             _panel.Add(remove);
         }
-
-        // 업그레이드 한 줄: 수치 이름, 연산, 값, 값의 뜻(+1 / +25% / ×10), 지우기.
-        private VisualElement UpgradeRow(NodeData node, int index)
-        {
-            UpgradeData upgrade = node.Upgrades[index];
-            string nodeId = node.Id;
-            var box = new VisualElement();
-            box.style.marginBottom = 6;
-
-            var stat = new TextField("수치") { value = upgrade.Stat, isDelayed = true };
-            stat.RegisterValueChangedCallback(evt => Edit("수치 이름 바꾸기", tree => UpgradeAt(tree, nodeId, index).Stat = evt.newValue));
-            box.Add(stat);
-
-            var row = Row();
-            var operation = new EnumField(upgrade.Operation);
-            operation.style.width = 90;
-            operation.RegisterValueChangedCallback(evt => Edit("연산 바꾸기", tree => UpgradeAt(tree, nodeId, index).Operation = (UpgradeOperation)evt.newValue));
-            row.Add(operation);
-
-            var value = new FloatField { value = upgrade.Value, isDelayed = true };
-            value.style.width = 70;
-            value.RegisterValueChangedCallback(evt => Edit("값 바꾸기", tree => UpgradeAt(tree, nodeId, index).Value = evt.newValue));
-            row.Add(value);
-
-            var meaning = new Label(NodeTreeAuthoring.Notation(upgrade.Operation, upgrade.Value));
-            meaning.style.unityTextAlign = TextAnchor.MiddleLeft;
-            meaning.style.minWidth = 60;
-            meaning.style.marginLeft = 6;
-            row.Add(Grow(meaning));
-
-            row.Add(new Button(() => Edit("업그레이드 지우기", tree => NodeTreeAuthoring.Find(tree, nodeId).Upgrades.RemoveAt(index))) { text = "지우기" });
-            box.Add(row);
-            return box;
-        }
-
-        private static UpgradeData UpgradeAt(NodeTreeData tree, string nodeId, int index) =>
-            NodeTreeAuthoring.Find(tree, nodeId).Upgrades[index];
 
         // 여러 노드를 골랐을 때: 저작 명령.
         private void BuildSelectionPanel(List<NodeData> selected)
@@ -648,7 +600,7 @@ namespace BlackHole.EditorTools
             _panel.Add(Note("빈 칸을 더블클릭하면 노드를 놓는다. 노드를 여럿 고르면(박스·Ctrl+클릭) 이웃끼리 잇기 같은 명령이 나온다."));
         }
 
-        // 미리보기: 산 노드 수, 쓴 Gold, 수치별 업그레이드 합계. 가져가는 시스템의 기본값은 모르므로 기본값 0과 1일 때를 보여 준다.
+        // 미리보기: 산 노드 수와 쓴 Gold.
         private void BuildPreviewPanel()
         {
             _panel.Add(Header("구매 미리보기"));
@@ -661,20 +613,6 @@ namespace BlackHole.EditorTools
 
             _panel.Add(new Label($"산 노드 {_previewOwned.Count} / {_load.Tree.Nodes.Count} · 쓴 Gold {PreviewGold - _previewState.Gold}"));
             _panel.Add(Note("노랑: 살 수 있음 · 초록: 산 것 · 회색: 보이지만 못 삼 · 어두움: 숨김. 산 노드를 다시 누르면 미리보기에서만 되돌린다(게임에는 환불이 없다)."));
-
-            UpgradeTable table = NodePurchase.UpgradesFor(_previewState, _load.Tree);
-            var stats = new SortedSet<string>(StringComparer.Ordinal);
-
-            foreach (NodeDefinition node in _load.Tree.Nodes)
-            {
-                foreach (Upgrade upgrade in node.Upgrades)
-                    stats.Add(upgrade.Stat);
-            }
-
-            _panel.Add(Header("업그레이드 합계"));
-
-            foreach (string stat in stats)
-                _panel.Add(new Label($"{stat}: 기본값 0 → {Number(table.Apply(stat, 0))}, 기본값 1 → {Number(table.Apply(stat, 1))}"));
         }
 
         private void BuildDiagnostics()
@@ -751,7 +689,6 @@ namespace BlackHole.EditorTools
             return element;
         }
 
-        private static string Number(float value) => value.ToString("0.###", CultureInfo.InvariantCulture);
 
         #endregion
     }

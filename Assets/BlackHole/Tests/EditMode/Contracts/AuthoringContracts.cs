@@ -14,7 +14,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Authoring.MovingNeverChangesLinks", MovingNeverChangesLinks);
             yield return new Contract("Authoring.SelectionCommandsCutOnlyWhatTheyName", SelectionCommandsCutOnlyWhatTheyName);
             yield return new Contract("Authoring.RenameAndRemoveKeepLinksConsistent", RenameAndRemoveKeepLinksConsistent);
-            yield return new Contract("Authoring.ToolWarnsOverlapAndShrinkingMultiply", ToolWarnsOverlapAndShrinkingMultiply);
+            yield return new Contract("Authoring.ToolWarnsOverlap", ToolWarnsOverlap);
         }
 
         // 이웃 칸에 놓아도 선은 생기지 않는다. 첫 노드만 시작 노드다.
@@ -114,23 +114,17 @@ namespace BlackHole.Core.Tests
             Expect.Equal(0, NodeTreeAuthoring.Links(tree).Count);
         }
 
-        // 한 칸에 겹친 노드와 값을 줄이는 곱하기를 경로와 함께 알린다. 값의 뜻은 +1, +25%, ×10으로 보여 준다.
-        private static void ToolWarnsOverlapAndShrinkingMultiply()
+        // 한 칸에 겹친 노드를 경로와 함께 알린다.
+        private static void ToolWarnsOverlap()
         {
             var tree = new NodeTreeData();
             tree.Nodes.Add(new NodeData { Id = "a", Price = 1, Start = true });
             tree.Nodes.Add(new NodeData { Id = "b", Price = 1 });
             tree.Nodes.Add(new NodeData { Id = "c", Price = 1, X = 1 });
-            tree.Nodes[2].Upgrades.Add(new UpgradeData { Stat = "damage", Operation = UpgradeOperation.Multiply, Value = 0.1f });
 
             List<ContentDiagnostic> diagnostics = NodeTreeAuthoring.Check(tree);
             Expect.True(diagnostics.Exists(d => d.Path == "Nodes[b]" && d.Message.Contains("'a'와 겹친다")), "겹친 칸을 알려야 한다.");
-            Expect.True(diagnostics.Exists(d => d.Path == "Nodes[c].Upgrades[0]" && d.Message.Contains("줄인다")), "줄이는 곱하기를 알려야 한다.");
-            Expect.Equal(2, diagnostics.Count);
-
-            Expect.Equal("+1", NodeTreeAuthoring.Notation(UpgradeOperation.Add, 1));
-            Expect.Equal("+25%", NodeTreeAuthoring.Notation(UpgradeOperation.Percent, 0.25f));
-            Expect.Equal("×10", NodeTreeAuthoring.Notation(UpgradeOperation.Multiply, 10));
+            Expect.Equal(1, diagnostics.Count);
         }
     }
 }

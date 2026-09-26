@@ -3,7 +3,6 @@
   "rootNamespace": "BlackHole.Unity",
   "references": [
     "BlackHole.Core",
-    "BlackHole.Sample",
     "Unity.InputSystem",
     "UIPresentationFlow.Runtime",
     "Unity.TextMeshPro",
