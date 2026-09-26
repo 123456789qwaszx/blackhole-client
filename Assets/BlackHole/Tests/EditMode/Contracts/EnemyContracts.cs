@@ -24,6 +24,8 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.PoolFilterCapsAliveCountPerKind", PoolFilterCapsAliveCountPerKind);
             yield return new Contract("Enemy.BattleUsesItsStagePool", BattleUsesItsStagePool);
             yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
+            yield return new Contract("Enemy.TierStatsComeFromTheMassLevel", TierStatsComeFromTheMassLevel);
+            yield return new Contract("Enemy.TierRatioHoldsAtEveryCount", TierRatioHoldsAtEveryCount);
             yield return new Contract("Enemy.KillsAreTalliedByKind", KillsAreTalliedByKind);
             yield return new Contract("Enemy.SpawnRequestsWaitForTheNextStep", SpawnRequestsWaitForTheNextStep);
             yield return new Contract("Enemy.FilteredSpawnRequestsAreDropped", FilteredSpawnRequestsAreDropped);
@@ -81,7 +83,7 @@ namespace BlackHole.Core.Tests
         private static void RejectsRequestsTheBattleCannotTake()
         {
             World world = TestContent.Session(OneEnemy(health: 10)).World;
-            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1, 0), new OrbitBehaviorDefinition(false));
+            EnemyDefinition stranger = TestContent.Stranger();
             Expect.Throws<ArgumentException>(() => world.RequestSpawn(new SupplyRequest(stranger, 1)));
             Expect.Throws<ArgumentException>(() => world.RequestSpawn(default));
             Expect.Throws<ArgumentNullException>(() => world.RequestDestroy(null));
@@ -145,21 +147,107 @@ namespace BlackHole.Core.Tests
             Expect.Equal(1, world.TotalKills);
         }
 
-        // 판의 적 수치는 조립 때 정해지고, 출현하는 적은 그 수치를 받는다. 지금은 보정이 없어 기본 수치와 같다.
+        // 판의 적 수치는 조립 때 정해지고, 출현하는 적은 그 수치를 받는다. 질량 단계 0(계수 1)이면 색 등급의 기본값과 같다.
         // 판에 없는 종류의 수치는 묻지 않는다.
         private static void SpawnsTakeTheBattleStats()
         {
             GameSession game = TestContent.Session(OneEnemy(health: 12));
             Enemy enemy = game.World.Enemies[0];
-            EnemyStats battle = game.World.StatsOf(enemy.Definition);
+            EnemyStats battle = game.World.Stats.Of(enemy.Definition, enemy.Tier);
 
             Expect.Near(battle.MaxHealth, enemy.Stats.MaxHealth);
             Expect.Near(battle.Size, enemy.Stats.Size);
             Expect.Near(battle.MoveSpeed, enemy.Stats.MoveSpeed);
-            Expect.Near(enemy.Definition.BaseStats.MaxHealth, battle.MaxHealth);
+            Expect.Near(enemy.Definition.Tiers[enemy.Tier].MaxHealth, battle.MaxHealth);
 
-            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1, 0), new OrbitBehaviorDefinition(false));
-            Expect.Throws<ArgumentException>(() => game.World.StatsOf(stranger));
+            Expect.Throws<ArgumentException>(() => game.World.Stats.Of(TestContent.Stranger(), 0));
+        }
+
+        // 판 조립이 받은 질량 단계가 그 종류의 색 비율과 HP·Gold 계수를 정한다. 같은 판의 같은 색은 수치가 정확히 같다.
+        // 질량 단계를 주지 않은 종류는 0단계다. 범위 밖의 단계나 판에 없는 종류의 단계는 조립이 거부한다.
+        private static void TierStatsComeFromTheMassLevel()
+        {
+            ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 4));
+            EnemyData kindData = TestContent.Tiered(TestContent.EnemyId, 1, false,
+                TestContent.Tier(10, 0.2f, 3),
+                TestContent.Tier(20, 0.3f, 5));
+            kindData.MassLevels.Add(TestContent.MassLevel(1, 1, 1, 0));
+            kindData.MassLevels.Add(TestContent.MassLevel(2, 3, 0, 1));
+            data.Enemies.Add(kindData);
+            TestContent.Allow(data, TestContent.EnemyId);
+            GameContent content = TestContent.Load(data);
+            content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
+
+            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+            Expect.Equal(0, plain.World.Stats.MassLevelOf(kind));
+
+            foreach (Enemy enemy in plain.World.Enemies)
+            {
+                Expect.Equal(0, enemy.Tier);
+                Expect.Near(10, enemy.Stats.MaxHealth);
+                Expect.Equal(3L, enemy.Stats.Gold);
+            }
+
+            var levels = new Dictionary<EnemyDefinition, int> { { kind, 1 } };
+            GameSession massive = TestContent.Begun(
+                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 1, 0, levels));
+            Expect.Equal(1, massive.World.Stats.MassLevelOf(kind));
+            Expect.Equal(4, massive.World.Enemies.Count);
+
+            foreach (Enemy enemy in massive.World.Enemies)
+            {
+                Expect.Equal(1, enemy.Tier);
+                Expect.Near(40, enemy.Stats.MaxHealth);
+                Expect.Near(0.3f, enemy.Stats.Size);
+                Expect.Equal(15L, enemy.Stats.Gold);
+            }
+
+            var state = new PlayerState(TestContent.First);
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(
+                content, new[] { state }, 1, 0, new Dictionary<EnemyDefinition, int> { { kind, 2 } }));
+            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(
+                content, new[] { state }, 1, 0, new Dictionary<EnemyDefinition, int> { { TestContent.Stranger(), 0 } }));
+            Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
+        }
+
+        // 색 비율은 몫 방식으로 지킨다: 색이 둘이면 몇 마리를 공급한 시점이든 색마다 (비율 × 공급 수)에서 1마리 넘게 벗어나지 않는다.
+        // 비율이 0인 색은 나오지 않는다. 같은 seed면 같은 색 순서가 나오고, 색 비율을 바꿔도 출현 위치의 순서는 같다(난수 스트림이 다르다).
+        private static void TierRatioHoldsAtEveryCount()
+        {
+            const int count = 25;
+            GameSession mixed = TierSession(count, seed: 7, 0.3f, 0.7f);
+            int first = 0;
+
+            for (int i = 0; i < count; i++)
+            {
+                if (mixed.World.Enemies[i].Tier == 0)
+                    first++;
+
+                float expected = 0.3f * (i + 1);
+                Expect.True(Math.Abs(first - expected) < 1, $"{i + 1}마리째에 0번 색 {first}마리, 기대 {expected}.");
+            }
+
+            GameSession again = TierSession(count, seed: 7, 0.3f, 0.7f);
+            GameSession even = TierSession(count, seed: 7, 0.5f, 0.5f);
+            GameSession single = TierSession(count, seed: 7, 0f, 1f);
+
+            for (int i = 0; i < count; i++)
+            {
+                Expect.Equal(mixed.World.Enemies[i].Tier, again.World.Enemies[i].Tier);
+                Expect.Equal(mixed.World.Enemies[i].Position, even.World.Enemies[i].Position);
+                Expect.Equal(1, single.World.Enemies[i].Tier);
+            }
+        }
+
+        // 색 등급 둘(비율만 다름)인 종류를 count마리 공급한 판.
+        private static GameSession TierSession(int count, int seed, float first, float second)
+        {
+            ContentData data = TestContent.Arena(1, 3, TestContent.Supply(TestContent.EnemyId, count));
+            EnemyData kind = TestContent.Tiered(TestContent.EnemyId, 1, false, TestContent.Tier(10, 0.2f, 1), TestContent.Tier(10, 0.2f, 1));
+            kind.MassLevels.Add(TestContent.MassLevel(1, 1, first, second));
+            data.Enemies.Add(kind);
+            TestContent.Allow(data, TestContent.EnemyId);
+            return TestContent.Session(data, seed);
         }
 
         // 공급이 요청해도 이 판의 단계 풀에 없는 종류는 나오지 않는다. 걸러진 요청은 버린다.

@@ -7,7 +7,8 @@ using Object = UnityEngine.Object;
 namespace BlackHole.Unity
 {
     // 적 시스템의 화면. 매 프레임 World의 살아 있는 적을 읽어 스프라이트를 맞춘다. 게임 상태를 바꾸지 않는다.
-    // 외형은 적 종류 에셋이 가진다(EnemyLooks). 스프라이트가 없는 종류는 임시 원으로 그린다.
+    // 외형은 적 종류 에셋이 가진다(EnemyLooks). 색은 적의 색 등급으로, 크기는 적의 수치로 정한다.
+    // 스프라이트가 없는 종류는 임시 원으로 그린다.
     // 목록에서 빠진 적(사망)의 스프라이트는 바로 지운다. 파괴·흡수 연출은 연출 작업에서 사망 기록을 읽어 더한다.
     // 규칙 평면은 장면의 z = 0이고 x·y는 같다. HQ(원점)가 장면의 원점이다.
     internal sealed class EnemyView : IDisposable
@@ -83,7 +84,7 @@ namespace BlackHole.Unity
 
             var renderer = view.AddComponent<SpriteRenderer>();
             renderer.sprite = _looks.SpriteOf(kind);
-            renderer.color = _looks.ColorOf(kind);
+            renderer.color = _looks.ColorOf(kind, enemy.Tier);
 
             // 크기는 규칙 수치(반지름)를 그대로 쓴다: 스프라이트의 긴 변이 지름이 되게 맞춘다.
             Vector3 bounds = renderer.sprite.bounds.size;

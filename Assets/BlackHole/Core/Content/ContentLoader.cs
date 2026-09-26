@@ -83,18 +83,67 @@ namespace BlackHole.Core
 
                 int errors = into.Count;
                 EnemyBehaviorDefinition behavior = LoadBehavior(item.Behavior, at + ".Behavior", into);
-                EnemyStats? stats = GuardValue(at, into, () => new EnemyStats(item.MaxHealth, item.MoveSpeed, item.Size, item.Gold));
+                List<EnemyTier> tiers = LoadTiers(item.Tiers, at + ".Tiers", into);
+                List<MassLevelDefinition> massLevels = LoadMassLevels(item.MassLevels, at + ".MassLevels", into);
 
                 if (into.Count > errors)
                     continue;
 
-                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, stats.Value, behavior));
+                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, item.MoveSpeed, tiers, massLevels, behavior));
 
                 if (enemy != null)
                     enemies.Add(enemy);
             }
 
             return enemies;
+        }
+
+        // 줄마다 수치를 검사한다. 줄 수(하나 이상)와 질량 단계와의 길이 맞춤은 EnemyDefinition이 검사한다.
+        private static List<EnemyTier> LoadTiers(List<EnemyTierData> items, string at, List<ContentDiagnostic> into)
+        {
+            var tiers = new List<EnemyTier>();
+
+            for (int i = 0; items != null && i < items.Count; i++)
+            {
+                EnemyTierData item = items[i];
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic($"{at}[{i}]", "데이터가 없다."));
+                    continue;
+                }
+
+                EnemyTier? tier = GuardValue($"{at}[{i}]", into, () => new EnemyTier(item.MaxHealth, item.Size, item.Gold));
+
+                if (tier.HasValue)
+                    tiers.Add(tier.Value);
+            }
+
+            return tiers;
+        }
+
+        private static List<MassLevelDefinition> LoadMassLevels(List<MassLevelData> items, string at, List<ContentDiagnostic> into)
+        {
+            var levels = new List<MassLevelDefinition>();
+
+            for (int i = 0; items != null && i < items.Count; i++)
+            {
+                MassLevelData item = items[i];
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic($"{at}[{i}]", "데이터가 없다."));
+                    continue;
+                }
+
+                MassLevelDefinition level = Guard($"{at}[{i}]", into,
+                    () => new MassLevelDefinition(item.TierRatios, item.HealthMultiplier, item.GoldMultiplier));
+
+                if (level != null)
+                    levels.Add(level);
+            }
+
+            return levels;
         }
 
         // 종류 이름을 하위 정의로 바꾼다. 가능한 값을 진단에 그대로 싣는다.

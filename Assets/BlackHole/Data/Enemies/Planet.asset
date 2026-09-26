@@ -13,10 +13,16 @@ MonoBehaviour:
   m_Name: Planet
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: planet
-  maxHealth: 60
   moveSpeed: 0.8
-  size: 0.6
-  gold: 5
+  tiers:
+  - color: {r: 0.35, g: 0.62, b: 0.9, a: 1}
+    maxHealth: 60
+    size: 0.6
+    gold: 5
+  massLevels:
+  - tierRatios:
+    - 1
+    healthMultiplier: 1
+    goldMultiplier: 1
   clockwise: 0
   sprite: {fileID: 0}
-  color: {r: 0.35, g: 0.62, b: 0.9, a: 1}

@@ -13,17 +13,27 @@ namespace BlackHole.Core
     // 업그레이드가 적 수치를 바꾸는 효과는 업그레이드 시스템이 돌아올 때 적 수치 표를 만들 때 반영한다.
     //
     // stage는 진행도(적의 강도 단계, 1 ~ 콘텐츠의 단계 수)다. HQ 성장 단계와 다르다.
-    // 그 단계의 적 풀이 이 판의 풀 여과 장치가 된다. 체력·크기 계수는 단계 표에 붙을 때 여기서 쓴다.
-    // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·단계·seed·진행 시간이면 같은 결과가 나온다.
+    // 그 단계의 적 풀이 이 판의 풀 여과 장치가 된다 — 어떤 종류가 나오는가(이정표·종류 해금, BATTLE_COMPOSITION_PLAN 3절).
+    // massLevels는 종류별 질량 단계다 — 종류 안의 색 비율과 HP·Gold 계수. 없는 종류는 0이다.
+    // 지금은 개발용 콘솔이 고르고, 업그레이드 시스템이 돌아오면 산 노드(종류별 질량 증가)에서 정해진다.
+    // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·단계·질량 단계·seed·진행 시간이면 같은 결과가 나온다.
     public static class SessionAssembler
     {
         public const int FirstStage = 1;
         public const int DefaultSeed = 0;
 
+        // 판의 난수 용도. 출현 위치는 seed의 기본 스트림(0)을, 색 등급의 몫은 이 스트림을 쓴다.
+        private const int TierStream = 1;
+
         public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states) =>
             CreateBattle(content, states, FirstStage, DefaultSeed);
 
-        public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states, int stage, int seed)
+        public static GameSession CreateBattle(
+            GameContent content,
+            IReadOnlyList<PlayerState> states,
+            int stage,
+            int seed,
+            IReadOnlyDictionary<EnemyDefinition, int> massLevels = null)
         {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
@@ -35,11 +45,12 @@ namespace BlackHole.Core
             VerifyParticipants(states);
 
             var players = new List<PlayerState>(states);
-            // 적의 수치(Gold 포함)는 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
+            // 적의 수치(Gold 포함)와 색 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
             var world = new World(
                 new BattleRandom(seed),
+                new BattleRandom(seed, TierStream),
                 content.GetStage(stage).Pool,
-                new EnemyStatTable(content.Enemies),
+                new EnemyStatTable(content.Enemies, massLevels),
                 content.EnemyPlacement);
             var session = new GameSession(
                 world,

@@ -13,10 +13,16 @@ MonoBehaviour:
   m_Name: Star
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: star
-  maxHealth: 150
   moveSpeed: 0.5
-  size: 0.85
-  gold: 10
+  tiers:
+  - color: {r: 1, g: 0.85, b: 0.35, a: 1}
+    maxHealth: 150
+    size: 0.85
+    gold: 10
+  massLevels:
+  - tierRatios:
+    - 1
+    healthMultiplier: 1
+    goldMultiplier: 1
   clockwise: 0
   sprite: {fileID: 0}
-  color: {r: 1, g: 0.85, b: 0.35, a: 1}

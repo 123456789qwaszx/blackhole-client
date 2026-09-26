@@ -32,13 +32,32 @@ namespace BlackHole.Core
     public sealed class EnemyData
     {
         public string Id;
-        public float MaxHealth;
         public float MoveSpeed;
+        // 색 등급 표. 색이 없는 종류는 한 줄이다.
+        public List<EnemyTierData> Tiers = new List<EnemyTierData>();
+        // 질량 단계 표. MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음). 하나 이상.
+        public List<MassLevelData> MassLevels = new List<MassLevelData>();
+        public EnemyBehaviorData Behavior;
+    }
+
+    // 색 등급 한 줄.
+    [Serializable]
+    public sealed class EnemyTierData
+    {
+        public float MaxHealth;
         // 반지름.
         public float Size;
-        // 사망 때 받는 Gold. 0 이상.
+        // 사망 때 판의 합계에 드는 Gold의 기본값. 0 이상.
         public long Gold;
-        public EnemyBehaviorData Behavior;
+    }
+
+    // 질량 단계 한 줄: 색마다 나오는 비율(색 등급 표와 같은 순서·길이)과 HP·Gold 계수.
+    [Serializable]
+    public sealed class MassLevelData
+    {
+        public List<float> TierRatios = new List<float>();
+        public float HealthMultiplier;
+        public float GoldMultiplier;
     }
 
     // 행동 종류마다 쓰는 칸이 다르다. 지금은 Orbit 하나다.

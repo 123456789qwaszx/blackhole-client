@@ -5,7 +5,7 @@ using Object = UnityEngine.Object;
 
 namespace BlackHole.Unity
 {
-    // 적 종류의 외형 조회: 종류 ID → 스프라이트·색. 외형은 적 종류 에셋(EnemyKind)이 가진다.
+    // 적 종류의 외형 조회: 종류 ID → 스프라이트, (종류 ID, 색 등급) → 색. 외형은 적 종류 에셋(EnemyKind)이 가진다.
     // 스프라이트가 없는 종류와 목록에 없는 종류는 임시 원(흰색)이다. 적 화면과 조종 콘솔이 같은 외형을 쓴다.
     internal sealed class EnemyLooks : IDisposable
     {
@@ -30,8 +30,8 @@ namespace BlackHole.Unity
         public Sprite SpriteOf(string kindId) =>
             _kinds.TryGetValue(kindId, out EnemyKind kind) && kind.Sprite != null ? kind.Sprite : _disc;
 
-        public Color ColorOf(string kindId) =>
-            _kinds.TryGetValue(kindId, out EnemyKind kind) ? kind.Color : Color.white;
+        public Color ColorOf(string kindId, int tier) =>
+            _kinds.TryGetValue(kindId, out EnemyKind kind) ? kind.ColorOf(tier) : Color.white;
 
         public void Dispose()
         {

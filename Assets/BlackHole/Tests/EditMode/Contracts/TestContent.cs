@@ -72,13 +72,36 @@ namespace BlackHole.Core.Tests
             return data;
         }
 
+        // 색 등급 한 줄, 질량 단계 한 줄(그 색만, 계수 1)인 종류.
         public static EnemyData Enemy(
-            string id, float health = 10, float speed = 1, float size = 0.3f, bool clockwise = false, long gold = 0) =>
+            string id, float health = 10, float speed = 1, float size = 0.3f, bool clockwise = false, long gold = 0)
+        {
+            EnemyData enemy = Tiered(id, speed, clockwise, Tier(health, size, gold));
+            enemy.MassLevels.Add(MassLevel(1, 1, 1));
+            return enemy;
+        }
+
+        // 색 등급을 여러 줄 가진 종류. 질량 단계는 부른 쪽이 MassLevels에 넣는다.
+        public static EnemyData Tiered(string id, float speed, bool clockwise, params EnemyTierData[] tiers) =>
             new EnemyData
             {
-                Id = id, MaxHealth = health, MoveSpeed = speed, Size = size, Gold = gold,
+                Id = id, MoveSpeed = speed, Tiers = new List<EnemyTierData>(tiers),
                 Behavior = new EnemyBehaviorData { Kind = "Orbit", Clockwise = clockwise }
             };
+
+        public static EnemyTierData Tier(float health, float size, long gold) =>
+            new EnemyTierData { MaxHealth = health, Size = size, Gold = gold };
+
+        public static MassLevelData MassLevel(float health, float gold, params float[] tierRatios) =>
+            new MassLevelData { TierRatios = new List<float>(tierRatios), HealthMultiplier = health, GoldMultiplier = gold };
+
+        // 콘텐츠에 없는 종류(판이 거부해야 하는 요청에 쓴다).
+        public static EnemyDefinition Stranger() =>
+            new EnemyDefinition(
+                "stranger", 1,
+                new[] { new EnemyTier(1, 1, 0) },
+                new[] { new MassLevelDefinition(new[] { 1f }, 1, 1) },
+                new OrbitBehaviorDefinition(false));
 
         public static SupplyData Supply(string enemyId, int count) =>
             new SupplyData { Enemy = enemyId, Count = count };

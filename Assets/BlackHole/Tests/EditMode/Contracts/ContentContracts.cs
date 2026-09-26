@@ -27,15 +27,20 @@ namespace BlackHole.Core.Tests
             chaser.Behavior.Kind = "Chase";
             EnemyData still = TestContent.Enemy("still");
             still.Behavior = null;
+            // 색 등급은 둘인데 질량 단계의 색 비율은 하나다.
+            EnemyData lopsided = TestContent.Tiered("lopsided", 1, false, TestContent.Tier(10, 0.2f, 1), TestContent.Tier(20, 0.3f, 2));
+            lopsided.MassLevels.Add(TestContent.MassLevel(1, 1, 1));
             data.Enemies.Add(TestContent.Enemy("fragile", health: 0));
             data.Enemies.Add(chaser);
             data.Enemies.Add(still);
+            data.Enemies.Add(lopsided);
             data.EnemyPlacement = new EnemyPlacementData { MinDistance = 5, MaxDistance = 2 };
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(!result.Succeeded, "적·배치 정의 오류가 있으면 로드에 실패해야 한다.");
-            Expect.Equal(4, result.Diagnostics.Count);
-            TestContent.HasDiagnostic(result, "Enemies[fragile]", "maxHealth");
+            Expect.Equal(5, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Enemies[fragile].Tiers[0]", "maxHealth");
+            TestContent.HasDiagnostic(result, "Enemies[lopsided]", "색 비율 수");
             TestContent.HasDiagnostic(result, "Enemies[chaser].Behavior.Kind", "Chase");
             TestContent.HasDiagnostic(result, "Enemies[still].Behavior", "데이터가 없다");
             TestContent.HasDiagnostic(result, "EnemyPlacement", "minDistance");

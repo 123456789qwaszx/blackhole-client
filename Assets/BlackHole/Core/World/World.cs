@@ -10,14 +10,16 @@ namespace BlackHole.Core
     // 적이 생기고 죽는 일은 요청으로 들어와 쌓이고, Step의 정해진 자리에서 요청 순서대로 처리된다.
     // - 파괴 요청(RequestDestroy) → 13절 3. Damage / Death 자리: 그 적의 사망을 확정한다(피해·HP 계산 없음).
     // - 생성 요청(RequestSpawn)  → 13절 7. Enemy Supply 자리: 풀 여과 장치를 거쳐 한 마리씩 생성한다.
+    //   한 마리마다: 풀 여과 → 색 등급(그 종류의 색 비율, 몫 방식) → 위치. 수치는 판의 적 수치 표에서 (종류, 색 등급)의 값이다.
     // 같은 Step에서 사망이 생성보다 먼저다. 그래서 죽어서 비운 자리(풀의 최대 수)에 같은 Step의 생성이 들어갈 수 있다.
     // 생성된 적은 다음 Step부터 움직이고 공격 대상이 된다. 처리되지 않은 요청은 판 정리가 버린다.
     public sealed class World
     {
         private readonly EnemyRoster _enemies = new EnemyRoster();
         private readonly PoolFilter _filter;
-        private readonly EnemyStatTable _stats;
         private readonly EnemyPlacementDefinition _placement;
+        // 종류마다 색 등급을 고르는 몫. 판 조립 때 만들고 판 동안 이어진다(공급이 여러 번이어도 비율이 판 전체에 걸쳐 맞는다).
+        private readonly Dictionary<EnemyDefinition, QuotaPicker> _tierPickers = new Dictionary<EnemyDefinition, QuotaPicker>();
         private readonly List<SupplyRequest> _spawnRequests = new List<SupplyRequest>();
         private readonly List<Enemy> _destroyRequests = new List<Enemy>();
 
@@ -30,25 +32,33 @@ namespace BlackHole.Core
         public IReadOnlyList<Enemy> PendingDestroys { get; }
         // 이 판의 단계가 쓰는 적 풀. 생성 요청은 이 풀을 거쳐서만 적이 된다.
         public EnemyPoolDefinition Pool { get; }
-        // 이 판의 난수. 판 조립 때 seed로 만든다.
+        // 이 판의 종류별 질량 단계·색 비율과 (종류, 색 등급)별 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
+        public EnemyStatTable Stats { get; }
+        // 출현 위치의 난수. 판 조립 때 seed로 만든다. 색 등급의 몫은 다른 스트림을 쓴다(색 비율을 바꿔도 위치 순서는 같다).
         internal BattleRandom Random { get; }
 
-        internal World(BattleRandom random, EnemyPoolDefinition pool, EnemyStatTable stats, EnemyPlacementDefinition placement)
+        internal World(
+            BattleRandom random,
+            BattleRandom tierRandom,
+            EnemyPoolDefinition pool,
+            EnemyStatTable stats,
+            EnemyPlacementDefinition placement)
         {
             Random = random;
             Pool = pool ?? throw new ArgumentNullException(nameof(pool));
-            _stats = stats ?? throw new ArgumentNullException(nameof(stats));
+            Stats = stats ?? throw new ArgumentNullException(nameof(stats));
             _placement = placement;
             _filter = new PoolFilter(pool);
             PendingSpawns = _spawnRequests.AsReadOnly();
             PendingDestroys = _destroyRequests.AsReadOnly();
+
+            // 종류마다 처음 몫을 콘텐츠 순서로 흩뜨린다. 같은 콘텐츠·질량 단계·seed면 같은 색 순서가 나온다.
+            foreach (EnemyDefinition kind in stats.Kinds)
+                _tierPickers.Add(kind, new QuotaPicker(stats.TierRatiosOf(kind), tierRandom));
         }
 
         // 지금 살아 있는 이 종류의 적 수.
         public int CountAlive(EnemyDefinition kind) => _enemies.CountAlive(kind);
-
-        // 이 판에서 이 종류가 받는 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
-        public EnemyStats StatsOf(EnemyDefinition kind) => _stats.Of(kind);
 
         // 이 판에서 지금까지 확정된 처치 수(모든 종류).
         public int TotalKills
@@ -81,7 +91,7 @@ namespace BlackHole.Core
         // 풀에 없거나 최대 수에 닿은 종류는 처리 때 풀 여과 장치가 거른다.
         public void RequestSpawn(SupplyRequest request)
         {
-            _stats.Of(request.Enemy);
+            Stats.Require(request.Enemy);
 
             if (_placement == null)
                 throw new InvalidOperationException("이 판의 콘텐츠에는 출현 배치가 없어 적을 생성할 수 없다.");
@@ -106,14 +116,18 @@ namespace BlackHole.Core
 
         // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 풀 여과 장치를 거쳐 배치 띠 안에 생성한다.
         // 거른 요청은 버린다 — 나중에 자리가 나도 다시 나오지 않는다. 전투 시작 공급은 Begin(0초)이 바로 부른다.
+        // 색 등급은 여과를 통과한 뒤에 고른다. 최대 수는 종류 단위라 색 때문에 걸러지는 일은 없고, 걸러진 요청은 몫을 쓰지 않는다.
         internal void ProcessSpawnRequests()
         {
             foreach (SupplyRequest request in _spawnRequests)
             {
                 for (int i = 0; i < request.Count; i++)
                 {
-                    if (_filter.Allows(request.Enemy, _enemies))
-                        _enemies.Spawn(request.Enemy, _stats.Of(request.Enemy), _placement.Pick(Random));
+                    if (!_filter.Allows(request.Enemy, _enemies))
+                        continue;
+
+                    int tier = _tierPickers[request.Enemy].Pick();
+                    _enemies.Spawn(request.Enemy, tier, Stats.Of(request.Enemy, tier), _placement.Pick(Random));
                 }
             }
 

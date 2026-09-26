@@ -18,8 +18,9 @@ namespace BlackHole.Unity
     // - 판이 있으면 그 판의 단계 풀과 지금 살아 있는 수(매 프레임).
     // - 판이 없으면 선택한 진행도의 풀. 살아 있는 수는 '-'다.
     // 종류 줄을 누르면 그 종류의 수치·형태·특성이 아래의 설명창에 나온다. 같은 줄을 다시 누르면 닫힌다.
+    // 설명창은 색 등급마다 비율·HP·크기·Gold를 한 줄씩 보여 주고, 다음 전투의 질량 단계를 바꾸는 버튼이 있다.
     // 적의 수치는 전투 Session이 시작되기 전에 정해지고 전투 중에는 바뀌지 않는다. 그래서 설명창은
-    // 판이 있으면 그 판의 수치를, 없으면 종류의 기본 수치를 보여 준다(업그레이드 보정은 판 조립 때 반영된다).
+    // 판이 있으면 그 판의 수치를, 없으면 다음 전투의 질량 단계로 계산한 수치를 보여 준다.
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
     internal sealed class ControlConsole : IDisposable
@@ -41,6 +42,7 @@ namespace BlackHole.Unity
         private readonly TMP_Text _detailTitle;
         private readonly Image _detailForm;
         private readonly TMP_Text _detailFormText;
+        private readonly TMP_Text _detailMassText;
         private readonly TMP_Text _detailStats;
         private readonly TMP_Text _detailSource;
         private readonly StringBuilder _builder = new StringBuilder();
@@ -96,6 +98,12 @@ namespace BlackHole.Unity
             Text(form, "Label", "Form", 22);
             _detailForm = FormPreview(form);
             _detailFormText = Text(form, "Shape", string.Empty, 22);
+
+            _detailMassText = Text(detail, "MassLevel", string.Empty, 22);
+            RectTransform massButtons = Child(detail, "MassButtons");
+            HorizontalLayout(massButtons, 8);
+            MassButton(massButtons, -1);
+            MassButton(massButtons, +1);
 
             _detailStats = Text(detail, "Stats", string.Empty, 22);
             _detailSource = Text(detail, "Source", string.Empty, 18);
@@ -249,26 +257,60 @@ namespace BlackHole.Unity
                 return;
 
             EnemyDefinition kind = _selected;
-            EnemyStats stats = battle != null ? battle.World.StatsOf(kind) : kind.BaseStats;
+            int next = _orchestrator.MassLevelOf(kind);
+            int level = battle != null ? battle.World.Stats.MassLevelOf(kind) : next;
+            IReadOnlyList<float> ratios = kind.MassLevels[level].TierRatios;
+            float ratioSum = 0;
+
+            foreach (float ratio in ratios)
+                ratioSum += ratio;
 
             _detailTitle.text = kind.Id;
             _detailForm.sprite = _looks.SpriteOf(kind.Id);
-            _detailForm.color = _looks.ColorOf(kind.Id);
-            _detailFormText.text = $"radius {Number(stats.Size)}";
+            _detailForm.color = _looks.ColorOf(kind.Id, MostCommon(ratios));
+            _detailFormText.text = kind.Tiers.Count == 1 ? "1 tier" : $"{kind.Tiers.Count} tiers";
+            _detailMassText.text = battle != null
+                ? $"Mass level  {level} / {kind.MassLevels.Count - 1}  (next {next})"
+                : $"Mass level  {level} / {kind.MassLevels.Count - 1}";
 
             _builder.Clear();
-            _builder.Append("Health<pos=6em>").Append(Number(stats.MaxHealth)).Append('\n');
-            _builder.Append("Speed<pos=6em>").Append(Number(stats.MoveSpeed)).Append('\n');
-            _builder.Append("Size<pos=6em>").Append(Number(stats.Size)).Append('\n');
-            _builder.Append("Gold<pos=6em>").Append(stats.Gold).Append('\n');
+            _builder.Append("Speed<pos=6em>").Append(Number(kind.MoveSpeed)).Append('\n');
             _builder.Append("Behavior<pos=6em>").Append(Describe(kind.Behavior)).Append('\n');
             // 특성(전기·폭발·처치 버프)은 종류에 붙는다. 특성 시스템이 붙기 전에는 없다.
-            _builder.Append("Traits<pos=6em>none");
+            _builder.Append("Traits<pos=6em>none\n");
+            _builder.Append("Tier<pos=3em>Ratio<pos=7em>HP<pos=11em>Size<pos=15em>Gold");
+
+            for (int tier = 0; tier < kind.Tiers.Count; tier++)
+            {
+                EnemyStats stats = battle != null ? battle.World.Stats.Of(kind, tier) : kind.StatsAt(level, tier);
+                string color = ColorUtility.ToHtmlStringRGB(_looks.ColorOf(kind.Id, tier));
+
+                _builder.Append("\n<color=#").Append(color).Append(">#").Append(tier).Append("</color>");
+                _builder.Append("<pos=3em>").Append(Mathf.RoundToInt(ratios[tier] / ratioSum * 100)).Append('%');
+                _builder.Append("<pos=7em>").Append(Number(stats.MaxHealth));
+                _builder.Append("<pos=11em>").Append(Number(stats.Size));
+                _builder.Append("<pos=15em>").Append(stats.Gold);
+            }
+
             _detailStats.text = _builder.ToString();
 
             _detailSource.text = battle != null
-                ? $"Battle stats (stage {battle.Stage}), fixed at battle start."
-                : "Base stats. Upgrades apply at battle start.";
+                ? $"Battle stats (stage {battle.Stage}), fixed at battle start. Mass level buttons apply from the next battle."
+                : "Next battle's stats. Mass level buttons apply from the next battle.";
+        }
+
+        // 가장 많이 나오는 색 등급(같으면 앞 번호). 형태 미리보기의 색으로 쓴다.
+        private static int MostCommon(IReadOnlyList<float> ratios)
+        {
+            int best = 0;
+
+            for (int i = 1; i < ratios.Count; i++)
+            {
+                if (ratios[i] > ratios[best])
+                    best = i;
+            }
+
+            return best;
         }
 
         // 설명창이 옆으로 늘어나지 않게 짧게 쓴다. 지금 행동은 HQ 공전 하나라 방향만 적는다.
@@ -290,6 +332,17 @@ namespace BlackHole.Unity
         private void StageButton(RectTransform parent, int delta) =>
             ButtonOf(parent, $"Stage{delta:+0;-0}", $"{delta:+0;-0}", 80,
                 () => _orchestrator.SetStage(_orchestrator.Stage + delta));
+
+        // 설명창의 종류에서 다음 전투의 질량 단계를 바꾼다.
+        private void MassButton(RectTransform parent, int delta) =>
+            ButtonOf(parent, $"Mass{delta:+0;-0}", $"mass {delta:+0;-0}", 120, () =>
+            {
+                if (_selected == null)
+                    return;
+
+                _orchestrator.SetMassLevel(_selected, _orchestrator.MassLevelOf(_selected) + delta);
+                _detailDirty = true;
+            });
 
         private static Image FormPreview(RectTransform parent)
         {

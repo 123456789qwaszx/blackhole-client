@@ -13,7 +13,8 @@ namespace BlackHole.Unity
     // 사운드·조준 같은 다른 시스템의 정리는 이 시스템의 일이 아니다.
     //
     // 시작 단계:
-    //   1. 업그레이드에서 바뀐 수치 받기 — 판을 조립한다: 진행 상태를 묶고 이 판의 적 수치를 확정한다(지금은 보정 없음).
+    //   1. 업그레이드에서 바뀐 수치 받기 — 판을 조립한다: 진행 상태를 묶고 이 판의 적 수치·색 비율을 확정한다
+    //      (지금 받는 것은 종류별 질량 단계뿐이고, 개발용 콘솔이 고른다).
     //   2. 적 소환 단계 진입 — 전투 시작 공급을 내보내고 판을 진행 단계로 넣는다.
     // 종료 단계:
     //   1. 종료 요청(사유)             2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
@@ -63,7 +64,9 @@ namespace BlackHole.Unity
         }
 
         // 전투 진입을 위한 초기화. 오케스트레이터만 부른다.
-        public Task StartAsync(IReadOnlyList<PlayerState> players, int stage, int seed)
+        // massLevels는 종류별 질량 단계다. 조립이 판의 적 수치 표로 옮겨 적으므로, 뒤에 바뀌어도 이 판은 그대로다.
+        public Task StartAsync(
+            IReadOnlyList<PlayerState> players, int stage, int seed, IReadOnlyDictionary<EnemyDefinition, int> massLevels)
         {
             if (_state != State.Idle)
                 throw new InvalidOperationException($"준비된 상태에서만 시작할 수 있다. 지금: {_state}.");
@@ -74,9 +77,9 @@ namespace BlackHole.Unity
             StartSteps.Reset();
             EndSteps.Reset();
 
-            // 1. 업그레이드에서 바뀐 수치 받기: 조립이 이 판의 적 수치 표를 확정한다.
-            //    업그레이드 시스템이 돌아오면 그 결과가 조립의 입력이 된다.
-            Session = SessionAssembler.CreateBattle(_content, players, stage, seed);
+            // 1. 업그레이드에서 바뀐 수치 받기: 조립이 종류별 질량 단계로 이 판의 적 수치 표를 확정한다.
+            //    업그레이드 시스템이 돌아오면 산 노드가 질량 단계를 정한다.
+            Session = SessionAssembler.CreateBattle(_content, players, stage, seed, massLevels);
             StartSteps.Mark(0, StepState.Done);
 
             // 2. 적 소환 단계 진입.

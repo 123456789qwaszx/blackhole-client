@@ -13,10 +13,16 @@ MonoBehaviour:
   m_Name: Moon
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: moon
-  maxHealth: 20
   moveSpeed: 1.2
-  size: 0.35
-  gold: 2
+  tiers:
+  - color: {r: 0.85, g: 0.86, b: 0.9, a: 1}
+    maxHealth: 20
+    size: 0.35
+    gold: 2
+  massLevels:
+  - tierRatios:
+    - 1
+    healthMultiplier: 1
+    goldMultiplier: 1
   clockwise: 0
   sprite: {fileID: 0}
-  color: {r: 0.85, g: 0.86, b: 0.9, a: 1}
