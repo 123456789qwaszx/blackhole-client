@@ -1,7 +1,7 @@
 {
   "name": "BlackHole.Core.Tests",
   "rootNamespace": "BlackHole.Core.Tests",
-  "references": ["BlackHole.Core", "BlackHole.Sample"],
+  "references": ["BlackHole.Core", "BlackHole.Sample", "BlackHole.Authoring"],
   "includePlatforms": ["Editor"],
   "optionalUnityReferences": ["TestAssemblies"],
   "noEngineReferences": true

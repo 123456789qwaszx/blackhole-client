@@ -29,6 +29,7 @@ namespace BlackHole.Core.Tests
             foreach (Contract contract in ProgressContracts.Cases()) yield return contract;
             foreach (Contract contract in UpgradeContracts.Cases()) yield return contract;
             foreach (Contract contract in NodeContracts.Cases()) yield return contract;
+            foreach (Contract contract in AuthoringContracts.Cases()) yield return contract;
         }
     }
 }

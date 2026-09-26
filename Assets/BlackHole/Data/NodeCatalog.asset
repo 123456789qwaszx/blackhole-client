@@ -12,76 +12,92 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 165e9022097e4ead9e9b181d76230366, type: 3}
   m_Name: NodeCatalog
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.NodeCatalog
-  nodes:
-  - Id: start
-    Price: 10
-    Start: 1
-    Links:
-    - speed-1
-    - damage-1
-    Upgrades:
-    - Stat: breaker.damage
-      Operation: 0
-      Value: 1
-  - Id: speed-1
-    Price: 25
-    Start: 0
-    Links:
-    - speed-2
-    Upgrades:
-    - Stat: breaker.speed
-      Operation: 1
-      Value: 0.25
-  - Id: speed-2
-    Price: 60
-    Start: 0
-    Links: []
-    Upgrades:
-    - Stat: breaker.speed
-      Operation: 1
-      Value: 0.25
-  - Id: damage-1
-    Price: 25
-    Start: 0
-    Links:
-    - square-a
-    Upgrades:
-    - Stat: breaker.damage
-      Operation: 0
-      Value: 1
-  - Id: square-a
-    Price: 50
-    Start: 0
-    Links:
-    - square-b
-    - square-c
-    Upgrades:
-    - Stat: breaker.radius
-      Operation: 1
-      Value: 0.1
-  - Id: square-b
-    Price: 50
-    Start: 0
-    Links:
-    - square-d
-    Upgrades:
-    - Stat: breaker.radius
-      Operation: 1
-      Value: 0.1
-  - Id: square-c
-    Price: 50
-    Start: 0
-    Links:
-    - square-d
-    Upgrades:
-    - Stat: breaker.crit-chance
-      Operation: 0
-      Value: 0.05
-  - Id: square-d
-    Price: 120
-    Start: 0
-    Links: []
-    Upgrades:
-    - Stat: breaker.crit-chance
-      Operation: 0
-      Value: 0.05
+  tree:
+    Nodes:
+    - Id: start
+      Price: 10
+      Start: 1
+      X: 0
+      Y: 0
+      Links:
+      - damage-1
+      Upgrades:
+      - Stat: breaker.damage
+        Operation: 0
+        Value: 1
+    - Id: speed-1
+      Price: 25
+      Start: 0
+      X: 1
+      Y: 0
+      Links:
+      - start
+      Upgrades:
+      - Stat: breaker.speed
+        Operation: 1
+        Value: 0.25
+    - Id: speed-2
+      Price: 60
+      Start: 0
+      X: 2
+      Y: 0
+      Links:
+      - speed-1
+      Upgrades:
+      - Stat: breaker.speed
+        Operation: 1
+        Value: 0.25
+    - Id: damage-1
+      Price: 25
+      Start: 0
+      X: 0
+      Y: -1
+      Links:
+      - square-a
+      Upgrades:
+      - Stat: breaker.damage
+        Operation: 0
+        Value: 1
+    - Id: square-a
+      Price: 50
+      Start: 0
+      X: 0
+      Y: -2
+      Links:
+      - square-c
+      Upgrades:
+      - Stat: breaker.radius
+        Operation: 1
+        Value: 0.1
+    - Id: square-b
+      Price: 50
+      Start: 0
+      X: 2
+      Y: -3
+      Links:
+      - square-d
+      Upgrades:
+      - Stat: breaker.radius
+        Operation: 1
+        Value: 0.1
+    - Id: square-c
+      Price: 50
+      Start: 0
+      X: 0
+      Y: -3
+      Links:
+      - square-d
+      Upgrades:
+      - Stat: breaker.crit-chance
+        Operation: 0
+        Value: 0.05
+    - Id: square-d
+      Price: 120
+      Start: 0
+      X: 1
+      Y: -3
+      Links: []
+      Upgrades:
+      - Stat: breaker.crit-chance
+        Operation: 0
+        Value: 0.05

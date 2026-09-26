@@ -1,0 +1,6 @@
+{
+  "name": "BlackHole.Editor",
+  "rootNamespace": "BlackHole.EditorTools",
+  "references": ["BlackHole.Core", "BlackHole.Unity", "BlackHole.Authoring"],
+  "includePlatforms": ["Editor"]
+}
