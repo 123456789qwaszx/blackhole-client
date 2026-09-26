@@ -11,8 +11,8 @@ namespace BlackHole.Unity
     // GameHost에 사용자 UI를 연결하면 쓰지 않는다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
     internal static class PlaceholderScreens
     {
-        private static readonly Color ButtonColor = new Color(0.2f, 0.26f, 0.42f);
-        private static readonly Vector2 MenuButton = new Vector2(420, 72);
+        private static readonly Color Backdrop = new Color(0.08f, 0.08f, 0.11f);
+        private const float HeaderHeight = 110;
 
         public readonly struct Result
         {
@@ -36,9 +36,30 @@ namespace BlackHole.Unity
             RectTransform rootLayer = Stretch(Child(canvas, "RootLayer"));
             RectTransform panelLayer = Stretch(Child(canvas, "PanelLayer"));
 
-            var views = new UIBase[0];
+            var views = new UIBase[] { BuildUpgrade(rootLayer) };
             return new Result(rootLayer, panelLayer, views);
         }
+
+        #region 화면
+
+        // 자식을 모두 만든 뒤 화면 클래스를 붙인다. 화면 클래스는 붙는 순간 자식을 이름으로 찾는다.
+        // 업그레이드 화면: 어두운 배경, 위쪽 글자(Gold, 제목, 산 노드 수), 그 아래 전부가 트리 영역이다.
+        private static UIBase BuildUpgrade(RectTransform layer)
+        {
+            RectTransform screen = Stretch(Child(layer, nameof(UpgradeScreen)));
+            screen.gameObject.AddComponent<Image>().color = Backdrop;
+
+            RectTransform viewport = Stretch(Child(screen, nameof(UpgradeScreen.Refs.TreeViewport)));
+            viewport.offsetMax = new Vector2(0, -HeaderHeight);
+
+            Label(screen, nameof(UpgradeScreen.Refs.GoldText), string.Empty, 36, new Vector2(0.2f, 0.955f));
+            Label(screen, "Heading", "UPGRADES", 40, new Vector2(0.5f, 0.955f));
+            Label(screen, nameof(UpgradeScreen.Refs.ProgressText), string.Empty, 36, new Vector2(0.8f, 0.955f));
+
+            return screen.gameObject.AddComponent<UpgradeScreen>();
+        }
+
+        #endregion
 
         #region 부품
 
@@ -76,52 +97,6 @@ namespace BlackHole.Unity
             rect.anchorMax = anchor;
             rect.sizeDelta = new Vector2(1600, size * 1.6f);
             return Text(rect, text, size);
-        }
-
-        private static RectTransform Row(RectTransform parent, string name, Vector2 anchor, float spacing)
-        {
-            RectTransform rect = Group(parent, name, anchor);
-            var layout = rect.gameObject.AddComponent<HorizontalLayoutGroup>();
-            Configure(layout, spacing);
-            return rect;
-        }
-
-        private static RectTransform Group(RectTransform parent, string name, Vector2 anchor)
-        {
-            RectTransform rect = Child(parent, name);
-            rect.anchorMin = anchor;
-            rect.anchorMax = anchor;
-
-            var fitter = rect.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            return rect;
-        }
-
-        private static void Configure(HorizontalOrVerticalLayoutGroup layout, float spacing)
-        {
-            layout.spacing = spacing;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-        }
-
-        // 버튼 글자의 이름은 프레임워크 예제의 관례를 따른다: PauseBtn_Button → PauseBtn_Text.
-        private static void MenuButtonOf(RectTransform parent, string name, string text)
-        {
-            RectTransform rect = Child(parent, name);
-
-            var image = rect.gameObject.AddComponent<Image>();
-            image.color = ButtonColor;
-            rect.gameObject.AddComponent<Button>().targetGraphic = image;
-
-            var element = rect.gameObject.AddComponent<LayoutElement>();
-            element.preferredWidth = MenuButton.x;
-            element.preferredHeight = MenuButton.y;
-
-            Text(Stretch(Child(rect, name.Replace("_Button", "_Text"))), text, 32);
         }
 
         private static TMP_Text Text(RectTransform rect, string text, float size)
