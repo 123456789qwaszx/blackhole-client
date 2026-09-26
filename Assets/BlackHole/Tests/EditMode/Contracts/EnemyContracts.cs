@@ -1,198 +1,427 @@
 using System;
 using System.Collections.Generic;
-using BlackHole.Core;
 
 namespace BlackHole.Core.Tests
 {
-    // B2 HQ 기준점, B3 행동 분리, B4 Runtime Stat 분리. 출현과 이동.
+    // 적: 전투 시작 공급·풀 여과·배치, HQ 공전, 피해와 사망 확정, 생성·파괴 요청, 판 정리(GAME_RULES 7~9·12·13절).
+    // 공급된 적은 판의 단계 풀을 거쳐서만 나오므로, 계약은 공급하는 종류를 기본 풀에 넣는다(TestContent.Allow).
     internal static class EnemyContracts
     {
+        private static readonly Damage Hit = new Damage(4, TestContent.First);
+
         public static IEnumerable<Contract> Cases()
         {
-            yield return new Contract("Enemy.StartPlacementAroundHqAtDistance", StartPlacementAroundHqAtDistance);
-            yield return new Contract("Enemy.OrbitsAroundHq", OrbitsAroundHq);
-            yield return new Contract("Enemy.FollowsWhereHqIs", FollowsWhereHqIs);
-            yield return new Contract("Enemy.LongFrameMovesLikeShortFrames", LongFrameMovesLikeShortFrames);
-            yield return new Contract("Enemy.BehaviorIsSwappableWithoutTouchingEnemy", BehaviorIsSwappableWithoutTouchingEnemy);
-            yield return new Contract("Enemy.RuntimeStatsLeaveBaseDefinitionUnchanged", RuntimeStatsLeaveBaseDefinitionUnchanged);
-            yield return new Contract("Enemy.SupplyCreatesKindsInRequestOrder", SupplyCreatesKindsInRequestOrder);
-            yield return new Contract("Enemy.SessionsDoNotShareEnemies", SessionsDoNotShareEnemies);
+            yield return new Contract("Enemy.StartSupplyPlacesEveryRequestInsideBand", StartSupplyPlacesEveryRequestInsideBand);
+            yield return new Contract("Enemy.PlacementIsReproducibleBySeed", PlacementIsReproducibleBySeed);
+            yield return new Contract("Enemy.OrbitsHqKeepingDistance", OrbitsHqKeepingDistance);
+            yield return new Contract("Enemy.DeathIsConfirmedOnceAndLeavesTheBattle", DeathIsConfirmedOnceAndLeavesTheBattle);
+            yield return new Contract("Enemy.DeadEnemiesNoLongerMove", DeadEnemiesNoLongerMove);
+            yield return new Contract("Enemy.DeathRecordsLastOneAdvance", DeathRecordsLastOneAdvance);
+            yield return new Contract("Enemy.BattleCleanupIsNotAKill", BattleCleanupIsNotAKill);
+            yield return new Contract("Enemy.EachBattleHasItsOwnEnemies", EachBattleHasItsOwnEnemies);
+            yield return new Contract("Enemy.PoolFilterDropsKindsOutsideThePool", PoolFilterDropsKindsOutsideThePool);
+            yield return new Contract("Enemy.PoolFilterCapsAliveCountPerKind", PoolFilterCapsAliveCountPerKind);
+            yield return new Contract("Enemy.BattleUsesItsStagePool", BattleUsesItsStagePool);
+            yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
+            yield return new Contract("Enemy.KillsAreTalliedByKind", KillsAreTalliedByKind);
+            yield return new Contract("Enemy.SpawnRequestsWaitForTheNextStep", SpawnRequestsWaitForTheNextStep);
+            yield return new Contract("Enemy.FilteredSpawnRequestsAreDropped", FilteredSpawnRequestsAreDropped);
+            yield return new Contract("Enemy.RejectsRequestsTheBattleCannotTake", RejectsRequestsTheBattleCannotTake);
+            yield return new Contract("Enemy.DestroyRequestsConfirmDeathAtTheNextStep", DestroyRequestsConfirmDeathAtTheNextStep);
+            yield return new Contract("Enemy.DeathsComeBeforeSupplyInAStep", DeathsComeBeforeSupplyInAStep);
         }
 
-        // 전투 시작 배치는 판 조립 때 HQ 기준 거리에 나온다.
-        private static void StartPlacementAroundHqAtDistance()
+        // 생성 요청은 쌓였다가 다음 Step의 공급 처리 때 적이 된다. 정지 중에는 Step이 없으므로 계속 쌓여 있다.
+        private static void SpawnRequestsWaitForTheNextStep()
         {
-            GameSession game = TestContent.Session(TestContent.Data(hqX: 2, hqY: 1));
-            Expect.Equal(1, game.World.Enemies.Count);
+            GameSession game = TestContent.Session(OneEnemy(health: 10));
+            World world = game.World;
+            EnemyDefinition kind = world.Enemies[0].Definition;
 
-            Enemy enemy = game.World.Enemies[0];
-            Expect.Near(3, TestContent.DistanceToHq(game, enemy));
-            Expect.Equal(TestContent.EnemyId, enemy.Definition.Id);
-            Expect.Near(enemy.Stats.MaxHealth, enemy.Health);
+            world.RequestSpawn(new SupplyRequest(kind, 2));
+            Expect.Equal(1, world.Enemies.Count);
+            Expect.Equal(1, world.PendingSpawns.Count);
+
+            game.TogglePause();
+            game.Advance(0.1f);
+            Expect.Equal(1, world.Enemies.Count);
+            Expect.Equal(1, world.PendingSpawns.Count);
+
+            game.TogglePause();
+            game.Advance(0.1f);
+            Expect.Equal(3, world.Enemies.Count);
+            Expect.Equal(3, world.CountAlive(kind));
+            Expect.Equal(0, world.PendingSpawns.Count);
+
+            foreach (Enemy enemy in world.Enemies)
+                Expect.Near(3, TestContent.DistanceToHq(enemy.Position));
         }
 
-        // HQ로부터의 거리를 유지하며 이동 속도만큼 원 둘레를 돈다(속도 1, 반지름 3 → 초당 1/3 라디안).
-        private static void OrbitsAroundHq()
+        // 풀 여과 장치가 거른 생성 요청은 버린다. 나중에 자리가 나도 다시 나오지 않는다.
+        private static void FilteredSpawnRequestsAreDropped()
         {
-            GameSession game = TestContent.Session(TestContent.Data(hqX: -1, hqY: 4));
-            Enemy enemy = game.World.Enemies[0];
-            float before = AngleAroundHq(game, enemy);
-
-            game.Advance(1);
-            Expect.Near(3, TestContent.DistanceToHq(game, enemy), 0.01f);
-            Expect.Near(1f / 3f, AngleAroundHq(game, enemy) - before, 0.01f);
-        }
-
-        // HQ를 옮긴 판에서는 출현과 공전이 새 위치를 기준으로 한다. HQ에 대한 상대 위치는 같다.
-        private static void FollowsWhereHqIs()
-        {
-            GameSession atOrigin = TestContent.Session(TestContent.Data());
-            GameSession moved = TestContent.Session(TestContent.Data(hqX: 5, hqY: -3));
-            atOrigin.Advance(2.5f);
-            moved.Advance(2.5f);
-
-            Expect.Equal(atOrigin.World.Enemies.Count, moved.World.Enemies.Count);
-
-            for (int i = 0; i < atOrigin.World.Enemies.Count; i++)
-            {
-                Point2 a = atOrigin.World.Enemies[i].Position;
-                Point2 b = moved.World.Enemies[i].Position;
-                Expect.Near(a.X, b.X - 5);
-                Expect.Near(a.Y, b.Y + 3);
-            }
-        }
-
-        // 3.5초짜리 프레임 한 번과 짧은 프레임 여러 번의 이동 결과가 같다.
-        // 공전은 각도 계산이라 단계 크기와 무관하다. 시간 분할 자체는 Growth.LongFrameMatchesShortFrames가 확인한다.
-        private static void LongFrameMovesLikeShortFrames()
-        {
-            GameSession longFrame = TestContent.Session(TestContent.Data());
-            GameSession shortFrames = TestContent.Session(TestContent.Data());
-            longFrame.Advance(3.5f);
-
-            for (int i = 0; i < 210; i++)
-            {
-                shortFrames.Advance(1f / 60f);
-            }
-
-            float expected = AngleAroundHq(shortFrames, shortFrames.World.Enemies[0]);
-            Expect.True(expected > 1, "짧은 프레임에서는 Enemy가 약 3.5초 동안 돌았어야 한다: " + expected);
-            Expect.Near(expected, AngleAroundHq(longFrame, longFrame.World.Enemies[0]), 0.02f);
-        }
-
-        // D3: 게임 콘텐츠와 종류 해석에는 Orbit뿐이다. 테스트가 행동 경계에 Fake를 꽂아도
-        // Enemy·출현·Session은 그대로 동작한다.
-        private static void BehaviorIsSwappableWithoutTouchingEnemy()
-        {
-            GameContent content = TestContent.Load(TestContent.Data());
-            var seen = new List<EnemyBehaviorDefinition>();
-            GameSession game = SessionAssembler.Create(content, new[] { TestContent.First }, definition =>
-            {
-                seen.Add(definition);
-                return new SlideRight();
-            });
-
-            Enemy enemy = game.World.Enemies[0];
-            Point2 start = enemy.Position;
-            game.Advance(1);
-            Expect.Near(start.X + 1, enemy.Position.X, 0.01f);
-            Expect.Near(start.Y, enemy.Position.Y);
-            Expect.Equal(game.World.Enemies.Count, seen.Count);
-
-            foreach (EnemyBehaviorDefinition definition in seen)
-                Expect.True(definition is OrbitHqBehaviorDefinition, "콘텐츠의 행동 정의는 그대로 Orbit이어야 한다.");
-
-            // 같은 콘텐츠를 표준 해석기로 조립하면 공전한다.
-            GameSession standard = TestContent.Session(TestContent.Data());
-            standard.Advance(2.05f);
-            Expect.Near(3, TestContent.DistanceToHq(standard, standard.World.Enemies[0]), 0.01f);
-        }
-
-        // 실행 수치 = 기본 수치 + 보정(순서대로). 기본 정의는 바뀌지 않는다.
-        // 게임에서는 보정(구매)이 아직 연결되지 않아 보정이 없다(M6).
-        private static void RuntimeStatsLeaveBaseDefinitionUnchanged()
-        {
-            GameContent content = TestContent.Load(TestContent.Data());
-            content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition definition);
-
-            EnemyStats plain = EnemyStatCalculator.Compute(definition, Array.Empty<IEnemyStatModifier>());
-            Expect.Near(10, plain.MaxHealth);
-
-            var addThenDouble = new IEnemyStatModifier[] { new AddHealth(5), new DoubleHealth() };
-            var doubleThenAdd = new IEnemyStatModifier[] { new DoubleHealth(), new AddHealth(5) };
-            Expect.Near(30, EnemyStatCalculator.Compute(definition, addThenDouble).MaxHealth);
-            Expect.Near(25, EnemyStatCalculator.Compute(definition, doubleThenAdd).MaxHealth);
-            Expect.Near(10, definition.BaseStats.MaxHealth);
-
-            GameSession game = TestContent.Session(TestContent.Data());
-            Enemy enemy = game.World.Enemies[0];
-            Expect.Near(definition.BaseStats.MaxHealth, enemy.Stats.MaxHealth);
-            Expect.Near(enemy.Stats.MaxHealth, enemy.Health);
-        }
-
-        // 공급은 요청 순서대로 생성한다. n번째 Enemy는 각도 n × AngleStep에 놓인다.
-        private static void SupplyCreatesKindsInRequestOrder()
-        {
-            ContentData data = TestContent.Data();
-            data.Enemies.Add(TestContent.Enemy("other", 20, 1, 0.5f));
-            data.StartSupply = new List<SupplyData>
-            {
-                TestContent.Supply(TestContent.EnemyId, 2),
-                TestContent.Supply("other", 1)
-            };
-
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 2));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 2);
             GameSession game = TestContent.Session(data);
-            Expect.Equal(3, game.World.Enemies.Count);
-            Expect.Equal(TestContent.EnemyId, game.World.Enemies[0].Definition.Id);
-            Expect.Equal(TestContent.EnemyId, game.World.Enemies[1].Definition.Id);
-            Expect.Equal("other", game.World.Enemies[2].Definition.Id);
+            World world = game.World;
 
-            for (int i = 0; i < 3; i++)
+            world.RequestSpawn(new SupplyRequest(world.Enemies[0].Definition, 1));
+            game.Advance(0.1f);
+            Expect.Equal(2, world.Enemies.Count);
+            Expect.Equal(0, world.PendingSpawns.Count);
+
+            world.RequestDestroy(world.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(1, world.Enemies.Count);
+        }
+
+        // 판이 만들 수 없는 적의 생성 요청(이 판의 종류가 아님, 출현 배치 없음)과 빈 파괴 요청은 요청 때 거부한다.
+        private static void RejectsRequestsTheBattleCannotTake()
+        {
+            World world = TestContent.Session(OneEnemy(health: 10)).World;
+            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1), new OrbitBehaviorDefinition(false));
+            Expect.Throws<ArgumentException>(() => world.RequestSpawn(new SupplyRequest(stranger, 1)));
+            Expect.Throws<ArgumentException>(() => world.RequestSpawn(default));
+            Expect.Throws<ArgumentNullException>(() => world.RequestDestroy(null));
+            Expect.Equal(0, world.PendingSpawns.Count);
+            Expect.Equal(0, world.PendingDestroys.Count);
+
+            World bare = TestContent.Session(TestContent.Data()).World;
+            EnemyDefinition poolKind = bare.Pool.Entries[0].Enemy;
+            Expect.Throws<InvalidOperationException>(() => bare.RequestSpawn(new SupplyRequest(poolKind, 1)));
+        }
+
+        // 파괴 요청은 쌓였다가 다음 Step의 사망 처리 때 사망을 확정한다. 피해·HP를 계산하지 않고,
+        // 피해로 죽을 때와 같은 사망 절차(목록에서 제외, 사망 기록, 처치 수)를 거친다.
+        // 같은 적의 두 번째 요청과 이미 죽은 적의 요청은 아무것도 하지 않는다.
+        private static void DestroyRequestsConfirmDeathAtTheNextStep()
+        {
+            ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 2));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 10));
+            TestContent.Allow(data, TestContent.EnemyId);
+            GameSession game = TestContent.Session(data);
+            World world = game.World;
+            Enemy target = world.Enemies[0];
+
+            world.RequestDestroy(target);
+            world.RequestDestroy(target);
+            Expect.True(target.IsAlive, "요청만으로는 죽지 않는다.");
+            Expect.Equal(2, world.Enemies.Count);
+            Expect.Equal(2, world.PendingDestroys.Count);
+
+            game.Advance(0.1f);
+            Expect.True(!target.IsAlive, "다음 Step에 죽어야 한다.");
+            Expect.Equal(1, world.Enemies.Count);
+            Expect.Equal(1, world.CountAlive(target.Definition));
+            Expect.Equal(1, world.Deaths.Count);
+            Expect.Equal(target.Id, world.Deaths[0].EnemyId);
+            Expect.Equal(1, world.TotalKills);
+            Expect.Equal(0, world.PendingDestroys.Count);
+
+            world.RequestDestroy(target);
+            game.Advance(0.1f);
+            Expect.Equal(0, world.Deaths.Count);
+            Expect.Equal(1, world.TotalKills);
+        }
+
+        // 한 Step에서 사망 처리가 공급 처리보다 먼저다(GAME_RULES 13절). 죽어서 비운 자리에 같은 Step의 생성이 들어간다.
+        private static void DeathsComeBeforeSupplyInAStep()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 1));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 1);
+            GameSession game = TestContent.Session(data);
+            World world = game.World;
+            Enemy old = world.Enemies[0];
+
+            world.RequestSpawn(new SupplyRequest(old.Definition, 1));
+            world.RequestDestroy(old);
+            game.Advance(0.1f);
+
+            Expect.Equal(1, world.Enemies.Count);
+            Expect.True(!ReferenceEquals(old, world.Enemies[0]), "비운 자리에 새 적이 나와야 한다.");
+            Expect.Equal(1, world.TotalKills);
+        }
+
+        // 판의 적 수치는 조립 때 정해지고, 출현하는 적은 그 수치를 받는다. 지금은 보정이 없어 기본 수치와 같다.
+        // 판에 없는 종류의 수치는 묻지 않는다.
+        private static void SpawnsTakeTheBattleStats()
+        {
+            GameSession game = TestContent.Session(OneEnemy(health: 12));
+            Enemy enemy = game.World.Enemies[0];
+            EnemyStats battle = game.World.StatsOf(enemy.Definition);
+
+            Expect.Near(battle.MaxHealth, enemy.Stats.MaxHealth);
+            Expect.Near(battle.Size, enemy.Stats.Size);
+            Expect.Near(battle.MoveSpeed, enemy.Stats.MoveSpeed);
+            Expect.Near(enemy.Definition.BaseStats.MaxHealth, battle.MaxHealth);
+
+            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1), new OrbitBehaviorDefinition(false));
+            Expect.Throws<ArgumentException>(() => game.World.StatsOf(stranger));
+        }
+
+        // 공급이 요청해도 이 판의 단계 풀에 없는 종류는 나오지 않는다. 걸러진 요청은 버린다.
+        private static void PoolFilterDropsKindsOutsideThePool()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("inside", 2), TestContent.Supply("outside", 3));
+            data.Enemies.Add(TestContent.Enemy("inside"));
+            data.Enemies.Add(TestContent.Enemy("outside"));
+            TestContent.Allow(data, "inside");
+            GameSession game = TestContent.Session(data);
+
+            Expect.Equal(2, game.World.Enemies.Count);
+            Expect.Equal(2, game.World.CountAlive(game.World.Enemies[0].Definition));
+            foreach (Enemy enemy in game.World.Enemies)
+                Expect.Equal("inside", enemy.Definition.Id);
+        }
+
+        // 한 종류가 동시에 살아 있을 수 있는 수는 풀의 최대 수까지다. 살아 있는 수는 사망 때 준다.
+        private static void PoolFilterCapsAliveCountPerKind()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 5));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1));
+            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 3);
+            GameSession game = TestContent.Session(data);
+
+            EnemyDefinition kind = game.World.Enemies[0].Definition;
+            Expect.Equal(3, game.World.Enemies.Count);
+            Expect.Equal(3, game.World.CountAlive(kind));
+
+            game.World.DealDamage(game.World.Enemies[0], Hit);
+            Expect.Equal(2, game.World.CountAlive(kind));
+            Expect.Equal(2, game.World.Enemies.Count);
+        }
+
+        // 판은 자신을 조립한 단계의 풀을 쓴다. 같은 공급이라도 단계가 다르면 나오는 적이 다르다.
+        private static void BattleUsesItsStagePool()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("small", 2), TestContent.Supply("big", 2));
+            data.Enemies.Add(TestContent.Enemy("small"));
+            data.Enemies.Add(TestContent.Enemy("big"));
+            TestContent.Allow(data, "small");
+            data.EnemyPools.Add(TestContent.Pool("late", "big"));
+            data.Stages[1].Pool = "late";
+            GameContent content = TestContent.Load(data);
+
+            GameSession early = TestContent.Begun(
+                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 1, 0));
+            GameSession late = TestContent.Begun(
+                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 2, 0));
+
+            Expect.Equal(TestContent.PoolId, early.World.Pool.Id);
+            Expect.Equal("late", late.World.Pool.Id);
+            Expect.Equal("small", early.World.Enemies[0].Definition.Id);
+            Expect.Equal(2, early.World.Enemies.Count);
+            Expect.Equal("big", late.World.Enemies[0].Definition.Id);
+            Expect.Equal(2, late.World.Enemies.Count);
+        }
+
+        // 요청마다 정해진 수가 요청 순서대로 나온다. 모두 HQ로부터 띠 [2, 4] 안에 있고, 체력은 가득 차 있다.
+        private static void StartSupplyPlacesEveryRequestInsideBand()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("a", 3), TestContent.Supply("b", 2));
+            data.Enemies.Add(TestContent.Enemy("a", health: 10));
+            data.Enemies.Add(TestContent.Enemy("b", health: 25));
+            TestContent.Allow(data, "a");
+            TestContent.Allow(data, "b");
+            GameSession game = TestContent.Session(data);
+
+            IReadOnlyList<Enemy> enemies = game.World.Enemies;
+            Expect.Equal(5, enemies.Count);
+
+            for (int i = 0; i < enemies.Count; i++)
             {
-                Expect.Near(i, AngleAroundHq(game, game.World.Enemies[i]));
-                Expect.Near(3, TestContent.DistanceToHq(game, game.World.Enemies[i]));
+                Enemy enemy = enemies[i];
+                Expect.Equal(i < 3 ? "a" : "b", enemy.Definition.Id);
+                Expect.Equal(i + 1, enemy.Id.Value);
+                Expect.True(enemy.IsAlive, "처음에는 살아 있어야 한다.");
+                Expect.Near(enemy.Stats.MaxHealth, enemy.Health);
+
+                float distance = TestContent.DistanceToHq(enemy.Position);
+                Expect.True(distance >= 2 - 0.0001f && distance <= 4 + 0.0001f, $"띠 밖에 나왔다: {distance}");
             }
         }
 
-        private static void SessionsDoNotShareEnemies()
+        // 같은 seed의 판은 같은 자리에, 다른 seed의 판은 다른 자리에 적을 둔다.
+        private static void PlacementIsReproducibleBySeed()
         {
-            GameContent content = TestContent.Load(TestContent.Data());
-            GameSession first = SessionAssembler.Create(content, new[] { TestContent.First });
-            GameSession second = SessionAssembler.Create(content, new[] { TestContent.First });
-            Point2 before = second.World.Enemies[0].Position;
+            ContentData data = TestContent.Arena(1, 5, TestContent.Supply(TestContent.EnemyId, 4));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            TestContent.Allow(data, TestContent.EnemyId);
 
-            first.Advance(1);
-            Expect.Equal(new EnemyId(1), second.World.Enemies[0].Id);
-            Expect.True(!ReferenceEquals(first.World.Enemies[0], second.World.Enemies[0]), "Enemy를 공유하면 안 된다.");
-            Expect.Equal(before, second.World.Enemies[0].Position);
+            IReadOnlyList<Enemy> first = TestContent.Session(data, seed: 7).World.Enemies;
+            IReadOnlyList<Enemy> again = TestContent.Session(data, seed: 7).World.Enemies;
+            IReadOnlyList<Enemy> other = TestContent.Session(data, seed: 8).World.Enemies;
+
+            bool differs = false;
+
+            for (int i = 0; i < first.Count; i++)
+            {
+                Expect.Equal(first[i].Position, again[i].Position);
+                differs |= !first[i].Position.Equals(other[i].Position);
+            }
+
+            Expect.True(differs, "다른 seed인데 배치가 모두 같다.");
         }
 
-        private static float AngleAroundHq(GameSession game, Enemy enemy)
+        // 원점으로부터의 거리를 유지하며 이동 속도만큼 원을 따라 돈다. 반시계 방향이 기본이다.
+        private static void OrbitsHqKeepingDistance()
         {
-            Point2 hq = game.World.Hq.Position;
-            return (float)Math.Atan2(enemy.Position.Y - hq.Y, enemy.Position.X - hq.X);
+            ContentData data = TestContent.Arena(3, 3,
+                TestContent.Supply("ccw", 1), TestContent.Supply("cw", 1));
+            data.Enemies.Add(TestContent.Enemy("ccw", speed: 1.5f));
+            data.Enemies.Add(TestContent.Enemy("cw", speed: 1.5f, clockwise: true));
+            TestContent.Allow(data, "ccw");
+            TestContent.Allow(data, "cw");
+            GameSession game = TestContent.Session(data);
+
+            Enemy ccw = game.World.Enemies[0];
+            Enemy cw = game.World.Enemies[1];
+            Point2 ccwStart = ccw.Position;
+            Point2 cwStart = cw.Position;
+
+            game.Advance(0.5f);
+
+            // 반지름 3에서 초당 거리 1.5는 초당 0.5라디안이다. 0.5초면 0.25라디안 돈다.
+            Expect.Near(3, TestContent.DistanceToHq(ccw.Position));
+            Expect.Near(3, TestContent.DistanceToHq(cw.Position));
+            Expect.Near(0.25f, SignedTurn(ccwStart, ccw.Position));
+            Expect.Near(-0.25f, SignedTurn(cwStart, cw.Position));
         }
 
-        // 테스트 전용 행동: 초당 1씩 오른쪽으로 민다. 게임 콘텐츠에는 없다.
-        private sealed class SlideRight : IEnemyBehavior
+        // HP가 0 이하가 되는 순간 한 번만 죽는다. 그 즉시 판의 적 목록에서 빠지고 사망 기록이 하나 남는다.
+        // 죽은 적에게 준 피해는 아무것도 바꾸지 않는다.
+        private static void DeathIsConfirmedOnceAndLeavesTheBattle()
         {
-            public Point2 NextPosition(in EnemyBehaviorInput input, float delta) =>
-                new Point2(input.Position.X + delta, input.Position.Y);
+            GameSession game = TestContent.Session(OneEnemy(health: 10));
+            World world = game.World;
+            Enemy enemy = world.Enemies[0];
+
+            Expect.True(!world.DealDamage(enemy, Hit), "HP가 남으면 죽지 않는다.");
+            Expect.Near(6, enemy.Health);
+            Expect.Equal(TestContent.First, enemy.LastDamageSource.Value);
+            Expect.Equal(0, world.Deaths.Count);
+
+            Expect.True(world.DealDamage(enemy, new Damage(6, TestContent.First)), "HP가 0이 되면 죽는다.");
+            Expect.True(!enemy.IsAlive, "죽은 상태여야 한다.");
+            Expect.Equal(0, world.Enemies.Count);
+            Expect.Equal(1, world.Deaths.Count);
+            Expect.Equal(enemy.Id, world.Deaths[0].EnemyId);
+            Expect.Equal(TestContent.EnemyId, world.Deaths[0].EnemyTypeId);
+            Expect.Equal(enemy.Position, world.Deaths[0].Position);
+
+            Expect.True(!world.DealDamage(enemy, Hit), "다시 죽으면 안 된다.");
+            Expect.Near(0, enemy.Health);
+            Expect.Equal(1, world.Deaths.Count);
+
+            Expect.Throws<ArgumentOutOfRangeException>(() => new Damage(0, TestContent.First));
         }
 
-        // 테스트 전용 보정.
-        private sealed class AddHealth : IEnemyStatModifier
+        private static void DeadEnemiesNoLongerMove()
         {
-            private readonly float _amount;
-            public AddHealth(float amount) { _amount = amount; }
-            public EnemyStats Apply(EnemyDefinition definition, EnemyStats current) =>
-                new EnemyStats(current.MaxHealth + _amount, current.MoveSpeed, current.Size);
+            GameSession game = TestContent.Session(OneEnemy(health: 1));
+            Enemy enemy = game.World.Enemies[0];
+            game.World.DealDamage(enemy, Hit);
+            Point2 where = enemy.Position;
+
+            game.Advance(1);
+            Expect.Equal(where, enemy.Position);
         }
 
-        private sealed class DoubleHealth : IEnemyStatModifier
+        // 사망 기록은 그 사망이 일어난 진행 동안만 남는다. 화면·소리는 그 사이에 번호로 한 번씩 읽는다.
+        private static void DeathRecordsLastOneAdvance()
         {
-            public EnemyStats Apply(EnemyDefinition definition, EnemyStats current) =>
-                new EnemyStats(current.MaxHealth * 2, current.MoveSpeed, current.Size);
+            GameSession game = TestContent.Session(OneEnemy(health: 1));
+            game.World.DealDamage(game.World.Enemies[0], Hit);
+            Expect.Equal(1, game.World.Deaths.Count);
+
+            game.Advance(0.1f);
+            Expect.Equal(0, game.World.Deaths.Count);
         }
+
+        // 전투가 끝나 남은 적을 치우는 것은 처치가 아니다. 사망 기록도 처치 수도 만들지 않는다.
+        // 처리되지 않은 생성·파괴 요청은 처리되지 않고 함께 버려진다. 남은 적은 끝난 판에서만 치울 수 있다.
+        private static void BattleCleanupIsNotAKill()
+        {
+            GameSession ended = TestContent.Session(OneEnemy(health: 10));
+            Enemy survivor = ended.World.Enemies[0];
+            Expect.Throws<InvalidOperationException>(() => ended.ClearRemainingEnemies());
+
+            ended.World.RequestSpawn(new SupplyRequest(survivor.Definition, 1));
+            ended.World.RequestDestroy(survivor);
+            ended.RequestEnd(SessionEndReason.TimeExpired);
+            ended.Advance(0.1f);
+            Expect.Equal(1, ended.ClearRemainingEnemies());
+            Expect.Equal(0, ended.World.Enemies.Count);
+            Expect.Equal(0, ended.World.PendingSpawns.Count);
+            Expect.Equal(0, ended.World.PendingDestroys.Count);
+            Expect.Equal(0, ended.World.CountAlive(survivor.Definition));
+            Expect.Equal(0, ended.World.Deaths.Count);
+            Expect.Equal(0, ended.World.TotalKills);
+            Expect.True(survivor.IsAlive, "정리된 적은 죽은 것이 아니다.");
+
+            ContentData timed = OneEnemy(health: 10);
+            timed.Session.TimeLimit = 1;
+            GameSession expired = TestContent.Session(timed);
+            expired.Advance(2);
+            Expect.Equal(SessionPhase.Ended, expired.Phase);
+            Expect.Equal(0, expired.World.Deaths.Count);
+            Expect.True(expired.World.Enemies[0].IsAlive, "시간이 끝나도 적은 죽지 않는다.");
+        }
+
+        // 확정된 사망은 종류별 처치 수가 되고, 끝난 판의 원자료에 처음 처치한 순서로 남는다.
+        private static void KillsAreTalliedByKind()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("a", 3), TestContent.Supply("b", 1));
+            data.Enemies.Add(TestContent.Enemy("a", health: 1));
+            data.Enemies.Add(TestContent.Enemy("b", health: 1));
+            TestContent.Allow(data, "a");
+            TestContent.Allow(data, "b");
+            GameSession game = TestContent.Session(data);
+
+            World world = game.World;
+            world.DealDamage(world.Enemies[3], Hit);
+            world.DealDamage(world.Enemies[0], Hit);
+            world.DealDamage(world.Enemies[0], Hit);
+            Expect.Equal(3, world.TotalKills);
+            Expect.True(!world.HasPendingDeathProcessing, "사망 처리는 확정 순간 끝나야 한다.");
+
+            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.ClearRemainingEnemies();
+            BattleRawData raw = game.CreateRawData();
+            Expect.Equal(3, raw.TotalKills);
+            Expect.Equal(2, raw.Kills.Count);
+            Expect.Equal("b", raw.Kills[0].Enemy.Id);
+            Expect.Equal(1, raw.Kills[0].Count);
+            Expect.Equal("a", raw.Kills[1].Enemy.Id);
+            Expect.Equal(2, raw.Kills[1].Count);
+        }
+
+        // 같은 콘텐츠로 만든 두 판은 적을 공유하지 않는다. 한 판의 피해가 다른 판에 닿지 않는다.
+        private static void EachBattleHasItsOwnEnemies()
+        {
+            GameContent content = TestContent.Load(OneEnemy(health: 10));
+            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+            GameSession second = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+
+            Expect.True(!ReferenceEquals(first.World, second.World), "World를 재사용하면 안 된다.");
+            first.World.DealDamage(first.World.Enemies[0], Hit);
+            Expect.Near(6, first.World.Enemies[0].Health);
+            Expect.Near(10, second.World.Enemies[0].Health);
+        }
+
+        // HQ로부터 거리 3에 적 하나.
+        private static ContentData OneEnemy(float health)
+        {
+            ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 1));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: health));
+            TestContent.Allow(data, TestContent.EnemyId);
+            return data;
+        }
+
+        // 원점에서 본 from → to의 회전각(라디안). 반시계가 양수다.
+        private static float SignedTurn(Point2 from, Point2 to) =>
+            (float)Math.Atan2(from.X * to.Y - from.Y * to.X, from.X * to.X + from.Y * to.Y);
     }
 }

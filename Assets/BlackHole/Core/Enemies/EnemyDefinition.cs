@@ -2,8 +2,8 @@ using System;
 
 namespace BlackHole.Core
 {
-    // Enemy의 수치 묶음. 종류 정의의 기본 수치와 판 안의 실행 수치(Runtime Stat)가 같은 모양을 쓴다.
-    // 둘은 같은 개념이 아니다 — 실행 수치 = 기본 수치 + 보정(EnemyStatCalculator).
+    // 적의 수치 묶음. 종류의 기본 수치와 판 안의 실행 수치가 같은 모양을 쓴다.
+    // 실행 수치는 출현 때 한 번 정해지고, 그 적이 살아 있는 동안 바뀌지 않는다.
     public readonly struct EnemyStats
     {
         public float MaxHealth { get; }
@@ -20,58 +20,41 @@ namespace BlackHole.Core
         }
     }
 
-    // Enemy 종류 하나의 공유 정의: 기본 수치, 행동, 사망 시 보상, 사망 효과.
+    // 적 종류 하나의 공유 정의: 기본 수치, 행동, 사망 효과(특성).
+    // 사망 보상은 그 시스템이 붙을 때 더한다. 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
     public sealed class EnemyDefinition
     {
         public string Id { get; }
         public EnemyStats BaseStats { get; }
         public EnemyBehaviorDefinition Behavior { get; }
-        public int Gold { get; }
-        public int HqExp { get; }
-        public EnemyReward BaseReward => new EnemyReward(Gold, HqExp);
-        // 죽을 때 일어나는 효과. null이면 없다.
+        // 이 종류가 죽을 때의 효과. 없으면 null이다. 효과를 가진 적은 사망 효과의 피해를 받지 않는다.
         public DeathEffectDefinition DeathEffect { get; }
 
-        public EnemyDefinition(
-            string id, 
-            EnemyStats baseStats,
-            EnemyBehaviorDefinition behavior,
-            int gold = 0,
-            int hqExp = 0,
-            DeathEffectDefinition deathEffect = null)
+        public EnemyDefinition(string id, EnemyStats baseStats, EnemyBehaviorDefinition behavior, DeathEffectDefinition deathEffect = null)
         {
-            if (string.IsNullOrWhiteSpace(id)) 
+            if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("ID가 비어 있다.", nameof(id));
-            
-            if (gold < 0) 
-                throw new ArgumentOutOfRangeException(nameof(gold));
-            
-            if (hqExp < 0) 
-                throw new ArgumentOutOfRangeException(nameof(hqExp));
-            
+
             Id = id;
             BaseStats = baseStats;
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
-            Gold = gold;
-            HqExp = hqExp;
             DeathEffect = deathEffect;
         }
     }
 
-    // 행동 종류의 정의. Enemy 본체는 이것이 어떤 행동인지 모른다(B3).
-    // 새 행동: 하위 정의 + 행동 구현(IEnemyBehavior) + EnemyBehaviors.Standard 분기 + ContentLoader의 종류 이름.
+    // 행동 종류의 정의. 적 본체는 이것이 어떤 행동인지 모른다.
+    // 새 행동: 하위 정의 + 행동 구현(IEnemyBehavior) + EnemyBehaviors.Create 분기 + ContentLoader의 종류 이름.
     public abstract class EnemyBehaviorDefinition
     {
         private protected EnemyBehaviorDefinition() { }
     }
 
-    // HQ 주위를 돈다. 지금 게임에 있는 유일한 행동이다.
-    public sealed class OrbitHqBehaviorDefinition : EnemyBehaviorDefinition
+    // HQ 주위를 돈다. 지금 게임에 있는 유일한 행동이다(GAME_RULES 7절).
+    public sealed class OrbitBehaviorDefinition : EnemyBehaviorDefinition
     {
-        // [임시] 회전 방향. 값은 샘플 콘텐츠가 정한다.
         public bool Clockwise { get; }
 
-        public OrbitHqBehaviorDefinition(bool clockwise)
+        public OrbitBehaviorDefinition(bool clockwise)
         {
             Clockwise = clockwise;
         }

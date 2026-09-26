@@ -6,24 +6,10 @@ namespace BlackHole.Core
     // 규칙을 로더와 생성자에 두 번 쓰지 않는다.
     internal static class DefinitionGuard
     {
-        public static float Finite(float value, string name)
-        {
-            if (float.IsNaN(value) || float.IsInfinity(value))
-                throw new ArgumentOutOfRangeException(name, "유한한 값이 필요하다.");
-            return value;
-        }
-
         public static float Positive(float value, string name)
         {
             if (float.IsNaN(value) || float.IsInfinity(value) || value <= 0)
                 throw new ArgumentOutOfRangeException(name, "유한한 양수가 필요하다.");
-            return value;
-        }
-
-        public static float NonNegative(float value, string name)
-        {
-            if (float.IsNaN(value) || float.IsInfinity(value) || value < 0)
-                throw new ArgumentOutOfRangeException(name, "0 이상의 유한한 값이 필요하다.");
             return value;
         }
 

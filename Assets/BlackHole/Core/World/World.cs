@@ -1,182 +1,194 @@
+using System;
 using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // 한 판 안에 존재하는 것들: HQ, 참가 Player 목록, Enemy 목록. 한 단계 안의 처리 순서를 가진다.
+    // 한 판 안에 존재하는 것들과 한 단계의 처리 순서.
+    // 지금 판 안에 있는 것은 적, 참가자(조준점·스킬), 사망 효과 대기열이다. 다른 전투 시스템(HQ 성장)은 붙을 때
+    // Step의 정해진 자리(GAME_RULES 13절)에 들어간다.
+    //
+    // 적이 생기고 죽는 일은 요청으로 들어와 쌓이고, Step의 정해진 자리에서 요청 순서대로 처리된다.
+    // - 파괴 요청(RequestDestroy) → 13절 3. Damage / Death 자리: 그 적의 사망을 확정한다(피해·HP 계산 없음).
+    // - 생성 요청(RequestSpawn)  → 13절 7. Enemy Supply 자리: 풀 여과 장치를 거쳐 한 마리씩 생성한다.
+    // 같은 Step에서 사망이 생성보다 먼저다. 그래서 죽어서 비운 자리(풀의 최대 수)에 같은 Step의 생성이 들어갈 수 있다.
+    // 생성된 적은 다음 Step부터 움직이고 공격 대상이 된다. 처리되지 않은 요청은 판 정리가 버린다.
     public sealed class World
     {
-        private readonly List<Player> _players;
-        private readonly List<Enemy> _enemies = new List<Enemy>();
-        private readonly List<DeathRecord> _deaths = new List<DeathRecord>();
-        private readonly List<DeathEffectHit> _deathEffectHits = new List<DeathEffectHit>();
-        private readonly List<LaserFireRecord> _laserFires = new List<LaserFireRecord>();
-        private readonly DeathEffects _deathEffects = new DeathEffects();
-        private readonly EnemySupply _supply;
-        private readonly GrowthProgression _growth;
-        private int _nextEnemyId = 1;
-        private long _nextDeathSequence = 1;
-        private long _nextDeathEffectHitSequence = 1;
-        private long _nextLaserFireSequence = 1;
+        private readonly EnemyRoster _enemies = new EnemyRoster();
+        private readonly PoolFilter _filter;
+        private readonly EnemyStatTable _stats;
+        private readonly EnemyPlacementDefinition _placement;
+        private readonly List<SupplyRequest> _spawnRequests = new List<SupplyRequest>();
+        private readonly List<Enemy> _destroyRequests = new List<Enemy>();
+        private readonly List<BattlePlayer> _players;
 
-        public Hq Hq { get; }
-        // Player는 목록이다. "첫 번째 Player" 같은 전역 가정 없이 Id로 찾는다.
-        public IReadOnlyList<Player> Players { get; }
-        public IReadOnlyList<Enemy> Enemies { get; }
-        // 마지막 Advance 동안의 모든 하위 단계 사망 기록. 다음 Advance 시작 때 비운다.
-        public IReadOnlyList<DeathRecord> Deaths { get; }
-        // 마지막 Advance 동안의 모든 사망 효과 적중 기록. Deaths와 같은 때 비운다.
-        public IReadOnlyList<DeathEffectHit> DeathEffectHits { get; }
-        // 마지막 Advance 동안의 모든 레이저 발사 기록. Deaths와 같은 때 비운다.
-        public IReadOnlyList<LaserFireRecord> LaserFires { get; }
+        // 판 안의 참가자(판 조립 때 받은 순서). 이 순서로 공격한다.
+        public IReadOnlyList<BattlePlayer> Players { get; }
+        // 살아 있는 적. 죽은 적은 즉시 빠진다.
+        public IReadOnlyList<Enemy> Enemies => _enemies.Alive;
+        // 마지막 진행 동안 확정된 사망. 다음 진행이 시작될 때 비운다.
+        public IReadOnlyList<DeathRecord> Deaths => _enemies.Deaths;
+        // 사망 효과의 대기열과 마지막 진행 동안의 효과 기록(번개 이동, 폭발).
+        public DeathEffects DeathEffects { get; } = new DeathEffects();
+        // 아직 처리되지 않은 생성 요청과 파괴 요청(들어온 순서).
+        public IReadOnlyList<SupplyRequest> PendingSpawns { get; }
+        public IReadOnlyList<Enemy> PendingDestroys { get; }
+        // 이 판의 단계가 쓰는 적 풀. 생성 요청은 이 풀을 거쳐서만 적이 된다.
+        public EnemyPoolDefinition Pool { get; }
         // 이 판의 난수. 판 조립 때 seed로 만든다.
         internal BattleRandom Random { get; }
 
         internal World(
-            Hq hq,
-            List<Player> players,
-            EnemySupply supply,
-            GrowthProgression growth,
-            BattleRandom random)
+            BattleRandom random,
+            EnemyPoolDefinition pool,
+            EnemyStatTable stats,
+            EnemyPlacementDefinition placement,
+            IReadOnlyList<BattlePlayer> players)
         {
-            Hq = hq;
-            _players = players;
-            _supply = supply;
-            _growth = growth;
             Random = random;
-            Players = players.AsReadOnly();
-            Enemies = _enemies.AsReadOnly();
-            Deaths = _deaths.AsReadOnly();
-            DeathEffectHits = _deathEffectHits.AsReadOnly();
-            LaserFires = _laserFires.AsReadOnly();
+            _players = new List<BattlePlayer>(players);
+            Players = _players.AsReadOnly();
+            Pool = pool ?? throw new ArgumentNullException(nameof(pool));
+            _stats = stats ?? throw new ArgumentNullException(nameof(stats));
+            _placement = placement;
+            _filter = new PoolFilter(pool);
+            PendingSpawns = _spawnRequests.AsReadOnly();
+            PendingDestroys = _destroyRequests.AsReadOnly();
         }
 
-        public bool TryGetPlayer(PlayerId id, out Player player)
+        // 이 판의 참가자. 참가자가 아니면 예외다.
+        public BattlePlayer PlayerOf(PlayerId id)
         {
-            foreach (Player candidate in _players)
+            foreach (BattlePlayer player in _players)
             {
-                if (!candidate.Id.Equals(id))
-                    continue;
-
-                player = candidate;
-                return true;
+                if (player.Id.Equals(id))
+                    return player;
             }
 
-            player = null;
-            return false;
+            throw new ArgumentException($"이 판의 참가자가 아니다: {id}.", nameof(id));
         }
 
-        // 전투 시작 배치. 판 조립 때(0초) 한 번 공급한다. 그래서 0초 첫 틱이 이 적을 맞힐 수 있다.
-        internal void PlaceStartingEnemies(IReadOnlyList<SupplyRequest> requests)
-        {
-            _supply.Request(requests, SupplySource.Start);
-            _supply.Release(this);
-        }
+        // 지금 살아 있는 이 종류의 적 수.
+        public int CountAlive(EnemyDefinition kind) => _enemies.CountAlive(kind);
 
-        // 한 단계. 순서가 중요한 처리는 여기에 문장 순서대로 쓴다.
-        // 1. 이동: 이미 있는 Enemy가 행동에 따라 움직인다.
-        // 2. Passive Skill: Player 목록 순서, 각 Player의 Skill 순서로 주기를 진행한다. 이동한 위치를 공격한다.
-        //    죽은 적은 그 자리에서 보상·HQ EXP(Level 상승)·사망 기록을 남기고 목록에서 빠진다.
-        //    사망 효과가 있으면 대기열에 들어간다.
-        // 3. 사망 효과: 대기열을 순서대로 처리한다. 효과로 죽은 적도 2와 같은 사망 절차를 거친다.
-        // 4. 성장 진행: 이번 단계에 새로 도달한 Level의 효과를 실행한다(공급 요청, 시간 연장).
-        //    효과로 죽은 적의 EXP도 여기에 들어간다([임시] 순서).
-        // 5. 공급: 요청된 Enemy가 나온다. 이번 단계에 나온 Enemy는 다음 단계부터 움직이고 맞는다.
-        // 종료 판정은 이 단계가 끝난 뒤 SessionRunner가 한다. 그래서 늘어난 시간이 이번 단계의 판정에 들어간다.
-        internal void Step(float delta)
-        {
-            Point2 hq = Hq.Position;
+        // 이 판에서 이 종류가 받는 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
+        public EnemyStats StatsOf(EnemyDefinition kind) => _stats.Of(kind);
 
-            for (int i = 0; i < _enemies.Count; i++)
+        // 이 판에서 지금까지 확정된 처치 수(모든 종류).
+        public int TotalKills
+        {
+            get
             {
-                _enemies[i].Move(delta, hq);
+                int total = 0;
+
+                foreach (EnemyKillCount kill in _enemies.Kills())
+                    total += kill.Count;
+
+                return total;
             }
+        }
 
-            for (int p = 0; p < _players.Count; p++)
+        // 확정된 사망 중 아직 처리가 끝나지 않은 것이 있는가. 판을 정리하기 전에 이것이 false여야 한다.
+        // 사망 처리(목록에서 빠짐·사망 기록·처치 수)는 사망 확정 순간에 끝난다. 사망 효과는 같은 Step의 4 자리에서 처리되므로
+        // Step이 끝나면 대기열이 비어 있다. Step 밖에서 준 피해(DealDamage)로 죽은 효과 보유 적은 다음 Step까지 남는다.
+        // 처리되지 않은 파괴 요청은 아직 사망이 아니다 — 판이 끝나면 처리되지 않고 판 정리가 버린다.
+        public bool HasPendingDeathProcessing => DeathEffects.HasPending;
+
+        internal IReadOnlyList<EnemyKillCount> Kills() => _enemies.Kills();
+
+        // 생성 요청: 이 종류를 몇 마리. 다음 공급 처리(Step의 Enemy Supply 자리) 때 처리된다.
+        // 이 판의 종류가 아니거나, 콘텐츠에 출현 배치가 없으면 요청 때 거부한다.
+        // 풀에 없거나 최대 수에 닿은 종류는 처리 때 풀 여과 장치가 거른다.
+        public void RequestSpawn(SupplyRequest request)
+        {
+            _stats.Of(request.Enemy);
+
+            if (_placement == null)
+                throw new InvalidOperationException("이 판의 콘텐츠에는 출현 배치가 없어 적을 생성할 수 없다.");
+
+            _spawnRequests.Add(request);
+        }
+
+        // 파괴 요청: 이 적의 사망을 확정하라. 다음 사망 처리(Step의 Damage / Death 자리) 때 처리된다.
+        // 처리 때 이미 죽었거나 판에 없는 적의 요청은 아무것도 하지 않는다(같은 적의 두 번째 요청도 그렇다).
+        public void RequestDestroy(Enemy enemy)
+        {
+            _destroyRequests.Add(enemy ?? throw new ArgumentNullException(nameof(enemy)));
+        }
+
+        // 판이 끝난 뒤 남은 적과 처리되지 않은 요청·사망 효과를 치운다. 처치가 아니다(사망 기록·처치 수 없음). 치운 적의 수를 돌려준다.
+        internal int ClearRemainingEnemies()
+        {
+            _spawnRequests.Clear();
+            _destroyRequests.Clear();
+            DeathEffects.Clear();
+            return _enemies.ClearAlive();
+        }
+
+        // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 풀 여과 장치를 거쳐 배치 띠 안에 생성한다.
+        // 거른 요청은 버린다 — 나중에 자리가 나도 다시 나오지 않는다. 전투 시작 공급은 Begin(0초)이 바로 부른다.
+        internal void ProcessSpawnRequests()
+        {
+            foreach (SupplyRequest request in _spawnRequests)
             {
-                IReadOnlyList<PassiveSkill> skills = _players[p].Skills;
-
-                for (int s = 0; s < skills.Count; s++)
+                for (int i = 0; i < request.Count; i++)
                 {
-                    skills[s].Advance(delta, this);
+                    if (_filter.Allows(request.Enemy, _enemies))
+                        _enemies.Spawn(request.Enemy, _stats.Of(request.Enemy), _placement.Pick(Random));
                 }
             }
 
-            _deathEffects.Resolve(this);
-
-            _growth.Advance(Hq, _supply);
-
-            _supply.Release(this);
+            _spawnRequests.Clear();
         }
 
         internal void BeginAdvance()
         {
-            _deaths.Clear();
-            _deathEffectHits.Clear();
-            _laserFires.Clear();
+            _enemies.BeginAdvance();
+            DeathEffects.BeginAdvance();
+
+            foreach (BattlePlayer player in _players)
+                player.BeginAdvance();
         }
 
-        // 사망은 피해를 수용한 Enemy가 판정한다. World는 보상·목록·사망 기록을 한 번 확정한다.
-        // 사망 효과는 여기서 처리하지 않고 대기열에 넣는다(재귀 없음).
-        internal void DealDamage(Enemy enemy, Damage damage)
+        // 한 단계. 순서가 중요한 처리는 여기에 문장 순서대로 쓴다(GAME_RULES 13절의 번호).
+        // 1. Enemy Action: 살아 있는 적이 행동에 따라 움직인다.
+        // 2. Passive Attack: 참가자 순서로 스킬이 공격한다. 피해로 죽은 적은 그 순간 사망이 확정된다(DealDamage).
+        // 3. Damage / Death: 쌓인 파괴 요청의 사망을 확정한다.
+        // 4. Death Effect: 이번 Step에 피해로 죽은 효과 보유 적의 효과를 사망 순서대로 처리한다. 효과로 죽은 적도 같은 Step의 사망이다.
+        // 7. Enemy Supply: 쌓인 생성 요청을 처리한다.
+        internal void Step(float delta)
         {
-            if (!enemy.IsAlive || !enemy.ApplyDamage(damage))
-                return;
+            _enemies.Move(delta);
 
-            // 현재 실제 보상 구성은 단일 Player다. 조립 때 그 전제를 검증한다.
-            if (_players.Count == 1)
-                _players[0].State.EarnGold(enemy.Reward.Gold);
+            foreach (BattlePlayer player in _players)
+                player.Attack(delta, this);
 
-            Hq.GainExp(enemy.Reward.HqExp);
-
-            _deaths.Add(new DeathRecord(_nextDeathSequence++, enemy));
-
-            _enemies.Remove(enemy);
-
-            if (enemy.Definition.DeathEffect != null)
-                _deathEffects.Enqueue(enemy.Definition.DeathEffect, enemy.Position, damage.Source);
+            ProcessDestroyRequests();
+            DeathEffects.Resolve(this);
+            ProcessSpawnRequests();
         }
 
-        internal void RecordDeathEffectHit(
-            DeathEffectDefinition effect,
-            Point2 from,
-            Point2 to,
-            EnemyId target)
+        // 적에게 피해를 주는 입구. 피해를 주는 쪽(Skill·사망 효과)은 모두 여기로 요청한다.
+        // 죽은 적(또는 이미 목록에서 빠진 적)은 무시한다. true는 이번 피해로 처음 죽었다는 뜻이다.
+        // 효과를 가진 적이 처음 죽으면 그 효과를 사망 효과 대기열에 넣는다(4. Death Effect 자리에서 처리).
+        public bool DealDamage(Enemy enemy, Damage damage)
         {
-            _deathEffectHits.Add(
-                new DeathEffectHit(
-                    _nextDeathEffectHitSequence++,
-                    effect,
-                    from,
-                    to,
-                    target));
+            if (enemy == null)
+                throw new ArgumentNullException(nameof(enemy));
+
+            if (!_enemies.DealDamage(enemy, damage))
+                return false;
+
+            DeathEffects.Enqueue(enemy, damage.Source);
+            return true;
         }
 
-        internal void RecordLaserFire(
-            PlayerId owner,
-            PiercingLaserDefinition laser,
-            LaserShot shot,
-            float width,
-            int hitCount)
+        private void ProcessDestroyRequests()
         {
-            _laserFires.Add(new LaserFireRecord(_nextLaserFireSequence++, owner, laser, shot, width, hitCount));
-        }
+            foreach (Enemy enemy in _destroyRequests)
+                _enemies.Destroy(enemy);
 
-        // 출현 요청을 받는다. 목록과 ID 발급은 World가 가진다.
-        internal void AddEnemy(
-            EnemyDefinition definition,
-            EnemyStats stats,
-            EnemyReward reward,
-            Point2 position,
-            IEnemyBehavior behavior)
-        {
-            _enemies.Add(
-                new Enemy(
-                    new EnemyId(_nextEnemyId++),
-                    definition,
-                    stats,
-                    reward,
-                    position,
-                    behavior));
+            _destroyRequests.Clear();
         }
     }
 }

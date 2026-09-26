@@ -1,181 +1,231 @@
+using System.Collections.Generic;
 using BlackHole.Core;
 using BlackHole.Sample;
 using UnityEngine;
 
 namespace BlackHole.Unity
 {
-    // Unity 수명과 한 프레임의 순서를 가진 진입점(조립 루트).
-    // - Awake: 콘텐츠 로드·검증, 화면·소리·입력·HUD·판 시작 흐름 조립. 판은 만들지 않는다.
-    // - OnEnable / OnDisable: 새 진행 시작 / 전투 종료. 최초 활성화와 재활성화가 같은 경로를 쓴다.
+    // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
+    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면, 적·전투 시스템, 오케스트레이터, 조준 입력, UI(UIManager와 업그레이드·전투 화면),
+    //   화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔·스킬 콘솔(개발용) 조립.
+    // - Start: 업그레이드 화면을 연다. 전투는 업그레이드 화면의 Start battle(또는 전투 시작·종료 콘솔)로 오케스트레이터에 요청한다.
+    //   그 뒤로 화면은 전투 시스템의 상태를 따른다(ScreenFlow).
+    // - Update: 조준 입력·스킬 콘솔 → 적·전투 시스템 → 화면 → 다른 콘솔 순서로 한 프레임을 넘긴다.
+    //   스킬 콘솔은 판에 스킬 켜짐을 맞추므로 판이 진행하기 전에 부른다.
     //
-    // 한 프레임(Update): 입력 읽기 → 새 진행 요청(R, 있으면 그 프레임 끝) → 구매 화면이면 끝
-    //   → 일시정지 전환 → AimPoint 갱신 → 진행 → 전투가 끝났으면 구매 화면으로 → 화면·소리 갱신.
-    // HUD 버튼 요청(구매, 다음 전투, 전투 끝내기)은 OnGUI, 곧 그 프레임의 진행 뒤에 적용된다.
+    // 콘텐츠: 판 설정은 SampleContent(C#), 스킬은 스킬 설정 에셋, 적 종류는 적 종류 목록 에셋,
+    // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
+    // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다. 업그레이드 화면은 같은 에셋의 격자 칸으로 노드를 놓는다.
+    // 화면 프리팹을 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens).
+    // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed class GameHost : MonoBehaviour
     {
         // 판에 참가하는 로컬 Player. 지금은 1명이다(Players.Count == 1일 뿐 전역 Player가 아니다).
         private static readonly PlayerId[] LocalPlayers = { new PlayerId(1) };
-        // 마우스 조준이 채우는 AimPoint의 주인. 마우스와 Player를 묶는 것은 이 호스트의 배선이다(Player는 마우스를 모른다).
-        private static readonly PlayerId MouseAimPlayer = LocalPlayers[0];
 
-        private WorldView _view;
-        private BattleAudio _audio;
-        private HostInput _input;
-        private Hud _hud;
-        private SessionLauncher _launcher;
+        [Header("Content")]
+        [SerializeField] private EnemyCatalog enemyCatalog;
+        [SerializeField] private EnemySupplySetup enemySupply;
+        [SerializeField] private StageTable stageTable;
+        [SerializeField] private NodeCatalog nodeCatalog;
+        [SerializeField] private SkillSetup skillSetup;
+
+        [Header("UI Layers (비우면 임시 화면을 만든다)")]
+        [SerializeField] private RectTransform rootLayer;
+        [SerializeField] private RectTransform panelLayer;
+
+        [Header("Registered Views")]
+        [SerializeField] private UIBase[] views;
+
+        [Header("Presentations (비우면 빈 Presentation)")]
+        [SerializeField] private UIPresentationSpec battlePresentation;
+        [SerializeField] private UIPresentationSpec upgradePresentation;
+
+        [Header("UI Context")]
+        [SerializeField] private string themeId = "Light";
+        [SerializeField] private string localeId = "ko-KR";
+
+        [Header("Runtime")]
+        [SerializeField] private UIDisplayRefreshDriver displayRefreshDriver;
+
+        private readonly List<UIPresentationSpec> _emptyPresentations = new List<UIPresentationSpec>();
+        private EnemyLooks _enemyLooks;
+        private EnemyView _enemyView;
+        private SkillView _skillView;
+        private DeathEffectView _deathEffectView;
+        private BattleSystem _battle;
+        private BattleOrchestrator _orchestrator;
+        private AimInput _aim;
+        private ScreenFlow _flow;
+        private ControlConsole _console;
+        private BattleLifecycleConsole _lifecycleConsole;
+        private EnemyCommandConsole _commandConsole;
+        private UpgradeConsole _upgradeConsole;
+        private SkillConsole _skillConsole;
 
         #region Unity 수명
 
         private void Awake()
         {
-            var presentation = new SamplePresentation();
-            Camera camera = ConfigureCamera(presentation);
-            _view = new WorldView(transform, camera, presentation);
-            _audio = new BattleAudio(transform, new SampleSounds());
-
-            if (!TryLoadContent(out GameContent content))
+            if (!TryLoadContent(out GameContent content) || !TryLoadNodeTree(out NodeTreeData layout, out NodeTree nodeTree))
             {
                 enabled = false;
                 return;
             }
 
-            _input = new HostInput(camera);
-            _hud = new Hud();
-            _launcher = new SessionLauncher(content, LocalPlayers, _view, _audio);
+            _enemyLooks = new EnemyLooks(enemyCatalog.Kinds());
+            _enemyView = new EnemyView(transform, _enemyLooks);
+            _skillView = new SkillView(transform);
+            _deathEffectView = new DeathEffectView(transform);
+            _battle = new BattleSystem(content, nodeTree, _enemyView, _skillView, _deathEffectView);
+            _orchestrator = new BattleOrchestrator(content, _battle, LocalPlayers);
+            // 업그레이드 화면과 콘솔이 보는 진행 상태: 지금 실제 구성인 로컬 Player 1명.
+            PlayerState viewer = _orchestrator.Progress[0];
+            // 마우스가 조준하는 참가자: 같은 로컬 Player.
+            _aim = new AimInput(_battle, viewer.Id);
+
+            if (rootLayer == null)
+            {
+                PlaceholderScreens.Result placeholder = PlaceholderScreens.Build(transform);
+                rootLayer = placeholder.RootLayer;
+                panelLayer = placeholder.PanelLayer;
+                views = placeholder.Views;
+            }
+
+            var ui = new UIManager(
+                rootLayer,
+                panelLayer,
+                new UIResolver(new UIContext(themeId, localeId)),
+                new UIPresentationApplier());
+
+            foreach (UIBase view in views ?? new UIBase[0])
+            {
+                if (view == null)
+                    continue;
+
+                view.gameObject.SetActive(false);
+                ui.Register(view);
+            }
+
+            _flow = new ScreenFlow(
+                ui,
+                _battle,
+                _orchestrator,
+                nodeTree,
+                layout,
+                viewer,
+                OrEmpty(battlePresentation, "Battle"),
+                OrEmpty(upgradePresentation, "Upgrade"));
+
+            if (displayRefreshDriver != null)
+                displayRefreshDriver.Initialize(ui);
+
+            // 조종 콘솔, 전투 시작·종료 콘솔, 적 명령 콘솔, 업그레이드 콘솔, 스킬 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
+            if (Debug.isDebugBuild)
+            {
+                _console = new ControlConsole(transform, _orchestrator, _battle, _enemyLooks);
+                _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, nodeTree, viewer.Id);
+                _commandConsole = new EnemyCommandConsole(transform, _battle, content.Enemies);
+                _upgradeConsole = new UpgradeConsole(transform, viewer, nodeTree);
+                _skillConsole = new SkillConsole(transform, content, _battle, viewer.Id);
+            }
         }
 
-        private void OnEnable()
-        {
-            _launcher?.StartNew();
-        }
-
-        private void OnDisable() => _launcher?.Stop();
-
-        private void OnDestroy()
-        {
-            _view?.Dispose();
-            _audio?.Dispose();
-        }
-
-        #endregion
-
-        #region 프레임
+        private void Start() => _flow.OpenUpgradeScreen();
 
         private void Update()
         {
-            _input.Read();
-            if (_input.Restart)
-            {
-                _launcher.StartNew();
-                return;
-            }
-
-            // 구매 화면에는 진행 중인 전투가 없다.
-            if (_launcher.InShop)
-                return;
-
-            GameSession session = _launcher.Current;
-            
-            if (_input.TogglePause) 
-                session.TogglePause();
-            
-            session.SetAimPoint(MouseAimPlayer, _input.Aim);
-
-            session.Advance(Time.deltaTime);
-
-            // 시간이 끝났거나 "End session"으로 끝난 전투는 정리하고 구매 화면으로 간다.
-            _launcher.OpenShopIfEnded();
-
-            if (!_launcher.InShop)
-            {
-                _view.Synchronize(session.World);
-                _audio.Synchronize(session);
-            }
+            _aim.Tick();
+            _skillConsole?.Tick();
+            _battle.Tick(Time.deltaTime);
+            _flow.Tick();
+            _console?.Tick();
+            _lifecycleConsole?.Tick();
+            _commandConsole?.Tick();
+            _upgradeConsole?.Tick();
         }
 
-        private void OnGUI()
+        private void OnDestroy()
         {
-            if (_launcher.InShop)
-            {
-                DrawShop();
-                return;
-            }
+            _skillConsole?.Dispose();
+            _upgradeConsole?.Dispose();
+            _commandConsole?.Dispose();
+            _lifecycleConsole?.Dispose();
+            _console?.Dispose();
+            _flow?.Dispose();
+            _orchestrator?.Dispose();
+            _deathEffectView?.Dispose();
+            _skillView?.Dispose();
+            _enemyView?.Dispose();
+            _enemyLooks?.Dispose();
 
-            switch (_hud.Draw(_launcher.Current))
-            {
-                case HudRequest.TogglePause: 
-                    _launcher.Current.TogglePause();
-                    break;
-                
-                case HudRequest.Stop: 
-                    _launcher.Stop();
-                    break;
-                
-                case HudRequest.NewRun: 
-                    _launcher.StartNew();
-                    break;
-            }
-        }
-
-        private void DrawShop()
-        {
-            ShopRequest request = _hud.DrawShop(_launcher.Current, _launcher.Progress, _launcher.Upgrades);
-
-            switch (request.Kind)
-            {
-                case ShopRequestKind.Purchase:
-                    _launcher.Purchase(request.State, request.NodeId);
-                    break;
-
-                case ShopRequestKind.NextBattle:
-                    _launcher.NextBattle();
-                    break;
-
-                case ShopRequestKind.NewRun:
-                    _launcher.StartNew();
-                    break;
-            }
+            foreach (UIPresentationSpec presentation in _emptyPresentations)
+                Destroy(presentation);
         }
 
         #endregion
 
         #region 조립
 
-        private Camera ConfigureCamera(SamplePresentation presentation)
-        {
-            Camera camera = Camera.main;
-            
-            if (camera == null)
-            {
-                var cameraObject = new GameObject("Camera");
-                cameraObject.transform.SetParent(transform);
-                camera = cameraObject.AddComponent<Camera>();
-                camera.tag = "MainCamera";
-                cameraObject.AddComponent<AudioListener>();
-            }
-            
-            // 규칙 평면은 z = 0. x, y는 WorldView가 HQ 위치에 맞춘다.
-            camera.transform.position = new Vector3(0, 0, -10);
-            camera.orthographic = true;
-            camera.orthographicSize = presentation.CameraSize;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = presentation.Background;
-            
-            return camera;
-        }
-
-        // 오류가 있는 콘텐츠로는 판을 시작하지 않는다. 모든 진단을 위치와 함께 남긴다.
+        // 오류가 있는 콘텐츠로는 시작하지 않는다. 모든 진단을 위치와 함께 남긴다.
         private bool TryLoadContent(out GameContent content)
         {
-            ContentLoadResult result = 
-                ContentLoader.Load(SampleContent.Create());
-            
+            content = null;
+
+            if (enemyCatalog == null || enemySupply == null || stageTable == null || skillSetup == null)
+            {
+                Debug.LogError(
+                    "[콘텐츠] GameHost에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 단계 표(StageTable), 스킬 설정(SkillSetup)을 연결해야 한다.",
+                    this);
+                return false;
+            }
+
+            ContentData data = SampleContent.Create();
+            skillSetup.WriteTo(data);
+            enemyCatalog.WriteTo(data);
+            enemySupply.WriteTo(data);
+            stageTable.WriteTo(data);
+            ContentLoadResult result = ContentLoader.Load(data);
+
             foreach (ContentDiagnostic diagnostic in result.Diagnostics)
                 Debug.LogError("[콘텐츠] " + diagnostic, this);
-            
+
             content = result.Content;
-            
             return result.Succeeded;
+        }
+
+        // 오류가 있는 노드 트리로도 시작하지 않는다. 업그레이드 화면은 트리(규칙)와 함께 저작 데이터(격자 칸)도 받는다.
+        private bool TryLoadNodeTree(out NodeTreeData layout, out NodeTree tree)
+        {
+            layout = null;
+            tree = null;
+
+            if (nodeCatalog == null)
+            {
+                Debug.LogError("[노드 트리] GameHost에 노드 목록(NodeCatalog)을 연결해야 한다.", this);
+                return false;
+            }
+
+            layout = nodeCatalog.ToData();
+            NodeTreeLoadResult result = NodeTreeLoader.Load(layout);
+
+            foreach (ContentDiagnostic diagnostic in result.Diagnostics)
+                Debug.LogError("[노드 트리] " + diagnostic, this);
+
+            tree = result.Tree;
+            return result.Succeeded;
+        }
+
+        private UIPresentationSpec OrEmpty(UIPresentationSpec presentation, string id)
+        {
+            if (presentation != null)
+                return presentation;
+
+            var empty = ScriptableObject.CreateInstance<UIPresentationSpec>();
+            empty.name = id;
+            empty.presentationId = id;
+            _emptyPresentations.Add(empty);
+            return empty;
         }
 
         #endregion

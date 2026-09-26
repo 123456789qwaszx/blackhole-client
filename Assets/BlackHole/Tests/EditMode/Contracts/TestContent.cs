@@ -9,83 +9,78 @@ namespace BlackHole.Core.Tests
         public static readonly PlayerId First = new PlayerId(1);
         public static readonly PlayerId Second = new PlayerId(2);
         public const string EnemyId = "test-enemy";
-        public const string SkillId = "test-skill";
+        // 기본 단계 표가 쓰는 풀과 그 풀의 적 종류. 공급하지 않으므로 판에 나오지 않는다.
+        public const string PoolId = "test-pool";
+        public const string PoolEnemyId = "pool-enemy";
+        public const int StageCount = 50;
 
-        // 기본: Enemy 1종(HP 10, 속도 1, 크기 0.3, 반시계 공전)이 판 시작에 HQ에서 거리 3, 각도 0에 1마리. 성장 노드 없음.
-        // 시작 Skill 1개(조준점 기준, 반경 1, 0.5초마다, 피해 1). 조준점을 넣지 않으면 아무도 맞지 않는다.
-        public static ContentData Data(float timeLimit = 60, float hqX = 0, float hqY = 0) => new ContentData
+        // 기본: 제한 시간과 단계 표(1~50단계, 모두 같은 풀)만 있다. 공급과 업그레이드 노드는 없다.
+        public static ContentData Data(float timeLimit = 60)
         {
-            Session = new SessionData { TimeLimit = timeLimit },
-            Hq = new HqData { X = hqX, Y = hqY },
-            Enemies = new List<EnemyData> { Enemy(EnemyId, 10, 1, 0.3f) },
-            Spawn = new SpawnData { Distance = 3, AngleStep = 1 },
-            StartSupply = new List<SupplyData> { Supply(EnemyId, 1) },
-            Growth = new GrowthData(),
-            Skills = new List<SkillData> { Skill(SkillId, radius: 1, interval: 0.5f, damage: 1) },
-            StartingSkills = new List<string> { SkillId }
-        };
+            var data = new ContentData { Session = new SessionData { TimeLimit = timeLimit } };
+            data.Enemies.Add(Enemy(PoolEnemyId));
+            data.EnemyPools.Add(Pool(PoolId, PoolEnemyId));
+            AddStages(data, PoolId, StageCount);
+            return data;
+        }
 
-        // Skill 계약용: 거의 움직이지 않는 Enemy(HP 100)가 판 시작에 HQ(0, 0)에서 거리 3에 enemies마리.
-        // 각도 간격이 π라 첫째는 (3, 0), 둘째는 (-3, 0)이다.
-        public static ContentData SkillArena(int enemies, float radius, float interval, float damage)
+        // 풀의 항목 수 제한이 계약에 끼어들지 않게 하는 넉넉한 최대 수.
+        public const int RoomyMax = 100;
+
+        // 모든 항목의 최대 수가 넉넉한 풀.
+        public static EnemyPoolData Pool(string id, params string[] enemies)
+        {
+            var pool = new EnemyPoolData { Id = id };
+
+            foreach (string enemy in enemies)
+                pool.Entries.Add(Entry(enemy, RoomyMax));
+
+            return pool;
+        }
+
+        public static EnemyPoolEntryData Entry(string enemy, int maxAlive) =>
+            new EnemyPoolEntryData { Enemy = enemy, MaxAlive = maxAlive };
+
+        // 기본 단계 표의 풀(모든 단계가 쓴다)에 이 종류를 넣는다. 공급된 적은 풀에 있어야 나온다.
+        public static void Allow(ContentData data, string enemy, int maxAlive = RoomyMax)
+        {
+            foreach (EnemyPoolData pool in data.EnemyPools)
+            {
+                if (pool.Id == PoolId)
+                {
+                    pool.Entries.Add(Entry(enemy, maxAlive));
+                    return;
+                }
+            }
+
+            throw new System.InvalidOperationException("기본 풀이 없다.");
+        }
+
+        // 단계 표 뒤에 pool을 쓰는 단계를 count개 붙인다.
+        public static void AddStages(ContentData data, string pool, int count)
+        {
+            for (int i = 0; i < count; i++)
+                data.Stages.Add(new StageData { Pool = pool });
+        }
+
+        // 적이 있는 판: 출현 띠 [minDistance, maxDistance]와 전투 시작 공급.
+        public static ContentData Arena(float minDistance, float maxDistance, params SupplyData[] supply)
         {
             ContentData data = Data();
-            data.Enemies = new List<EnemyData> { Enemy(EnemyId, 100, 0.0001f, 0.3f) };
-            data.Spawn = new SpawnData { Distance = 3, AngleStep = (float)System.Math.PI };
-            data.StartSupply = new List<SupplyData> { Supply(EnemyId, enemies) };
-            data.Skills = new List<SkillData> { Skill(SkillId, radius, interval, damage) };
+            data.EnemyPlacement = new EnemyPlacementData { MinDistance = minDistance, MaxDistance = maxDistance };
+            data.StartSupply = new List<SupplyData>(supply);
             return data;
         }
 
-        public static SkillData Skill(string id, float radius, float interval, float damage) =>
-            new SkillData { Id = id, Kind = "Breaker", Radius = radius, Interval = interval, Damage = damage };
-
-        public static SkillData Laser(string id, float interval, float damage, float width, float telegraph, float boundaryRadius = 10) =>
-            new SkillData
-            {
-                Id = id, Kind = "PiercingLaser", Interval = interval, Damage = damage,
-                Width = width, TelegraphDuration = telegraph, BoundaryRadius = boundaryRadius
-            };
-
-        // 레이저 계약용: 거의 움직이지 않는 Enemy(HP 100)가 판 시작에 HQ(0, 0)에서 거리 3에 enemies마리.
-        // n번째는 각도 n × angleStep에 있다. 시작 Skill은 레이저 하나이고 전투 영역 반지름은 10이다.
-        public static ContentData LaserArena(int enemies, float angleStep, float interval, float damage, float width, float telegraph)
-        {
-            ContentData data = SkillArena(enemies, radius: 1, interval: 1, damage: 1);
-            data.Spawn = new SpawnData { Distance = 3, AngleStep = angleStep };
-            data.Skills = new List<SkillData> { Laser(LaserId, interval, damage, width, telegraph) };
-            data.StartingSkills = new List<string> { LaserId };
-            return data;
-        }
-
-        public const string LaserId = "test-laser";
-
-        public static BreakerSkill Breaker(Player player, int index = 0) => (BreakerSkill)player.Skills[index];
-
-        public static PiercingLaserSkill LaserSkill(Player player, int index = 0) => (PiercingLaserSkill)player.Skills[index];
-
-        public static EnemyData Enemy(string id, float health, float speed, float size, bool clockwise = false) =>
+        public static EnemyData Enemy(string id, float health = 10, float speed = 1, float size = 0.3f, bool clockwise = false) =>
             new EnemyData
             {
                 Id = id, MaxHealth = health, MoveSpeed = speed, Size = size,
-                Behavior = new EnemyBehaviorData { Kind = "OrbitHq", Clockwise = clockwise }
+                Behavior = new EnemyBehaviorData { Kind = "Orbit", Clockwise = clockwise }
             };
-
-        public static DeathEffectData ChainLightning(float damage, float range, int chains) =>
-            new DeathEffectData { Kind = "ChainLightning", Damage = damage, Range = range, Chains = chains };
 
         public static SupplyData Supply(string enemyId, int count) =>
             new SupplyData { Enemy = enemyId, Count = count };
-
-        // 성장 노드 하나: 임계값, 시간 연장, 추가 공급.
-        public static GrowthLevelData Level(int exp, float extraTime = 0, params SupplyData[] supply) =>
-            new GrowthLevelData { Exp = exp, ExtraTime = extraTime, Supply = new List<SupplyData>(supply) };
-
-        public static UpgradeData Upgrade(string id, int price, string requires, params UpgradeEffectData[] effects) =>
-            new UpgradeData { Id = id, Price = price, Requires = requires, Effects = new List<UpgradeEffectData>(effects) };
-
-        public static UpgradeEffectData Effect(string kind, float value, string target = null) =>
-            new UpgradeEffectData { Kind = kind, Value = value, Target = target };
 
         public static GameContent Load(ContentData data)
         {
@@ -95,13 +90,18 @@ namespace BlackHole.Core.Tests
             return result.Content;
         }
 
-        // 참가자를 따로 주지 않으면 Player 1명.
-        public static GameSession Session(ContentData data, params PlayerId[] participants) =>
-            SessionAssembler.Create(Load(data), participants.Length == 0 ? new[] { First } : participants);
+        // 새 진행 상태의 Player 1명으로 첫 단계의 전투를 조립하고 시작한다(전투 시작 공급까지).
+        public static GameSession Session(ContentData data, int seed = SessionAssembler.DefaultSeed) =>
+            Begun(SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, SessionAssembler.FirstStage, seed));
 
-        // Player 1명, seed를 정한 전투.
-        public static GameSession Session(ContentData data, int seed) =>
-            SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, seed);
+        public static GameSession Begun(GameSession session)
+        {
+            session.Begin();
+            return session;
+        }
+
+        public static float DistanceToHq(Point2 point) =>
+            (float)System.Math.Sqrt(point.DistanceSquared(BattleSpace.Origin));
 
         public static void HasDiagnostic(ContentLoadResult result, string path, string reason)
         {
@@ -110,8 +110,5 @@ namespace BlackHole.Core.Tests
             throw new System.InvalidOperationException(
                 $"진단 없음: {path} ({reason}). 받은 진단: {string.Join(" | ", result.Diagnostics)}");
         }
-
-        public static float DistanceToHq(GameSession game, Enemy enemy) =>
-            (float)System.Math.Sqrt(enemy.Position.DistanceSquared(game.World.Hq.Position));
     }
 }

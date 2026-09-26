@@ -20,6 +20,10 @@
 | BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES | 복잡도 제한과 성능 검증 방식 |
 | SYSTEM_CATALOG | 시스템 책임, 접점, 인수 기준, 분담 후보 |
 | [REFERENCE_ANALYSIS](REFERENCE_ANALYSIS.md) | 원작에서 확인한 사실·관찰·설계 해석 |
+| [REFERENCE_ANALYSIS_ENEMY](REFERENCE_ANALYSIS_ENEMY.md) | 원작 천체(Enemy)의 생성·파괴 형식 분석 |
+| [NODE_SYSTEM_SURVEY](NODE_SYSTEM_SURVEY.md) | 기존 노드 트리·노드 편집기·스탯 보정 구현 조사 (F01·F02·F03·F07) |
+| [UPGRADE_LINK_PLAN](UPGRADE_LINK_PLAN.md) | 업그레이드 화면과 전투를 한 루프로 잇고, 판이 참가자별 업그레이드 표를 받게 하기 (UL-001~004) |
+| [SKILL_SYSTEM_PLAN](SKILL_SYSTEM_PLAN.md) | 스킬 샌드박스(별도 레포)와의 비교, 규칙 출처 가르기, 스킬·사망 효과·처치 버프를 전투에 들이는 방법 (SK-001~007) |
 | [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
 | [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
 | [AUTHORING_PAIN](AUTHORING_PAIN.md) | 현재 형식의 저작 시험 결과와 Authoring Pain 목록 (CA-002~, CA-006의 입력) |
@@ -38,23 +42,24 @@
 | ID | 시스템 | 주요 책임 | 범위 | 현재 출발점 |
 |---|---|---|---|---|
 | S01 | Battle 수명·시간 | 시작, Step 진행, 종료, 새 전투 생성 | MVP | Session, SessionLauncher 구현 있음 |
-| S02 | HQ 기준 공간·입력 | 원점 공유, 화면 좌표 변환, Aim Point 전달 | MVP | SceneSpace, HostInput, Player 구현 있음 |
+| S02 | HQ 기준 공간·입력 | 원점 공유, 화면 좌표 변환, Aim Point 전달 | MVP | 조준 입력(AimInput: 마우스 → 로컬 참가자의 조준점)과 판 안의 참가자(BattlePlayer.AimPoint) 구현 있음 (SKILL_SYSTEM_PLAN) |
 | S03 | Enemy 상태·행동 | HP·위치·생존 상태, HQ 공전 | MVP | Enemies 구현 있음 |
-| S04 | Passive Attack | 공격 주기, 범위 대상 선택, 피해 요청 | MVP | PassiveSkill 구현 있음 |
+| S04 | Passive Attack | 공격 주기, 범위 대상 선택, 피해 요청 | MVP | Breaker(BreakerSkill) 구현 있음, World.Step 2 자리. 두 번째 스킬(관통 레이저)은 F05 (SKILL_SYSTEM_PLAN) |
 | S05 | Damage·Death Result | 사망 1회 확정, 대상 제외, HQ EXP와 사망 기록 | MVP | World.DealDamage 구현 있음 |
-| S06 | Death Effect | Chain Lightning 대상·횟수·종료, 공통 피해 처리 | MVP 기준 효과 | DeathEffects 구현 있음 |
+| S06 | Death Effect | Chain Lightning 대상·횟수·종료, 공통 피해 처리 | MVP 기준 효과 | 사망 효과 대기열과 연쇄 번개(DeathEffects) 구현 있음, World.Step 4 자리. 폭발·처치 버프는 F05 (SKILL_SYSTEM_PLAN) |
 | S07 | HQ 성장·Milestone | EXP·Level, 성장 구간별 시간 연장·공급 요청 | MVP | Hq, GrowthProgression 구현 있음 |
 | S08 | Enemy 공급·배치 | 요청 수량 관리, HQ 주변 생성 | MVP | Supply, Spawn 구현 있음 |
-| S09 | 전투 표현 | 천체·범위 표시, 피격·사망·흡수·번개·성장 표현 | MVP | WorldView에 샘플 표현 있음 |
+| S09 | 전투 표현 | 천체·범위 표시, 피격·사망·흡수·번개·성장 표현 | MVP | 임시 표현 있음: 적 화면(EnemyView), 스킬 화면(SkillView: 범위·Tick·예고·발사선), 사망 효과 화면(DeathEffectView: 번개·폭발). 피격·흡수·성장 표현 없음 |
 | S10 | HUD·전투 화면 흐름 | 남은 시간·성장 정보, 종료·다시 시작 UI | MVP | Hud, SessionLauncher에 샘플 있음 |
 | S11 | 콘텐츠 정의·검증 | 수치·종류 데이터, 참조 검사, 실행 구성 제공 | 지원 | Content, Sample 구현 있음 |
 | S12 | 디버깅·성능 검증 | 기준 상황 재현, 측정, 변경 전후 비교 | 지원 | CoreSmoke, CoreBench 출발점 있음 |
-| F01 | 업그레이드 구매·효과 | 구매 조건, 비용, 보정 적용 | 후속 | Core/Upgrades 샘플 있음 |
-| F02 | 업그레이드 트리 UI | 노드 배치·연결·상태·구매 피드백 | 후속 | 구매 샘플과 별도로 범위 확정 필요 |
-| F03 | 노드 저작 도구 | 노드·연결·배치 데이터 편집과 검증 | 후속 지원 | 별도 제작 필요 여부부터 결정 |
+| F01 | 노드 트리 | 그래프(노드·선·시작 노드·드러남·도달성)와 구매(가격·Gold·산 노드), 산 노드의 업그레이드를 F07에 넘기기 | 후속 | Core/Nodes 구현 있음(그래프 NodeGraph, 구매 NodePurchase), 개발용 노드 콘솔 |
+| F02 | 노드 트리 UI | 노드 배치·연결·상태·구매 피드백 | 후속 | 임시 업그레이드 화면 있음: 노드 도구의 격자 칸대로 노드·선, 네 상태(숨김은 그리지 않음), 확대·이동, 누르면 구매, 전투와 한 루프 (UPGRADE_LINK_PLAN) |
+| F03 | 노드 저작 도구 | 노드·연결·배치 데이터 편집과 검증 | 후속 지원 | 1차 구현 있음: 메뉴 BlackHole > Node Tree (격자 편집·선 긋기·이웃끼리 잇기 명령·검사·구매 미리보기) |
 | F04 | Gold·장기 진행·저장 | 경제, 전투 간 유지, 영구 저장 | 후속 | Gold·구매 유지 샘플만 있음 |
-| F05 | 추가 전투 콘텐츠 | 추가 Enemy·Skill·Death Effect | 후속 | 추가 종류별 명세 필요 |
+| F05 | 추가 전투 콘텐츠 | 추가 Enemy·Skill·Death Effect | 후속 | 관통 레이저, 폭발, 처치 버프 둘(달: Breaker 공격 주기 감소, 혜성: Breaker 확정 치명타)과 Breaker 치명타 구현 있음. 원작 근거와 [임시] 수치 (SKILL_SYSTEM_PLAN). 세 번째·네 번째 스킬은 명세 필요 |
 | F06 | Character·HQ HP·다인·Network | 새 플레이 규칙과 통신 | 후속 | MVP 제외, 정책과 범위 미정 |
+| F07 | 업그레이드 | 업그레이드(수치 이름·연산·값)를 수치별로 합성해 다른 시스템이 가져가게 한다 | 후속 | Core/Upgrades 구현 있음. 판 조립이 참가자마다 산 노드로 표를 만들어 판이 내준다(GameSession.UpgradesOf). 표를 읽는 시스템 연결은 그 시스템들이 완성된 뒤 |
 
 ## 3. MVP 시스템 명세
 
@@ -85,7 +90,7 @@
   - 화면의 공격 범위 중심과 실제 공격 중심이 일치한다.
   - 카메라/화면 변환을 수정해도 입력과 표시가 어긋나지 않는다.
 - **주의**: HQ가 원점이라는 뜻은 공격 중심도 HQ라는 뜻이 아니다. 기본 공격의 중심은 Aim Point다.
-- **구현 참고**: `Unity/SceneSpace.cs`, `Unity/HostInput.cs`, `Core/Players/Player.cs`, `Core/Hq/Hq.cs`.
+- **구현 참고**: `Unity/Skills/AimInput.cs`(마우스 → 조준점, 카메라 변환), `Core/World/BattlePlayer.cs`(AimPoint), `GameSession.SetAimPoint`, `Core/Common/BattleSpace.cs`(원점).
 
 ### S03. Enemy 상태·행동
 
@@ -107,8 +112,8 @@
   - 빈 Tick도 소비하며 다음 공격으로 이월하지 않는다.
   - 범위 안은 전부, 밖은 제외한다.
   - 범위 표시와 판정에 같은 반경을 사용한다.
-- **남은 결정**: Enemy 중심 포함인지 외곽 겹침인지, 조준점이 없는 시작 프레임의 처리. 현재 샘플은 중심 판정이며 조준점이 없으면 빈 Tick이다.
-- **구현 참고**: `Core/Skills/`.
+- **남은 결정**: Enemy 중심 포함인지 외곽 겹침인지, 조준점이 없는 시작 프레임의 처리. 현재 샘플은 중심 판정이며 조준점이 없으면 빈 Tick이다. 첫 Tick은 판의 첫 Step(시작 직후 첫 진행)이다.
+- **구현 참고**: `Core/Skills/BreakerDefinition.cs`, `BreakerSkill.cs`(Tick·기록 `BreakerTick`), `Core/World/World.cs`(Step 2), `Unity/Skills/SkillView.cs`. 설계와 규칙 출처는 SKILL_SYSTEM_PLAN.
 
 ### S05. Damage·Death Result
 
@@ -134,7 +139,8 @@
   - 유한한 최대 적중 수와 대상 부재 등 명시된 종료 조건이 있다.
   - 효과 처치 역시 EXP를 한 번만 지급하고 같은 Step의 성장에 반영된다.
 - **남은 결정**: 범위, 최대 횟수, 대상 선택 순서. 현재 구현의 최근접·동일 대상 재적중 금지·동거리 목록 순서는 샘플 선택이며 원작의 확정 규칙이 아니다.
-- **구현 참고**: `Core/Combat/DeathEffects.cs`, `DeathEffectDefinition.cs`, `DeathEffectHit.cs`.
+  파괴 요청처럼 피해 출처가 없는 사망은 효과를 내지 않는다([제안], SKILL_SYSTEM_PLAN D5).
+- **구현 참고**: `Core/DeathEffects/DeathEffectDefinition.cs`, `DeathEffects.cs`(대기열·처리·기록 `LightningHit`·`ExplosionBlast`), `Core/World/World.cs`(DealDamage가 대기열에 넣고 Step 4에서 처리), `Unity/Enemies/DeathEffectView.cs`.
 
 ### S07. HQ 성장·Growth Milestone
 
@@ -256,14 +262,15 @@ S05의 사망 결과는 즉시 확정한다. 위 순서는 사망 결과를 연�
 
 | ID | 독립 책임 | 다른 시스템과의 접점 | 착수 전에 정할 것 |
 |---|---|---|---|
-| F01 | 구매 판정과 효과 적용 | F04의 재화·구매 기록, 각 수치 적용 대상 | 가격, 선행 AND/OR, 중복 구매, 효과 합성·적용 시점 |
+| F01 | 드러남과 구매 판정 | F04의 Gold·산 노드 기록, F07에 산 노드의 업그레이드 | 정함: 그래프(topology)와 구매(Gold·보유·드러남 조합)는 F01 안에서 나눈다, 선은 방향 없음·순환 허용, 이웃 하나만 사도 드러남, 한 번만 삼, 가격은 long, 환불 없음. 남음: 여러 번 사는 노드, 해금 노드, 삭제된 노드의 진행 |
 | F02 | 플레이어가 보는 노드 트리 | F01 구매 요청/결과, F03 배치 데이터 | 잠김·구매 가능·구매 완료 표시, 이동·확대, 구역 노출 |
-| F03 | 개발자가 쓰는 노드 편집 | S11 검증·데이터 출력, F02 배치 형식 | 전용 도구의 필요성, 노드 ID·연결·좌표 형식 |
+| F03 | 개발자가 쓰는 노드 편집 | S11 검증·데이터 출력, F02 배치 형식 | 정함: 전용 도구를 둔다(UI Toolkit 격자 캔버스), 좌표는 격자 칸(X, Y), 선은 직접 긋고 격자 이웃 잇기는 고른 노드에 대한 저작 명령(옮겨도 선은 그대로), 저장은 선 목록. 남음: 대표 트리를 저작해 본 뒤의 다음 기능 |
 | F04 | 경제와 전투 밖 상태·저장 | F01·S01 | 무엇이 유지되는지, 저장 시점·버전, 실패 처리 |
 | F05 | 새 콘텐츠 종류 | S03·S04·S06·S08·S11 | 기존 수치 변형인지 새 동작인지, 연쇄·공급 상한 |
 | F06 | 새 플레이/통신 규칙 | Player·World·Session 전반 | 참가자·보상 귀속·상태 권위·동기화·실패 조건 |
+| F07 | 업그레이드 합성 | 업그레이드를 주는 쪽(F01), 수치를 가져가는 시스템 | 정함: (기본값 + Σ더하기) × (1 + Σ비율) × Π곱하기, 받은 순서와 무관. 남음: 가져가는 시스템마다 수치 이름·기본값·한계와 적용 시점 |
 
-F03은 플레이어 화면이 아니다. F02의 노드 좌표 편집과 F01의 구매 규칙도 별개다. 기존 샘플이 있다는 이유로 후속 정책을 이미 합의한 것으로 간주하지 않는다.
+F03은 플레이어 화면이 아니다. F02의 노드 좌표 편집과 F01의 구매 규칙도 별개다. F01(노드 트리)과 F07(업그레이드)도 별개다: 노드 트리는 업그레이드의 뜻을 모르고, 업그레이드는 노드를 모른다. 기존 샘플이 있다는 이유로 후속 정책을 이미 합의한 것으로 간주하지 않는다.
 
 ## 7. 6인 팀의 분담 후보
 

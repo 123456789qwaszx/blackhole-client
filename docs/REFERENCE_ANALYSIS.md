@@ -8,7 +8,7 @@
 
 ## 1. 이 문서를 읽는 방법
 
-이 문서는 원작을 분석한 자료이며 우리 게임의 명세가 아니다. 구현해야 할 규칙은 [GAME_RULES_MVP](GAME_RULES_MVP.md), 개발 책임은 [SYSTEM_CATALOG](SYSTEM_CATALOG.md), 성능 기준은 [BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES](BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES.md)를 따른다.
+이 문서는 원작을 분석한 자료이며 우리 게임의 명세가 아니다. 구현해야 할 규칙은 [GAME_RULES_MVP](GAME_RULES_MVP.md), 개발 책임은 [SYSTEM_CATALOG](SYSTEM_CATALOG.md), 성능 기준은 [BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES](BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES.md)를 따른다. 천체가 생기고 사라지는 형식은 [REFERENCE_ANALYSIS_ENEMY](REFERENCE_ANALYSIS_ENEMY.md)에서 따로 분석한다.
 
 이번 정리는 공식 페이지·개발자 답변을 재확인하고, 기존 dev 문서에 기록된 플레이 관찰을 구분하여 재구성했다. 원작을 직접 실행해 재검증하거나 내부 소스 코드를 확인한 분석은 아니다.
 

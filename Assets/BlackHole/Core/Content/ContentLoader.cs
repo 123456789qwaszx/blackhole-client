@@ -9,15 +9,16 @@ namespace BlackHole.Core
     // 여기서 새로 두는 규칙은 데이터 모양에 관한 것뿐이다(빠진 칸, 알 수 없는 종류 이름, 정의되지 않은 참조).
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
-    // 두 단계로 읽는다.
-    // 1. 독립 정의: 판 설정, HQ, Enemy, 출현 위치, Skill.
-    // 2. 다른 정의를 참조하는 정의: 전투 시작 배치, HQ 성장 노드, 업그레이드 노드.
-    //    1단계의 Enemy·Skill 색인으로 대상 ID를 정의로 해석한다.
+    // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
+    // 1. 개별 정의: 판 설정, 스킬, 적 종류, 출현 배치.
+    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀.
+    // 3. 적 풀을 가리키는 것: 풀 ID 유일, 단계 표.
     public static class ContentLoader
     {
         public static ContentLoadResult Load(ContentData data)
         {
             var diagnostics = new List<ContentDiagnostic>();
+
             if (data == null)
             {
                 diagnostics.Add(new ContentDiagnostic(string.Empty, "콘텐츠 데이터가 null이다."));
@@ -25,84 +26,82 @@ namespace BlackHole.Core
             }
 
             TimeLimitDefinition timeLimit = LoadSession(data.Session, diagnostics);
-            HqDefinition hq = LoadHq(data.Hq, diagnostics);
+            BreakerDefinition breaker = LoadBreaker(data.Breaker, diagnostics);
+            LaserDefinition laser = LoadLaser(data.Laser, diagnostics);
             List<EnemyDefinition> enemies = LoadEnemies(data.Enemies, diagnostics);
-            SpawnDefinition spawn = LoadSpawn(data.Spawn, diagnostics);
-            List<PassiveSkillDefinition> skills = LoadSkills(data.Skills, diagnostics);
-            IReadOnlyList<string> startingSkills = (IReadOnlyList<string>)data.StartingSkills ?? Array.Empty<string>();
+            EnemyPlacementDefinition placement = LoadPlacement(data.EnemyPlacement, diagnostics);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
-            ContentInvariants.Collect(
-                enemies,
-                skills,
-                startingSkills,
-                diagnostics,
-                out Dictionary<string, EnemyDefinition> enemiesById,
-                out Dictionary<string, PassiveSkillDefinition> skillsById);
-
+            ContentInvariants.CollectEnemies(enemies, diagnostics, out Dictionary<string, EnemyDefinition> enemiesById);
             List<SupplyRequest> startSupply = LoadSupplyList(data.StartSupply, "StartSupply", enemiesById, diagnostics);
-            HqGrowthDefinition growth = LoadGrowth(data.Growth, enemiesById, diagnostics);
-            List<UpgradeNodeDefinition> upgrades = LoadUpgrades(data.Upgrades, enemiesById, skillsById, diagnostics);
+            List<EnemyPoolDefinition> pools = LoadPools(data.EnemyPools, enemiesById, diagnostics);
+
+            if (startSupply.Count > 0 && placement == null)
+                diagnostics.Add(new ContentDiagnostic("EnemyPlacement", "공급이 있으면 출현 배치가 필요하다."));
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
-            // 노드 사이의 규칙(ID 유일, 선행 노드의 실재, 순환 없음)은 노드가 모두 올바를 때 본다.
-            ContentInvariants.CollectUpgrades(upgrades, diagnostics, out _);
+            ContentInvariants.CollectPools(pools, diagnostics, out Dictionary<string, EnemyPoolDefinition> poolsById);
+            List<StageDefinition> stages = LoadStages(data.Stages, poolsById, diagnostics);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
-            // 해금 규칙은 선행 사슬이 올바를 때 본다.
-            ContentInvariants.CollectSkillUnlocks(upgrades, startingSkills, diagnostics);
-
-            if (diagnostics.Count > 0)
-                return Fail(diagnostics);
-
-            var content = new GameContent(
-                timeLimit,
-                hq,
-                enemies,
-                spawn,
-                startSupply,
-                growth,
-                skills,
-                startingSkills,
-                upgrades);
-
-            return new ContentLoadResult(content, diagnostics);
+            return new ContentLoadResult(
+                new GameContent(timeLimit, breaker, laser, enemies, placement, startSupply, pools, stages),
+                diagnostics);
         }
-
-        // ── 판 설정 ─────────────────────────────────────────────────────────
 
         private static TimeLimitDefinition LoadSession(SessionData item, List<ContentDiagnostic> into)
         {
-            if (item == null) return Missing<TimeLimitDefinition>("Session", into);
+            if (item == null)
+                return Missing<TimeLimitDefinition>("Session", into);
+
             return Guard("Session.TimeLimit", into, () => new TimeLimitDefinition(item.TimeLimit));
         }
 
-        private static HqDefinition LoadHq(HqData item, List<ContentDiagnostic> into)
+        // ── 스킬 ────────────────────────────────────────────────────────────
+
+        // 없으면 판에 Breaker가 없다.
+        private static BreakerDefinition LoadBreaker(BreakerData item, List<ContentDiagnostic> into)
         {
-            if (item == null) return Missing<HqDefinition>("Hq", into);
-            return Guard("Hq", into, () => new HqDefinition(new Point2(item.X, item.Y)));
+            if (item == null)
+                return null;
+
+            return Guard("Breaker", into, () =>
+                new BreakerDefinition(item.Damage, item.Interval, item.Radius, item.CritChance, item.CritMultiplier));
         }
 
-        // ── Enemy ───────────────────────────────────────────────────────────
+        // 없으면 판에 레이저가 없다.
+        private static LaserDefinition LoadLaser(LaserData item, List<ContentDiagnostic> into)
+        {
+            if (item == null)
+                return null;
+
+            return Guard("Laser", into, () =>
+                new LaserDefinition(item.Damage, item.Interval, item.Width, item.TelegraphDuration, item.BoundaryRadius));
+        }
+
+        // ── 적 ──────────────────────────────────────────────────────────────
 
         private static List<EnemyDefinition> LoadEnemies(List<EnemyData> items, List<ContentDiagnostic> into)
         {
             var enemies = new List<EnemyDefinition>();
-            if (items == null) return enemies;
+
+            if (items == null)
+                return enemies;
 
             for (int i = 0; i < items.Count; i++)
             {
                 EnemyData item = items[i];
                 string at = At("Enemies", i, item?.Id);
+
                 if (item == null)
                 {
-                    into.Add(new ContentDiagnostic(at, "Enemy 데이터가 null이다."));
+                    into.Add(new ContentDiagnostic(at, "적 데이터가 null이다."));
                     continue;
                 }
 
@@ -110,56 +109,68 @@ namespace BlackHole.Core
                 EnemyBehaviorDefinition behavior = LoadBehavior(item.Behavior, at + ".Behavior", into);
                 DeathEffectDefinition deathEffect = LoadDeathEffect(item.DeathEffect, at + ".DeathEffect", into);
                 EnemyStats? stats = GuardValue(at, into, () => new EnemyStats(item.MaxHealth, item.MoveSpeed, item.Size));
-                if (into.Count > errors) continue;
 
-                EnemyDefinition enemy = Guard(at, into, () =>
-                    new EnemyDefinition(item.Id, stats.Value, behavior, item.Gold, item.HqExp, deathEffect));
-                if (enemy != null) enemies.Add(enemy);
+                if (into.Count > errors)
+                    continue;
+
+                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, stats.Value, behavior, deathEffect));
+
+                if (enemy != null)
+                    enemies.Add(enemy);
             }
+
             return enemies;
         }
 
         // 종류 이름을 하위 정의로 바꾼다. 가능한 값을 진단에 그대로 싣는다.
         private static EnemyBehaviorDefinition LoadBehavior(EnemyBehaviorData item, string at, List<ContentDiagnostic> into)
         {
-            if (item == null) return Missing<EnemyBehaviorDefinition>(at, into);
+            if (item == null)
+                return Missing<EnemyBehaviorDefinition>(at, into);
+
             switch (item.Kind)
             {
-                case "OrbitHq":
-                    return new OrbitHqBehaviorDefinition(item.Clockwise);
+                case "Orbit":
+                    return new OrbitBehaviorDefinition(item.Clockwise);
                 default:
-                    into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 행동 종류 '{item.Kind}'. 가능한 값: OrbitHq."));
+                    into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 행동 종류 '{item.Kind}'. 가능한 값: Orbit."));
                     return null;
             }
         }
 
-        // 비어 있으면 사망 효과가 없다(null을 돌려준다). 수치 규칙은 효과 정의 생성자가 가진다.
+        // 없거나 종류 이름이 비어 있으면 효과가 없다(null). 종류 이름을 하위 정의로 바꾸고, 가능한 값을 진단에 싣는다.
         private static DeathEffectDefinition LoadDeathEffect(DeathEffectData item, string at, List<ContentDiagnostic> into)
         {
-            if (item == null || string.IsNullOrWhiteSpace(item.Kind))
+            if (item == null || string.IsNullOrEmpty(item.Kind))
                 return null;
 
             switch (item.Kind)
             {
                 case "ChainLightning":
-                    return Guard(at, into, () => new ChainLightningDefinition(item.Damage, item.Range, item.Chains));
+                    return Guard(at, into, () => new ChainLightningDefinition(item.Damage, item.Radius, item.MaxTargets));
+                case "Explosion":
+                    return Guard(at, into, () => new ExplosionDefinition(item.Damage, item.Radius));
+                case "AttackHaste":
+                    return Guard(at, into, () => new AttackHasteDefinition(item.Duration, item.IntervalMultiplier));
+                case "GuaranteedCritical":
+                    return Guard(at, into, () => new GuaranteedCriticalDefinition(item.Duration));
                 default:
-                    into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 사망 효과 종류 '{item.Kind}'. 가능한 값: ChainLightning."));
+                    into.Add(new ContentDiagnostic(at + ".Kind",
+                        $"알 수 없는 사망 효과 종류 '{item.Kind}'. 가능한 값: ChainLightning, Explosion, AttackHaste, GuaranteedCritical."));
                     return null;
             }
         }
 
-        // ── 출현·공급 ───────────────────────────────────────────────────────
-
-        private static SpawnDefinition LoadSpawn(SpawnData item, List<ContentDiagnostic> into)
+        // 없으면 null이다. 공급이 있을 때만 필요하다(Load에서 본다).
+        private static EnemyPlacementDefinition LoadPlacement(EnemyPlacementData item, List<ContentDiagnostic> into)
         {
             if (item == null)
-                return Missing<SpawnDefinition>("Spawn", into);
+                return null;
 
-            return Guard("Spawn", into, () => new SpawnDefinition(item.Distance, item.AngleStep));
+            return Guard("EnemyPlacement", into, () => new EnemyPlacementDefinition(item.MinDistance, item.MaxDistance));
         }
 
-        // 없으면 공급이 없다.
+        // 없으면 공급이 없다. 적 ID는 1단계의 색인으로 정의에 잇는다.
         private static List<SupplyRequest> LoadSupplyList(
             List<SupplyData> items,
             string section,
@@ -184,7 +195,7 @@ namespace BlackHole.Core
 
                 if (item.Enemy == null || !enemies.TryGetValue(item.Enemy, out EnemyDefinition enemy))
                 {
-                    into.Add(new ContentDiagnostic(at + ".Enemy", $"정의되지 않은 Enemy ID '{item.Enemy}'."));
+                    into.Add(new ContentDiagnostic(at + ".Enemy", $"정의되지 않은 적 ID '{item.Enemy}'."));
                     continue;
                 }
 
@@ -197,207 +208,106 @@ namespace BlackHole.Core
             return requests;
         }
 
-        // ── HQ 성장 ─────────────────────────────────────────────────────────
+        // ── 적 풀과 단계 표 ─────────────────────────────────────────────────
 
-        // 없으면 성장 노드가 없다(HQ는 시작 Level에 머문다).
-        private static HqGrowthDefinition LoadGrowth(
-            GrowthData item,
+        // 없으면 적 풀이 없다. 적 ID는 2단계의 색인으로 정의에 잇는다.
+        private static List<EnemyPoolDefinition> LoadPools(
+            List<EnemyPoolData> items,
             IReadOnlyDictionary<string, EnemyDefinition> enemies,
             List<ContentDiagnostic> into)
         {
-            if (item?.Levels == null)
-                return HqGrowthDefinition.None;
-
-            int errors = into.Count;
-            var levels = new List<HqLevelDefinition>();
-
-            for (int i = 0; i < item.Levels.Count; i++)
-            {
-                GrowthLevelData level = item.Levels[i];
-                string at = $"Growth.Levels[{i}]";
-
-                if (level == null)
-                {
-                    into.Add(new ContentDiagnostic(at, "성장 노드 데이터가 null이다."));
-                    continue;
-                }
-
-                int levelErrors = into.Count;
-                List<SupplyRequest> supply = LoadSupplyList(level.Supply, at + ".Supply", enemies, into);
-
-                if (into.Count > levelErrors)
-                    continue;
-
-                HqLevelDefinition definition = Guard(at, into, () =>
-                    new HqLevelDefinition(level.Exp, level.ExtraTime, supply));
-
-                if (definition != null)
-                    levels.Add(definition);
-            }
-
-            if (into.Count > errors)
-                return null;
-
-            // 노드 사이의 규칙(임계값이 앞 노드보다 큼)은 성장 정의 생성자가 본다.
-            return Guard("Growth", into, () => new HqGrowthDefinition(levels));
-        }
-
-        // ── 업그레이드 ──────────────────────────────────────────────────────
-
-        // 없으면 업그레이드 노드가 없다.
-        private static List<UpgradeNodeDefinition> LoadUpgrades(
-            List<UpgradeData> items,
-            IReadOnlyDictionary<string, EnemyDefinition> enemies,
-            IReadOnlyDictionary<string, PassiveSkillDefinition> skills,
-            List<ContentDiagnostic> into)
-        {
-            var upgrades = new List<UpgradeNodeDefinition>();
+            var pools = new List<EnemyPoolDefinition>();
 
             if (items == null)
-                return upgrades;
+                return pools;
 
             for (int i = 0; i < items.Count; i++)
             {
-                UpgradeData item = items[i];
-                string at = At("Upgrades", i, item?.Id);
+                EnemyPoolData item = items[i];
+                string at = At("EnemyPools", i, item?.Id);
 
                 if (item == null)
                 {
-                    into.Add(new ContentDiagnostic(at, "업그레이드 데이터가 null이다."));
+                    into.Add(new ContentDiagnostic(at, "적 풀 데이터가 null이다."));
                     continue;
                 }
 
                 int errors = into.Count;
-                var effects = new List<UpgradeEffect>();
+                var entries = new List<EnemyPoolEntry>();
 
-                if (item.Effects != null)
+                if (item.Entries != null)
                 {
-                    for (int j = 0; j < item.Effects.Count; j++)
+                    for (int j = 0; j < item.Entries.Count; j++)
                     {
-                        UpgradeEffect effect = LoadUpgradeEffect(item.Effects[j], $"{at}.Effects[{j}]", enemies, skills, into);
+                        EnemyPoolEntryData entry = item.Entries[j];
+                        string entryAt = $"{at}.Entries[{j}]";
 
-                        if (effect != null)
-                            effects.Add(effect);
+                        if (entry == null)
+                        {
+                            into.Add(new ContentDiagnostic(entryAt, "풀 항목이 null이다."));
+                            continue;
+                        }
+
+                        if (entry.Enemy == null || !enemies.TryGetValue(entry.Enemy, out EnemyDefinition enemy))
+                        {
+                            into.Add(new ContentDiagnostic(entryAt + ".Enemy", $"정의되지 않은 적 ID '{entry.Enemy}'."));
+                            continue;
+                        }
+
+                        EnemyPoolEntry? loaded = GuardValue(entryAt, into, () => new EnemyPoolEntry(enemy, entry.MaxAlive));
+
+                        if (loaded.HasValue)
+                            entries.Add(loaded.Value);
                     }
                 }
 
                 if (into.Count > errors)
                     continue;
 
-                UpgradeNodeDefinition node = Guard(at, into, () =>
-                    new UpgradeNodeDefinition(item.Id, item.Price, item.Requires, effects));
+                EnemyPoolDefinition pool = Guard(at, into, () => new EnemyPoolDefinition(item.Id, entries));
 
-                if (node != null)
-                    upgrades.Add(node);
+                if (pool != null)
+                    pools.Add(pool);
             }
 
-            return upgrades;
+            return pools;
         }
 
-        // 효과 종류 이름을 UpgradeEffectKind로, 대상 ID를 정의로 바꾼다. 종류 목록은 열거형 하나에만 있다.
-        private static UpgradeEffect LoadUpgradeEffect(
-            UpgradeEffectData item,
-            string at,
-            IReadOnlyDictionary<string, EnemyDefinition> enemies,
-            IReadOnlyDictionary<string, PassiveSkillDefinition> skills,
+        // Stages[i]가 (i + 1)단계다. 단계는 하나 이상 있어야 한다. 풀 ID는 3단계의 색인으로 정의에 잇는다.
+        private static List<StageDefinition> LoadStages(
+            List<StageData> items,
+            IReadOnlyDictionary<string, EnemyPoolDefinition> pools,
             List<ContentDiagnostic> into)
         {
-            if (item == null)
-                return Missing<UpgradeEffect>(at, into);
+            var stages = new List<StageDefinition>();
 
-            if (!TryParseUpgradeKind(item.Kind, out UpgradeEffectKind kind))
+            if (items == null || items.Count == 0)
             {
-                into.Add(new ContentDiagnostic(
-                    at + ".Kind",
-                    $"알 수 없는 업그레이드 효과 종류 '{item.Kind}'. 가능한 값: {string.Join(", ", Enum.GetNames(typeof(UpgradeEffectKind)))}."));
-                return null;
+                into.Add(new ContentDiagnostic("Stages", "단계가 하나 이상 필요하다."));
+                return stages;
             }
-
-            PassiveSkillDefinition skill = null;
-            EnemyDefinition enemy = null;
-            bool hasTarget = !string.IsNullOrWhiteSpace(item.Target);
-
-            if (UpgradeEffect.TargetsSkill(kind))
-            {
-                if (!hasTarget || !skills.TryGetValue(item.Target, out skill))
-                {
-                    into.Add(new ContentDiagnostic(at + ".Target", $"대상 Skill ID '{item.Target}'가 정의되지 않았다."));
-                    return null;
-                }
-            }
-            else if (hasTarget || UpgradeEffect.RequiresEnemy(kind))
-            {
-                if (!hasTarget || !enemies.TryGetValue(item.Target, out enemy))
-                {
-                    into.Add(new ContentDiagnostic(at + ".Target", $"대상 Enemy ID '{item.Target}'가 정의되지 않았다."));
-                    return null;
-                }
-            }
-
-            return Guard(at, into, () => new UpgradeEffect(kind, item.Value, skill, enemy));
-        }
-
-        // Enum.TryParse는 숫자 문자열도 통과시킨다. 이름이 정확히 같을 때만 받는다.
-        private static bool TryParseUpgradeKind(string name, out UpgradeEffectKind kind)
-        {
-            foreach (UpgradeEffectKind candidate in (UpgradeEffectKind[])Enum.GetValues(typeof(UpgradeEffectKind)))
-            {
-                if (candidate.ToString() == name)
-                {
-                    kind = candidate;
-                    return true;
-                }
-            }
-
-            kind = default;
-            return false;
-        }
-
-        // ── Passive Skill ───────────────────────────────────────────────────
-
-        private static List<PassiveSkillDefinition> LoadSkills(List<SkillData> items, List<ContentDiagnostic> into)
-        {
-            var skills = new List<PassiveSkillDefinition>();
-            if (items == null) return skills;
 
             for (int i = 0; i < items.Count; i++)
             {
-                SkillData item = items[i];
-                string at = At("Skills", i, item?.Id);
+                StageData item = items[i];
+                string at = $"Stages[{i}]";
+
                 if (item == null)
                 {
-                    into.Add(new ContentDiagnostic(at, "Skill 데이터가 null이다."));
+                    into.Add(new ContentDiagnostic(at, "단계 데이터가 null이다."));
                     continue;
                 }
 
-                PassiveSkillDefinition skill = LoadSkill(item, at, into);
-                if (skill != null) skills.Add(skill);
-            }
-            return skills;
-        }
+                if (item.Pool == null || !pools.TryGetValue(item.Pool, out EnemyPoolDefinition pool))
+                {
+                    into.Add(new ContentDiagnostic(at + ".Pool", $"정의되지 않은 적 풀 ID '{item.Pool}'."));
+                    continue;
+                }
 
-        // 종류 이름을 하위 정의로 바꾼다. 가능한 값을 진단에 그대로 싣는다. 수치 규칙은 정의 생성자가 가진다.
-        private static PassiveSkillDefinition LoadSkill(SkillData item, string at, List<ContentDiagnostic> into)
-        {
-            switch (item.Kind)
-            {
-                case "Breaker":
-                {
-                    BreakerStats? stats = GuardValue(at, into, () => new BreakerStats(item.Radius, item.Interval, item.Damage));
-                    if (stats == null) return null;
-                    return Guard(at, into, () => new BreakerSkillDefinition(item.Id, stats.Value));
-                }
-                case "PiercingLaser":
-                {
-                    PiercingLaserStats? stats = GuardValue(at, into, () =>
-                        new PiercingLaserStats(item.Interval, item.Damage, item.Width, item.TelegraphDuration));
-                    if (stats == null) return null;
-                    return Guard(at, into, () => new PiercingLaserDefinition(item.Id, stats.Value, item.BoundaryRadius));
-                }
-                default:
-                    into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 Skill 종류 '{item.Kind}'. 가능한 값: Breaker, PiercingLaser."));
-                    return null;
+                stages.Add(new StageDefinition(i + 1, pool));
             }
+
+            return stages;
         }
 
         // ── 공통 ────────────────────────────────────────────────────────────
