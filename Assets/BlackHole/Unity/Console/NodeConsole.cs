@@ -12,7 +12,7 @@ namespace BlackHole.Unity
 {
     // 노드 콘솔(개발용, 오른쪽 아래). 트리 화면(F02)이 생기기 전까지 노드를 사 보는 자리다.
     // 숨은 노드는 줄이 없다. 드러난 노드와 산 노드가 한 줄씩 보인다: 상태, ID, 가격, 사면 받는 업그레이드.
-    // 살 수 있는 줄을 누르면 산다(NodeTree.TryPurchase). 사면 그 노드와 선으로 이어진 노드가 드러난다.
+    // 살 수 있는 줄을 누르면 산다(NodePurchase.TryPurchase). 사면 그 노드와 선으로 이어진 노드가 드러난다.
     // 개발용 버튼으로 Gold를 더할 수 있다. 구매자는 지금 실제 구성인 로컬 Player 1명이다.
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
@@ -79,7 +79,7 @@ namespace BlackHole.Unity
 
             foreach (NodeRow row in _rows)
             {
-                PurchaseResult result = _tree.Check(_buyer, row.Node.Id);
+                PurchaseResult result = NodePurchase.Check(_buyer, _tree, row.Node.Id);
                 bool shown = result != PurchaseResult.Hidden;
                 row.Button.gameObject.SetActive(shown);
 
@@ -124,7 +124,7 @@ namespace BlackHole.Unity
 
         private NodeRow CreateRow(RectTransform parent, NodeDefinition node)
         {
-            Button button = ButtonOf(parent, node.Id, string.Empty, RowWidth, () => _tree.TryPurchase(_buyer, node.Id));
+            Button button = ButtonOf(parent, node.Id, string.Empty, RowWidth, () => NodePurchase.TryPurchase(_buyer, _tree, node.Id));
             TMP_Text label = button.GetComponentInChildren<TMP_Text>();
             label.fontSize = 18;
             label.alignment = TextAlignmentOptions.Left;

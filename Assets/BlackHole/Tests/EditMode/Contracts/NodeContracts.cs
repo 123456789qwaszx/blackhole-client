@@ -4,7 +4,7 @@ using BlackHole.Core;
 
 namespace BlackHole.Core.Tests
 {
-    // 노드 트리: 시작 노드와 선으로 드러나고, 전투 밖에서 Gold로 산다. 산 노드의 업그레이드는 UpgradeTable이 된다.
+    // 노드 트리: 그래프(시작 노드와 선으로 드러남)와 구매(전투 밖에서 Gold로 산다). 산 노드의 업그레이드는 UpgradeTable이 된다.
     internal static class NodeContracts
     {
         public static IEnumerable<Contract> Cases()
@@ -31,19 +31,23 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
             state.EarnGold(10);
 
-            Expect.Equal(NodeState.Purchasable, tree.StateOf(state, "s"));
-            Expect.Equal(NodeState.Hidden, tree.StateOf(state, "a"));
+            Expect.Equal(NodeState.Purchasable, NodePurchase.StateOf(state, tree, "s"));
+            Expect.Equal(NodeState.Hidden, NodePurchase.StateOf(state, tree, "a"));
 
-            tree.TryPurchase(state, "s");
-            Expect.Equal(NodeState.Owned, tree.StateOf(state, "s"));
-            Expect.Equal(NodeState.Purchasable, tree.StateOf(state, "a"));
+            NodePurchase.TryPurchase(state, tree, "s");
+            Expect.Equal(NodeState.Owned, NodePurchase.StateOf(state, tree, "s"));
+            Expect.Equal(NodeState.Purchasable, NodePurchase.StateOf(state, tree, "a"));
 
-            tree.TryPurchase(state, "a");
-            tree.TryPurchase(state, "b");
+            NodePurchase.TryPurchase(state, tree, "a");
+            NodePurchase.TryPurchase(state, tree, "b");
             // d의 이웃 가운데 b만 샀다. Gold가 모자라도 보이기는 한다.
-            Expect.Equal(NodeState.Revealed, tree.StateOf(state, "d"));
-            Expect.Equal(NodeState.Purchasable, tree.StateOf(state, "c"));
-            Expect.Equal(NodeState.Hidden, tree.StateOf(state, "far"));
+            Expect.Equal(NodeState.Revealed, NodePurchase.StateOf(state, tree, "d"));
+            Expect.Equal(NodeState.Purchasable, NodePurchase.StateOf(state, tree, "c"));
+            Expect.Equal(NodeState.Hidden, NodePurchase.StateOf(state, tree, "far"));
+
+            // 그래프는 구매를 모른다. 무엇을 가졌는지만 받아 같은 답을 한다.
+            Expect.True(tree.Graph.IsRevealed("d", id => id == "b"), "이웃 하나를 가지면 드러나야 한다.");
+            Expect.True(!tree.Graph.IsRevealed("far", id => id == "b"), "가진 이웃이 없으면 숨어야 한다.");
         }
 
         // 실패한 구매는 Gold와 산 노드를 바꾸지 않는다. 화면·콘솔은 노드 ID로 요청한다.
@@ -53,15 +57,15 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
             state.EarnGold(15);
 
-            Expect.Equal(PurchaseResult.Hidden, tree.TryPurchase(state, "a"));
-            Expect.Equal(PurchaseResult.UnknownNode, tree.TryPurchase(state, "nope"));
+            Expect.Equal(PurchaseResult.Hidden, NodePurchase.TryPurchase(state, tree, "a"));
+            Expect.Equal(PurchaseResult.UnknownNode, NodePurchase.TryPurchase(state, tree, "nope"));
             Expect.Equal(15L, state.Gold);
 
-            Expect.Equal(PurchaseResult.Purchased, tree.TryPurchase(state, "s"));
+            Expect.Equal(PurchaseResult.Purchased, NodePurchase.TryPurchase(state, tree, "s"));
             Expect.Equal(5L, state.Gold);
 
-            Expect.Equal(PurchaseResult.AlreadyOwned, tree.TryPurchase(state, "s"));
-            Expect.Equal(PurchaseResult.NotEnoughGold, tree.TryPurchase(state, "a"));
+            Expect.Equal(PurchaseResult.AlreadyOwned, NodePurchase.TryPurchase(state, tree, "s"));
+            Expect.Equal(PurchaseResult.NotEnoughGold, NodePurchase.TryPurchase(state, tree, "a"));
             Expect.Equal(5L, state.Gold);
             Expect.True(!state.Owns("a"), "Gold가 모자라면 사면 안 된다.");
             Expect.Equal(1, state.OwnedNodes.Count);
@@ -76,12 +80,12 @@ namespace BlackHole.Core.Tests
             state.EarnGold(5);
 
             GameSession battle = SessionAssembler.CreateBattle(content, new[] { state });
-            Expect.Equal(PurchaseResult.InBattle, tree.TryPurchase(state, "s"));
-            Expect.Equal(NodeState.Revealed, tree.StateOf(state, "s"));
+            Expect.Equal(PurchaseResult.InBattle, NodePurchase.TryPurchase(state, tree, "s"));
+            Expect.Equal(NodeState.Revealed, NodePurchase.StateOf(state, tree, "s"));
             Expect.Equal(5L, state.Gold);
 
             battle.RequestEnd(SessionEndReason.TimeExpired);
-            Expect.Equal(PurchaseResult.Purchased, tree.TryPurchase(state, "s"));
+            Expect.Equal(PurchaseResult.Purchased, NodePurchase.TryPurchase(state, tree, "s"));
         }
 
         // 산 노드의 업그레이드만 모인다. 사지 않은 노드의 업그레이드는 섞이지 않는다.
@@ -94,13 +98,13 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
             state.EarnGold(10);
 
-            Expect.Equal(10f, tree.UpgradesFor(state).Apply("damage", 10));
+            Expect.Equal(10f, NodePurchase.UpgradesFor(state, tree).Apply("damage", 10));
 
-            tree.TryPurchase(state, "s");
-            tree.TryPurchase(state, "a");
+            NodePurchase.TryPurchase(state, tree, "s");
+            NodePurchase.TryPurchase(state, tree, "a");
 
             // (10 + 2) × 1.5
-            Expect.Near(18f, tree.UpgradesFor(state).Apply("damage", 10));
+            Expect.Near(18f, NodePurchase.UpgradesFor(state, tree).Apply("damage", 10));
         }
 
         // 노드 하나의 오류(ID, 가격, 업그레이드)와 노드 사이의 오류(중복 ID, 선)를 경로와 함께 모두 보고한다.

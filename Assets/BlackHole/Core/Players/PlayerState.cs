@@ -23,7 +23,7 @@ namespace BlackHole.Core
 
     // Player 한 명의 진행 상태: Gold와 산 노드. 전투 사이에 유지된다(앱 종료 후 저장은 하지 않는다).
     // 새 진행은 새 PlayerState로 시작한다. 판은 PlayerState 목록을 받는다 — 지금 1명일 뿐 하나로 고정된 것이 아니다.
-    // 산 노드는 전투 밖에서만 바뀐다(NodeTree.TryPurchase, 전투 중에는 살 수 없다).
+    // 산 노드는 전투 밖에서만 바뀐다(NodePurchase.TryPurchase, 전투 중에는 살 수 없다).
     public sealed class PlayerState
     {
         private readonly List<string> _ownedNodes = new List<string>();
@@ -55,7 +55,7 @@ namespace BlackHole.Core
             Gold = checked(Gold + amount);
         }
 
-        // 구매 규칙(NodeTree.TryPurchase)이 확인한 뒤에만 부른다.
+        // 구매 규칙(NodePurchase.TryPurchase)이 확인한 뒤에만 부른다.
         internal void Buy(NodeDefinition node)
         {
             Gold -= node.Price;
