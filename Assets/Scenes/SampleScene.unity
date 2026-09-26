@@ -408,6 +408,7 @@ MonoBehaviour:
   enemySupply: {fileID: 11400000, guid: 1506d53a97654897bc5d7b4126a28333, type: 2}
   stageTable: {fileID: 11400000, guid: 2119f531773848c9843f106b4555b50e, type: 2}
   nodeCatalog: {fileID: 11400000, guid: dc906d29ddfc4d0089200fffb6c6e8be, type: 2}
+  skillSetup: {fileID: 11400000, guid: 3ab44acfb37f427790e580c9f6a10538, type: 2}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

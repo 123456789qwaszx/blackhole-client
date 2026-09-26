@@ -75,7 +75,7 @@
 
 | # | 규칙 | 출처 | 이 PLAN |
 |---|---|---|---|
-| 1 | Breaker: 조준점 중심 원, 범위 안 전부, 주기 공격, 첫 Tick 0초, 빈 Tick도 소비 | 문서 (GAME_RULES 6) | 따른다 |
+| 1 | Breaker: 조준점 중심 원, 범위 안 전부, 주기 공격, 첫 Tick 0초, 빈 Tick도 소비 | 문서 (GAME_RULES 6) | 따른다. 첫 Tick은 판의 첫 Step이다(시작 직후 첫 진행, 예전 M3 구현과 같다) |
 | 2 | 조준점이 없으면 빈 Tick | 문서 (S04의 샘플 선택) | 따른다 |
 | 3 | 레이저: 경계 원 위 무작위 시작점, 예고 시작 때 조준점을 저장, 예고가 끝나면 관통 발사, 첫 예고 0초 | 원작 (사용자 관찰) + 문서 (CONTENT_DEFINITION 2.3 [임시]) | 따른다. 경계 반지름은 레이저 정의의 `BoundaryRadius`다. 노드가 바꾸는 수치가 아니다(CONTENT_DEFINITION) |
 | 4 | 조준점이 경계 밖이면 예고를 만들지 않는다 | 샌드박스 | 따른다 [임시] |
@@ -172,8 +172,8 @@ World.Step(delta)
 
 | 곳 | 파일 | 바뀌는 것 | 티켓 |
 |---|---|---|---|
-| Core | `Skills/BreakerSkill`, `Skills/SkillDefinitions`(Breaker·레이저 정의) | 새로 만든다 | SK-002 |
-| Core | `Skills/LaserSkill` | 새로 만든다 | SK-003 |
+| Core | `Skills/BreakerDefinition`, `Skills/BreakerSkill`(Tick 기록 `BreakerTick` 포함) | 새로 만든다 | SK-002 |
+| Core | `Skills/LaserDefinition`, `Skills/LaserSkill` | 새로 만든다 | SK-003 |
 | Core | `World/World` | 참가자 목록, Step 2·4 자리 | SK-002·005 |
 | Core | `World/BattlePlayer` [제안] | 조준점·스킬·켜기끄기·버프 | SK-002·004·006 |
 | Core | `Session/SessionAssembler`, `Session/GameSession` | 참가자마다 스킬을 만든다, `SetAimPoint` | SK-002 |
@@ -193,6 +193,7 @@ World.Step(delta)
 
 | 티켓 | 계약 |
 |---|---|
+| SK-002 | `Skill.BreakerIsOptionalButValidatedAtLoad` — Breaker 칸이 없으면 Breaker 없이 판이 돌고, 잘못된 수치는 경로와 함께 보고 |
 | SK-002 | `Skill.BreakerHitsEveryAliveEnemyInsideAimRadius` — 첫 Step에 Tick, 범위 안 전부, 밖은 제외, 조준점 없으면 빈 Tick |
 | SK-002 | `Skill.DamageGoesThroughWorldOnce` — 같은 Tick에 겹쳐도 사망 기록·처치 수는 한 번 |
 | SK-002 | `Skill.NothingCarriesIntoNextBattle` — 끝난 판은 공격하지 않고, 새 판의 타이머·예고는 처음부터 |
@@ -224,7 +225,7 @@ World.Step(delta)
 | 티켓 | 내용 | 선행 | 상태 |
 |---|---|---|---|
 | SK-001 | 이 PLAN: 두 레포 비교, 규칙 출처 가르기, 가져오는 방법 | — | 완료 (사용자 검토, D2 확정) |
-| SK-002 | 조준점과 Breaker: 판 안의 참가자·조준점, Breaker 정의·저작 형식·에셋, Step 2, 조준 입력, Breaker 원 표시, 계약 | SK-001 | 대기 |
+| SK-002 | 조준점과 Breaker: 판 안의 참가자·조준점, Breaker 정의·저작 형식·에셋, Step 2, 조준 입력, Breaker 원 표시, 계약 | SK-001 | 구현(계약 64개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-003 | 관통 레이저: 정의·저작 형식, 예고·발사, 경계 반지름, 난수 스트림, 예고·발사선 표시, 계약 | SK-002 | 대기 |
 | SK-004 | 스킬 콘솔: 스킬마다 켜기·끄기, 수치 창 | SK-003 | 대기 |
 | SK-005 | 사망 효과: 적 종류의 사망 효과 칸, Step 4, 연쇄 번개·폭발, 샘플 종류와 풀 [임시], 번개·폭발 표시, 계약 | SK-002 | 대기 |

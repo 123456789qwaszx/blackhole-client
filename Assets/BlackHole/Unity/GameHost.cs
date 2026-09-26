@@ -6,13 +6,13 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
-    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면, 적·전투 시스템, 오케스트레이터, UI(UIManager와 업그레이드·전투 화면),
+    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면, 적·전투 시스템, 오케스트레이터, 조준 입력, UI(UIManager와 업그레이드·전투 화면),
     //   화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔(개발용) 조립.
     // - Start: 업그레이드 화면을 연다. 전투는 업그레이드 화면의 Start battle(또는 전투 시작·종료 콘솔)로 오케스트레이터에 요청한다.
     //   그 뒤로 화면은 전투 시스템의 상태를 따른다(ScreenFlow).
-    // - Update: 적·전투 시스템 → 화면 → 콘솔 순서로 한 프레임을 넘긴다.
+    // - Update: 조준 입력 → 적·전투 시스템 → 화면 → 콘솔 순서로 한 프레임을 넘긴다.
     //
-    // 콘텐츠: 판 설정은 SampleContent(C#), 적 종류는 적 종류 목록 에셋,
+    // 콘텐츠: 판 설정은 SampleContent(C#), 스킬은 스킬 설정 에셋, 적 종류는 적 종류 목록 에셋,
     // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
     // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다. 업그레이드 화면은 같은 에셋의 격자 칸으로 노드를 놓는다.
     // 화면 프리팹을 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens).
@@ -27,6 +27,7 @@ namespace BlackHole.Unity
         [SerializeField] private EnemySupplySetup enemySupply;
         [SerializeField] private StageTable stageTable;
         [SerializeField] private NodeCatalog nodeCatalog;
+        [SerializeField] private SkillSetup skillSetup;
 
         [Header("UI Layers (비우면 임시 화면을 만든다)")]
         [SerializeField] private RectTransform rootLayer;
@@ -49,8 +50,10 @@ namespace BlackHole.Unity
         private readonly List<UIPresentationSpec> _emptyPresentations = new List<UIPresentationSpec>();
         private EnemyLooks _enemyLooks;
         private EnemyView _enemyView;
+        private SkillView _skillView;
         private BattleSystem _battle;
         private BattleOrchestrator _orchestrator;
+        private AimInput _aim;
         private ScreenFlow _flow;
         private ControlConsole _console;
         private BattleLifecycleConsole _lifecycleConsole;
@@ -69,10 +72,13 @@ namespace BlackHole.Unity
 
             _enemyLooks = new EnemyLooks(enemyCatalog.Kinds());
             _enemyView = new EnemyView(transform, _enemyLooks);
-            _battle = new BattleSystem(content, nodeTree, _enemyView);
+            _skillView = new SkillView(transform);
+            _battle = new BattleSystem(content, nodeTree, _enemyView, _skillView);
             _orchestrator = new BattleOrchestrator(content, _battle, LocalPlayers);
             // 업그레이드 화면과 콘솔이 보는 진행 상태: 지금 실제 구성인 로컬 Player 1명.
             PlayerState viewer = _orchestrator.Progress[0];
+            // 마우스가 조준하는 참가자: 같은 로컬 Player.
+            _aim = new AimInput(_battle, viewer.Id);
 
             if (rootLayer == null)
             {
@@ -124,6 +130,7 @@ namespace BlackHole.Unity
 
         private void Update()
         {
+            _aim.Tick();
             _battle.Tick(Time.deltaTime);
             _flow.Tick();
             _console?.Tick();
@@ -140,6 +147,7 @@ namespace BlackHole.Unity
             _console?.Dispose();
             _flow?.Dispose();
             _orchestrator?.Dispose();
+            _skillView?.Dispose();
             _enemyView?.Dispose();
             _enemyLooks?.Dispose();
 
@@ -156,15 +164,16 @@ namespace BlackHole.Unity
         {
             content = null;
 
-            if (enemyCatalog == null || enemySupply == null || stageTable == null)
+            if (enemyCatalog == null || enemySupply == null || stageTable == null || skillSetup == null)
             {
                 Debug.LogError(
-                    "[콘텐츠] GameHost에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 단계 표(StageTable)를 연결해야 한다.",
+                    "[콘텐츠] GameHost에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 단계 표(StageTable), 스킬 설정(SkillSetup)을 연결해야 한다.",
                     this);
                 return false;
             }
 
             ContentData data = SampleContent.Create();
+            skillSetup.WriteTo(data);
             enemyCatalog.WriteTo(data);
             enemySupply.WriteTo(data);
             stageTable.WriteTo(data);

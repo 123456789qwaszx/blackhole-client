@@ -4,12 +4,14 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 저작 형식. 검증 전 값이며 실행에 쓰지 않는다 — ContentLoader만 읽는다.
-    // 적 종류·공급·배치와 단계 표는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable)이 채운다.
+    // 적 종류·공급·배치와 단계 표는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable)이, 스킬은 스킬 설정 에셋(SkillSetup)이 채운다.
     // 판 설정은 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
     [Serializable]
     public sealed class ContentData
     {
         public SessionData Session;
+        // 스킬은 종류마다 칸이 따로 있다. 비어 있으면 판에 그 스킬이 없다.
+        public BreakerData Breaker;
         public List<EnemyData> Enemies = new List<EnemyData>();
         // 적 풀. 단계 표가 ID로 가리킨다.
         public List<EnemyPoolData> EnemyPools = new List<EnemyPoolData>();
@@ -26,6 +28,16 @@ namespace BlackHole.Core
     {
         // 시간제 종료(현재 후보). 초 단위.
         public float TimeLimit;
+    }
+
+    [Serializable]
+    public sealed class BreakerData
+    {
+        public float Damage;
+        // 공격 주기(초).
+        public float Interval;
+        // 조준점을 중심으로 한 공격 원의 반지름.
+        public float Radius;
     }
 
     [Serializable]

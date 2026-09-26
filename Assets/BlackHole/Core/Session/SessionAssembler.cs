@@ -7,7 +7,7 @@ namespace BlackHole.Core
     // 정의는 공유하고, 전투의 실행 상태(시간, 상태, 결과, 판 안의 적)는 전투마다 새로 만든다.
     // 누가 참가하는지는 콘텐츠가 아니라 판 설정이다 — 호스트가 넘긴다(지금은 로컬 1명).
     //
-    // 조립한 판은 준비 단계(Preparing)다: 진행 상태를 전투에 묶고, 이 판의 적 수치를 확정한다. 적은 아직 없다.
+    // 조립한 판은 준비 단계(Preparing)다: 진행 상태를 전투에 묶고, 이 판의 적 수치를 확정하고, 참가자마다 판 안의 참가자(조준점·스킬)를 만든다. 적은 아직 없다.
     // 전투 시작 공급은 GameSession.Begin이 내보낸다.
     // 진행 상태(Gold)는 전투 사이에 이어진다. 새 진행을 시작할지는 호출하는 쪽이 새 PlayerState로 정한다.
     // 업그레이드: 노드 트리를 받으면 참가자마다 산 노드로 업그레이드 표(UpgradeTable)를 한 번 만들어 판에 둔다(GameSession.UpgradesOf).
@@ -38,16 +38,22 @@ namespace BlackHole.Core
 
             var players = new List<PlayerState>(states);
             var upgrades = new Dictionary<PlayerId, UpgradeTable>();
+            var battlePlayers = new List<BattlePlayer>();
 
             foreach (PlayerState state in players)
+            {
                 upgrades.Add(state.Id, nodes == null ? new UpgradeTable(Array.Empty<Upgrade>()) : NodePurchase.UpgradesFor(state, nodes));
+                // 판 안의 참가자: 콘텐츠의 스킬을 모두 받는다. 스킬 수치는 아직 업그레이드 표를 읽지 않는다(SKILL_SYSTEM_PLAN 2절).
+                battlePlayers.Add(new BattlePlayer(state.Id, content.Breaker));
+            }
 
             // 적의 수치는 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
             var world = new World(
                 new BattleRandom(seed),
                 content.GetStage(stage).Pool,
                 new EnemyStatTable(content.Enemies),
-                content.EnemyPlacement);
+                content.EnemyPlacement,
+                battlePlayers);
             var session = new GameSession(
                 world,
                 new TimeLimitRule(content.TimeLimit),

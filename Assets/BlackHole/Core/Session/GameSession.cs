@@ -74,6 +74,10 @@ namespace BlackHole.Core
             return table;
         }
 
+        // 그 참가자의 조준점을 바꾼다. 없으면 null. 호스트가 입력(지금은 마우스)을 읽어 프레임마다 넣는다.
+        // 판의 단계와 관계없이 받는다. 스킬은 공격할 때의 조준점을 읽는다.
+        public void SetAimPoint(PlayerId player, Point2? aimPoint) => World.PlayerOf(player).SetAimPoint(aimPoint);
+
         // 전투를 시작한다: 전투 시작 공급을 생성 요청으로 넣고 그 자리(0초)에서 공급 처리한 뒤 진행 단계로 들어간다.
         // 준비 단계에서 한 번만 부를 수 있다.
         public void Begin()

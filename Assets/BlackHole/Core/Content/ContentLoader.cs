@@ -10,7 +10,7 @@ namespace BlackHole.Core
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
-    // 1. 개별 정의: 판 설정, 적 종류, 출현 배치.
+    // 1. 개별 정의: 판 설정, 스킬, 적 종류, 출현 배치.
     // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀.
     // 3. 적 풀을 가리키는 것: 풀 ID 유일, 단계 표.
     public static class ContentLoader
@@ -26,6 +26,7 @@ namespace BlackHole.Core
             }
 
             TimeLimitDefinition timeLimit = LoadSession(data.Session, diagnostics);
+            BreakerDefinition breaker = LoadBreaker(data.Breaker, diagnostics);
             List<EnemyDefinition> enemies = LoadEnemies(data.Enemies, diagnostics);
             EnemyPlacementDefinition placement = LoadPlacement(data.EnemyPlacement, diagnostics);
 
@@ -49,7 +50,7 @@ namespace BlackHole.Core
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, enemies, placement, startSupply, pools, stages),
+                new GameContent(timeLimit, breaker, enemies, placement, startSupply, pools, stages),
                 diagnostics);
         }
 
@@ -59,6 +60,17 @@ namespace BlackHole.Core
                 return Missing<TimeLimitDefinition>("Session", into);
 
             return Guard("Session.TimeLimit", into, () => new TimeLimitDefinition(item.TimeLimit));
+        }
+
+        // ── 스킬 ────────────────────────────────────────────────────────────
+
+        // 없으면 판에 Breaker가 없다.
+        private static BreakerDefinition LoadBreaker(BreakerData item, List<ContentDiagnostic> into)
+        {
+            if (item == null)
+                return null;
+
+            return Guard("Breaker", into, () => new BreakerDefinition(item.Damage, item.Interval, item.Radius));
         }
 
         // ── 적 ──────────────────────────────────────────────────────────────
