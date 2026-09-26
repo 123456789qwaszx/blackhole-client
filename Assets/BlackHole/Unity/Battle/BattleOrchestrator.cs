@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using BlackHole.Core;
 using UnityEngine;
@@ -17,9 +18,12 @@ namespace BlackHole.Unity
         private readonly GameContent _content;
         private readonly BattleSystem _battle;
         private readonly PlayerId[] _participants;
-        private PlayerState[] _progress;
+        // 진행 상태는 오케스트레이터를 만들 때 만들고, 전투 사이에 이어진다(저장은 없다). 첫 전투 전의 구매(노드 콘솔)도 이것을 쓴다.
+        private readonly PlayerState[] _progress;
         private int _stage = SessionAssembler.FirstStage;
 
+        // 참가자마다의 진행 상태(Gold, 산 노드). 참가자 순서다.
+        public IReadOnlyList<PlayerState> Progress => _progress;
         public int Stage => _stage;
         public int StageCount => _content.StageCount;
         // 지금 진행도의 단계 정의(쓰는 적 풀 포함).
@@ -34,6 +38,7 @@ namespace BlackHole.Unity
             _content = content;
             _battle = battle;
             _participants = participants;
+            _progress = NewProgress();
             _battle.TimeExpired += OnTimeExpired;
         }
 
@@ -50,8 +55,6 @@ namespace BlackHole.Unity
 
             try
             {
-                // 진행 상태는 처음 시작할 때 만들고, 이후 전투에 이어진다(저장은 없다).
-                _progress ??= NewProgress();
                 // 전투마다 seed를 새로 정한다. 쓴 seed는 판과 원자료에 남는다.
                 await _battle.StartAsync(_progress, _stage, Environment.TickCount);
             }
