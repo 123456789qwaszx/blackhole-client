@@ -16,6 +16,32 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Progress.CheatsBypassPurchaseButGoldStaysNonNegative", CheatsBypassPurchaseButGoldStaysNonNegative);
             yield return new Contract("Progress.CheatsAreRefusedDuringBattle", CheatsAreRefusedDuringBattle);
             yield return new Contract("Progress.BattleGoldIsSettledOnceAfterTheEnd", BattleGoldIsSettledOnceAfterTheEnd);
+            yield return new Contract("Progress.FailedSettlementIsNotRecorded", FailedSettlementIsNotRecorded);
+        }
+
+        // 결산은 Gold를 더한 뒤에야 마친 것으로 기록한다. 더하기가 실패하면(Gold 넘침) 결산하지 않은 상태로 남고 진행 상태도 그대로다.
+        // 원인을 치운 뒤 다시 하면 번 Gold를 한 번만 더한다.
+        private static void FailedSettlementIsNotRecorded()
+        {
+            ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 1));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1, gold: 7));
+            TestContent.Allow(data, TestContent.EnemyId);
+            var state = new PlayerState(TestContent.First);
+            state.EarnGold(long.MaxValue - 3);
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), new[] { state }));
+
+            game.World.DealDamage(game.World.Enemies[0], new Damage(1, TestContent.First));
+            game.RequestEnd(SessionEndReason.TimeExpired);
+
+            Expect.Throws<OverflowException>(() => game.Settle());
+            Expect.True(!game.IsSettled, "실패한 결산을 마친 것으로 기록하면 안 된다.");
+            Expect.Equal(long.MaxValue - 3, state.Gold);
+
+            ProgressCheats.TakeGold(state, 10);
+            game.Settle();
+            game.Settle();
+            Expect.True(game.IsSettled, "다시 한 결산은 마쳐야 한다.");
+            Expect.Equal(long.MaxValue - 6, state.Gold);
         }
 
         // 진행 상태는 전투 밖에서만 바뀐다. 개발용 치트도 전투 중에는 거부하고, 전투가 끝나면 다시 된다.

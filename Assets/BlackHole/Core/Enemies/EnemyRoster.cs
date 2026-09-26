@@ -5,7 +5,7 @@ namespace BlackHole.Core
     // 한 판의 적 목록과 사망 절차. 적 시스템이 판 안에서 가진 상태는 여기에 모인다.
     // - 출현: 정의·색 등급·황금 여부·이 판의 수치·위치로 적을 만들고 번호를 준다. 수치는 판의 적 수치 표(EnemyStatTable)에서 온다.
     // - 이동: 살아 있는 적이 행동에 따라 움직인다.
-    // - 피해: 살아 있는 적만 받는다. 처음 죽은 순간 목록에서 빠지고, 사망 기록을 한 번 남기고, 처치 수에 들고, 그 적의 Gold가 이 판의 합계에 든다.
+    // - 피해: 이 목록에 살아 있는 적만 받는다. 처음 죽은 순간 목록에서 빠지고, 사망 기록을 한 번 남기고, 처치 수에 들고, 그 적의 Gold가 이 판의 합계에 든다.
     // - 파괴: 피해·HP 계산 없이 사망을 확정한다. 이 목록에 살아 있는 적만 죽고, 그 뒤는 피해로 죽을 때와 같다.
     // - 종류별 살아 있는 수: 출현 때 늘고 사망 때 준다. 풀 여과 장치의 출현 제한이 읽는다.
     // - 정리: 판이 끝난 뒤 남은 적을 목록에서 치운다. 처치가 아니다 — 사망 기록도, 처치 수도, Gold도 없다.
@@ -70,10 +70,10 @@ namespace BlackHole.Core
                 _alive[i].Move(delta);
         }
 
-        // true는 이번 피해로 처음 죽었다는 뜻이다.
+        // true는 이번 피해로 처음 죽었다는 뜻이다. 이 목록에 살아 있는 적이 아니면(다른 판의 적, 정리된 적) HP도 바꾸지 않는다.
         public bool DealDamage(Enemy enemy, Damage damage)
         {
-            if (!enemy.ApplyDamage(damage))
+            if (!Holds(enemy) || !enemy.ApplyDamage(damage))
                 return false;
 
             RecordDeath(enemy);
@@ -83,12 +83,15 @@ namespace BlackHole.Core
         // true는 이번에 처음 죽었다는 뜻이다. 이미 죽었거나 이 목록에 없는 적(다른 판의 적, 정리된 적)은 그대로 둔다.
         public bool Destroy(Enemy enemy)
         {
-            if (!enemy.IsAlive || !_alive.Contains(enemy) || !enemy.Destroy())
+            if (!Holds(enemy) || !enemy.Destroy())
                 return false;
 
             RecordDeath(enemy);
             return true;
         }
+
+        // 이 목록에 살아 있는 적인가. 피해와 파괴는 이것을 먼저 본 뒤에만 적을 바꾼다.
+        private bool Holds(Enemy enemy) => enemy.IsAlive && _alive.Contains(enemy);
 
         // 막 죽은 적의 사망 절차: 사망 기록, Gold, 목록에서 제외, 종류별 살아 있는 수와 처치 수.
         // Gold는 흡수 연출을 기다리지 않고 지금 이 판의 합계에 든다(GAME_RULES 9절).

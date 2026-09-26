@@ -20,6 +20,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.BattleCleanupIsNotAKill", BattleCleanupIsNotAKill);
             yield return new Contract("Enemy.DeathEarnsItsGoldForTheBattleAtOnce", DeathEarnsItsGoldForTheBattleAtOnce);
             yield return new Contract("Enemy.EachBattleHasItsOwnEnemies", EachBattleHasItsOwnEnemies);
+            yield return new Contract("Enemy.ForeignOrClearedEnemyTakesNoDamage", ForeignOrClearedEnemyTakesNoDamage);
             yield return new Contract("Enemy.PoolFilterDropsKindsOutsideThePool", PoolFilterDropsKindsOutsideThePool);
             yield return new Contract("Enemy.PoolFilterCapsAliveCountPerKind", PoolFilterCapsAliveCountPerKind);
             yield return new Contract("Enemy.BattleUsesItsStagePool", BattleUsesItsStagePool);
@@ -635,6 +636,42 @@ namespace BlackHole.Core.Tests
             first.World.DealDamage(first.World.Enemies[0], Hit);
             Expect.Near(6, first.World.Enemies[0].Health);
             Expect.Near(10, second.World.Enemies[0].Health);
+        }
+
+        // 피해는 그 판에 살아 있는 적만 받는다. 다른 판의 적이나 전투 정리로 치운 적을 넘기면 어느 판도 바뀌지 않는다:
+        // HP·마지막 피해 출처·사망·처치 수·Gold·사망 효과 대기열 모두 그대로다. 적의 HP(1)는 한 번의 피해(4)로 죽을 만큼이다.
+        private static void ForeignOrClearedEnemyTakesNoDamage()
+        {
+            ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 1));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1, gold: 7));
+            TestContent.Allow(data, TestContent.EnemyId);
+            GameContent content = TestContent.Load(data);
+            GameSession mine = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+            GameSession other = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+            Enemy foreign = other.World.Enemies[0];
+
+            Expect.True(!mine.World.DealDamage(foreign, Hit), "다른 판의 적은 죽지 않는다.");
+            Expect.Near(1, foreign.Health);
+            Expect.True(foreign.IsAlive && foreign.LastDamageSource == null, "다른 판의 적은 피해를 받지 않는다.");
+
+            foreach (GameSession game in new[] { mine, other })
+            {
+                Expect.Equal(1, game.World.Enemies.Count);
+                Expect.Equal(0, game.World.Deaths.Count);
+                Expect.Equal(0, game.World.TotalKills);
+                Expect.Equal(0L, game.World.EarnedGold);
+                Expect.True(!game.World.HasPendingDeathProcessing, "사망 효과가 대기열에 들면 안 된다.");
+            }
+
+            Enemy cleared = mine.World.Enemies[0];
+            mine.RequestEnd(SessionEndReason.TimeExpired);
+            mine.ClearRemainingEnemies();
+
+            Expect.True(!mine.World.DealDamage(cleared, Hit), "정리된 적은 죽지 않는다.");
+            Expect.Near(1, cleared.Health);
+            Expect.Equal(0, mine.World.Deaths.Count);
+            Expect.Equal(0, mine.World.TotalKills);
+            Expect.Equal(0L, mine.World.EarnedGold);
         }
 
         // HQ로부터 거리 3에 적 하나.

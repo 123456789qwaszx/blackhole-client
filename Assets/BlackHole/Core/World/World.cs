@@ -204,7 +204,8 @@ namespace BlackHole.Core
         }
 
         // 적에게 피해를 주는 입구. 피해를 주는 쪽(Skill·사망 효과)은 모두 여기로 요청한다.
-        // 죽은 적(또는 이미 목록에서 빠진 적)은 무시한다. true는 이번 피해로 처음 죽었다는 뜻이다.
+        // 이 판에 살아 있는 적이 아니면(죽은 적, 전투 정리로 치운 적, 다른 판의 적) 아무것도 바꾸지 않는다 — HP·사망·Gold·사망 효과 모두.
+        // true는 이번 피해로 처음 죽었다는 뜻이다.
         // 효과를 가진 적이 처음 죽으면 그 효과를 사망 효과 대기열에 넣는다(4. Death Effect 자리에서 처리).
         public bool DealDamage(Enemy enemy, Damage damage)
         {

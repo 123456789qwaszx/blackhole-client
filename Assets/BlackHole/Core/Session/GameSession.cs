@@ -150,6 +150,7 @@ namespace BlackHole.Core
         public bool IsSettled => _settled;
 
         // 결산: 끝난 판이 번 Gold를 참가자의 진행 상태에 더한다. 한 판에 한 번만 더하고, 다시 불러도 아무 일도 없다.
+        // Gold를 더한 뒤에야 결산을 마친 것으로 기록한다. 더하기가 실패하면(Gold 넘침) 예외가 나가고 결산하지 않은 상태로 남는다.
         // 지금 실제 구성은 로컬 Player 1명이다. 다인 플레이의 보상 귀속은 미정이라 참가자가 둘 이상이면 아무도 받지 않는다
         // (d71c0f4의 전제와 같다).
         public void Settle()
@@ -159,10 +160,10 @@ namespace BlackHole.Core
             if (_settled)
                 return;
 
-            _settled = true;
-
             if (_players.Count == 1)
                 _players[0].EarnGold(World.EarnedGold);
+
+            _settled = true;
         }
 
         // 결과를 확정하고 진행 상태를 전투에서 풀어 준다.
