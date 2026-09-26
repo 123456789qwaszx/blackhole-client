@@ -1,0 +1,295 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1e4de62fafb47fa9c94914d063e8fc8, type: 3}
+  m_Name: UpgradeTree
+  m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.UpgradeTree
+  nodes:
+  - id: asteroid-mass-1
+    price: 10
+    requires: 
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: asteroid-mass-2
+    price: 30
+    requires: asteroid-mass-1
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: asteroid-mass-3
+    price: 90
+    requires: asteroid-mass-2
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: asteroid-mass-4
+    price: 270
+    requires: asteroid-mass-3
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: asteroid-mass-5
+    price: 810
+    requires: asteroid-mass-4
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: asteroid-mass-6
+    price: 2430
+    requires: asteroid-mass-5
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: asteroid-mass-7
+    price: 7290
+    requires: asteroid-mass-6
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: asteroid-mass-8
+    price: 21870
+    requires: asteroid-mass-7
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: asteroid-supply-1
+    price: 100
+    requires: asteroid-mass-2
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 3
+      operation: 0
+      value: 4
+  - id: asteroid-supply-2
+    price: 2000
+    requires: asteroid-supply-1
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 3
+      operation: 0
+      value: 4
+  - id: asteroid-supply-3
+    price: 20000
+    requires: asteroid-supply-2
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 3
+      operation: 0
+      value: 4
+  - id: golden-asteroid
+    price: 500
+    requires: asteroid-mass-4
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 1
+      operation: 2
+      value: 0.0005
+  - id: planet-mass-1
+    price: 50000
+    requires: asteroid-mass-8
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: planet-mass-2
+    price: 150000
+    requires: planet-mass-1
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: planet-mass-3
+    price: 450000
+    requires: planet-mass-2
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: planet-mass-4
+    price: 1350000
+    requires: planet-mass-3
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: planet-mass-5
+    price: 4050000
+    requires: planet-mass-4
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: planet-mass-6
+    price: 12150000
+    requires: planet-mass-5
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: planet-mass-7
+    price: 36450000
+    requires: planet-mass-6
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: planet-mass-8
+    price: 109350000
+    requires: planet-mass-7
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: planet-supply-1
+    price: 100000
+    requires: planet-mass-1
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 3
+      operation: 0
+      value: 2
+  - id: planet-supply-2
+    price: 1000000
+    requires: planet-supply-1
+    grants:
+    - enemy: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
+      stat: 3
+      operation: 0
+      value: 2
+  - id: golden-digits-1
+    price: 200000
+    requires: planet-mass-2
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 1
+      operation: 1
+      value: 10
+  - id: golden-digits-2
+    price: 2000000
+    requires: planet-mass-4
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 1
+      operation: 1
+      value: 10
+  - id: golden-digits-3
+    price: 20000000
+    requires: planet-mass-6
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 1
+      operation: 1
+      value: 10
+  - id: golden-multiplier
+    price: 1000000
+    requires: golden-digits-1
+    grants:
+    - enemy: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
+      stat: 2
+      operation: 2
+      value: 4200
+  - id: star-mass-1
+    price: 500000000
+    requires: planet-mass-8
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: star-mass-2
+    price: 1500000000
+    requires: star-mass-1
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: star-mass-3
+    price: 4500000000
+    requires: star-mass-2
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: star-mass-4
+    price: 13500000000
+    requires: star-mass-3
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: star-mass-5
+    price: 40500000000
+    requires: star-mass-4
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: star-mass-6
+    price: 121500000000
+    requires: star-mass-5
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: star-mass-7
+    price: 364500000000
+    requires: star-mass-6
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: star-mass-8
+    price: 1093500000000
+    requires: star-mass-7
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 0
+      operation: 0
+      value: 1
+  - id: star-supply-1
+    price: 1000000000
+    requires: star-mass-1
+    grants:
+    - enemy: {fileID: 11400000, guid: 0d5945d74a2a4975ab65cf7d32bbd8e8, type: 2}
+      stat: 3
+      operation: 0
+      value: 1

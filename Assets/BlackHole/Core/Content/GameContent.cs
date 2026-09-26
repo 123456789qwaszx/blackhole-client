@@ -12,6 +12,7 @@ namespace BlackHole.Core
     // [4] 단계는 하나 이상이고 1부터 차례로 번호가 붙으며, 단계의 적 풀은 이 콘텐츠의 풀이다.
     // [5] 업그레이드 노드 ID가 유일하고, 선행 노드는 실재하며 순환하지 않는다. 질량 증가 노드는 질량 단계 표 안이다.
     //     Grant는 적을 정의 객체로 참조한다(ContentLoader가 ID를 해석하며 진단한다).
+    // [6] 출현 배치가 있으면 전체 개체 수 상한이 1 이상이고, 공급 수 노드를 모두 산 전투 시작 공급이 그 안이다.
     // 오류가 있는 콘텐츠의 경로별 보고는 ContentLoader가 맡는다.
     public sealed class GameContent
     {
@@ -23,7 +24,9 @@ namespace BlackHole.Core
         public IReadOnlyList<EnemyDefinition> Enemies { get; }
         // 출현 위치. 공급이 없으면 null일 수 있다.
         public EnemyPlacementDefinition EnemyPlacement { get; }
-        // 전투 시작 공급. 전투를 시작할 때 한 번 공급한다.
+        // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수(성능 예산, SYSTEM_CATALOG S08). 넘는 생성 요청은 버린다.
+        public int MaxAliveEnemies { get; }
+        // 전투 시작 공급. 전투를 시작할 때 한 번 공급한다. 산 공급 수 노드는 판 조립이 더한다.
         public IReadOnlyList<SupplyRequest> StartSupply { get; }
         public IReadOnlyList<EnemyPoolDefinition> EnemyPools { get; }
         // 진행도(적의 강도 단계) 표. Stages[i]가 (i + 1)단계다. HQ 성장 단계와 다르다.
@@ -37,6 +40,7 @@ namespace BlackHole.Core
             TimeLimitDefinition timeLimit,
             IReadOnlyList<EnemyDefinition> enemies,
             EnemyPlacementDefinition enemyPlacement,
+            int maxAliveEnemies,
             IReadOnlyList<SupplyRequest> startSupply,
             IReadOnlyList<EnemyPoolDefinition> enemyPools,
             IReadOnlyList<StageDefinition> stages,
@@ -45,6 +49,7 @@ namespace BlackHole.Core
             TimeLimit = timeLimit ?? throw new ArgumentNullException(nameof(timeLimit));
             Enemies = Copy(enemies);
             EnemyPlacement = enemyPlacement;
+            MaxAliveEnemies = maxAliveEnemies;
             StartSupply = Copy(startSupply);
             EnemyPools = Copy(enemyPools);
             Stages = Copy(stages);
@@ -59,6 +64,8 @@ namespace BlackHole.Core
             if (StartSupply.Count > 0 && EnemyPlacement == null)
                 diagnostics.Add(new ContentDiagnostic("EnemyPlacement", "공급이 있으면 출현 배치가 필요하다."));
 
+            ContentInvariants.CheckMaxAlive(EnemyPlacement, MaxAliveEnemies, diagnostics);
+            ContentInvariants.CheckStartSupplyFits(StartSupply, Upgrades, MaxAliveEnemies, diagnostics);
             VerifyPools(diagnostics);
             VerifyStages(diagnostics);
 

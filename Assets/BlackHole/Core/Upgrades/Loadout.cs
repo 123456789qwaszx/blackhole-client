@@ -7,8 +7,10 @@ namespace BlackHole.Core
     // 지금 있는 몫은 적 종류의 판 구성뿐이다(BATTLE_COMPOSITION_PLAN BC-005).
     public static class Loadout
     {
+        private static readonly int StatCount = Enum.GetValues(typeof(EnemyUpgradeStat)).Length;
+
         // 참가자가 산 노드의 적 Grant를 모아 콘텐츠의 모든 종류에 대한 판 구성을 만든다. 산 순서와 무관하다.
-        // 수치마다 기본값(질량 단계 0, 황금 비율 0, 황금 배율 = 종류의 기본값)에서 시작해
+        // 수치마다 기본값(질량 단계 0, 황금 비율 0, 황금 배율 = 종류의 기본값, 더할 시작 공급 0)에서 시작해
         // 정하기(가장 큰 값) → 더하기(합) → 곱하기(곱) 순서로 합친다 [임시]. 황금 비율은 1을 넘지 않는다.
         // 적 종류는 모든 참가자가 함께 쓰므로, 지금 실제 구성인 참가자 1명의 노드만 쓴다. 둘 이상이면 노드 보정 없이 기본값이다
         // (여러 Player의 구매를 공유 대상에 합치는 정책은 미정이다. d71c0f4의 전제와 같다).
@@ -33,7 +35,11 @@ namespace BlackHole.Core
                     {
                         if (!sums.TryGetValue(grant.Enemy, out Sum[] stats))
                         {
-                            stats = new[] { Sum.None, Sum.None, Sum.None };
+                            stats = new Sum[StatCount];
+
+                            for (int i = 0; i < stats.Length; i++)
+                                stats[i] = Sum.None;
+
                             sums.Add(grant.Enemy, stats);
                         }
 
@@ -53,7 +59,8 @@ namespace BlackHole.Core
                     composition = new EnemyComposition(
                         (int)stats[(int)EnemyUpgradeStat.MassLevel].Apply(composition.MassLevel),
                         Math.Min(1, stats[(int)EnemyUpgradeStat.GoldenRatio].Apply(composition.GoldenRatio)),
-                        stats[(int)EnemyUpgradeStat.GoldenMultiplier].Apply(composition.GoldenMultiplier));
+                        stats[(int)EnemyUpgradeStat.GoldenMultiplier].Apply(composition.GoldenMultiplier),
+                        (int)stats[(int)EnemyUpgradeStat.StartSupply].Apply(composition.StartSupplyBonus));
                 }
 
                 compositions.Add(kind, composition);

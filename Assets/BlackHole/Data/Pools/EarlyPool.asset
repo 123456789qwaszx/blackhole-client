@@ -15,6 +15,6 @@ MonoBehaviour:
   id: early
   entries:
   - kind: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
-    maxAlive: 6
+    maxAlive: 40
   - kind: {fileID: 11400000, guid: 9f9d1cd12cdd4f5287f2f48b172b2e3c, type: 2}
-    maxAlive: 2
+    maxAlive: 4

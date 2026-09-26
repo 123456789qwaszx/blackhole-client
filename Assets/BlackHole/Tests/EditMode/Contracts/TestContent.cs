@@ -63,11 +63,15 @@ namespace BlackHole.Core.Tests
                 data.Stages.Add(new StageData { Pool = pool });
         }
 
-        // 적이 있는 판: 출현 띠 [minDistance, maxDistance]와 전투 시작 공급.
+        // 전체 개체 수 상한이 계약에 끼어들지 않게 하는 넉넉한 상한.
+        public const int RoomyTotal = 1000;
+
+        // 적이 있는 판: 출현 띠 [minDistance, maxDistance], 넉넉한 전체 개체 수 상한, 전투 시작 공급.
         public static ContentData Arena(float minDistance, float maxDistance, params SupplyData[] supply)
         {
             ContentData data = Data();
             data.EnemyPlacement = new EnemyPlacementData { MinDistance = minDistance, MaxDistance = maxDistance };
+            data.MaxAliveEnemies = RoomyTotal;
             data.StartSupply = new List<SupplyData>(supply);
             return data;
         }

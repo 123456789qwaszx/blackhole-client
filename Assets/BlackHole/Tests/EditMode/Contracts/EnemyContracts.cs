@@ -27,6 +27,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.TierStatsComeFromTheMassLevel", TierStatsComeFromTheMassLevel);
             yield return new Contract("Enemy.TierRatioHoldsAtEveryCount", TierRatioHoldsAtEveryCount);
             yield return new Contract("Enemy.GoldenIsFixedAtSpawnAndMultipliesGold", GoldenIsFixedAtSpawnAndMultipliesGold);
+            yield return new Contract("Enemy.TotalAliveNeverExceedsTheCap", TotalAliveNeverExceedsTheCap);
             yield return new Contract("Enemy.KillsAreTalliedByKind", KillsAreTalliedByKind);
             yield return new Contract("Enemy.SpawnRequestsWaitForTheNextStep", SpawnRequestsWaitForTheNextStep);
             yield return new Contract("Enemy.FilteredSpawnRequestsAreDropped", FilteredSpawnRequestsAreDropped);
@@ -306,6 +307,39 @@ namespace BlackHole.Core.Tests
         private static GameSession GoldenBattle(GameContent content, IReadOnlyDictionary<EnemyDefinition, EnemyComposition> compositions) =>
             TestContent.Begun(SessionAssembler.CreateBattle(
                 content, new[] { new PlayerState(TestContent.First) }, SessionAssembler.FirstStage, 3, compositions));
+
+        // 판의 적 수는 종류와 관계없이 전체 개체 수 상한을 넘지 않는다. 상한에 닿은 뒤의 생성 요청은 버리고,
+        // 죽어서 자리가 나면 그 뒤의 생성 요청이 그만큼 나온다.
+        private static void TotalAliveNeverExceedsTheCap()
+        {
+            ContentData data = TestContent.Arena(1, 3, TestContent.Supply("first", 3), TestContent.Supply("second", 2));
+            data.Enemies.Add(TestContent.Enemy("first"));
+            data.Enemies.Add(TestContent.Enemy("second"));
+            TestContent.Allow(data, "first");
+            TestContent.Allow(data, "second");
+            data.MaxAliveEnemies = 5;
+            GameSession game = TestContent.Session(data);
+            World world = game.World;
+            EnemyDefinition first = world.Enemies[0].Definition;
+            EnemyDefinition second = world.Enemies[4].Definition;
+
+            Expect.Equal(5, world.MaxAliveEnemies);
+            Expect.Equal(5, world.Enemies.Count);
+
+            world.RequestSpawn(new SupplyRequest(first, 2));
+            game.Advance(0.1f);
+            Expect.Equal(5, world.Enemies.Count);
+            Expect.Equal(3, world.CountAlive(first));
+
+            world.DealDamage(world.Enemies[0], new Damage(10, TestContent.First));
+            world.DealDamage(world.Enemies[0], new Damage(10, TestContent.First));
+            world.RequestSpawn(new SupplyRequest(second, 4));
+            game.Advance(0.1f);
+
+            Expect.Equal(5, world.Enemies.Count);
+            Expect.Equal(4, world.CountAlive(second));
+            Expect.Equal(0, world.PendingSpawns.Count);
+        }
 
         // 색 등급 둘(비율만 다름)인 종류를 count마리 공급한 판.
         private static GameSession TierSession(int count, int seed, float first, float second)

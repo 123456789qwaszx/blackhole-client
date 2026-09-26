@@ -277,9 +277,10 @@ namespace BlackHole.Unity
             _detailForm.sprite = _looks.SpriteOf(kind.Id);
             _detailForm.color = _looks.ColorOf(kind.Id, MostCommon(ratios));
             _detailFormText.text = kind.Tiers.Count == 1 ? "1 tier" : $"{kind.Tiers.Count} tiers";
+            string mass = $"Mass level  {level} / {kind.MassLevels.Count - 1}  Start supply +{composition.StartSupplyBonus}";
             _detailMassText.text = battle != null
-                ? $"Mass level  {level} / {kind.MassLevels.Count - 1}  (next {next.MassLevel})"
-                : $"Mass level  {level} / {kind.MassLevels.Count - 1}";
+                ? $"{mass}  (next {next.MassLevel}, +{next.StartSupplyBonus})"
+                : mass;
 
             bool canBeGolden = kind.CanBeGolden;
             _detailGoldenText.gameObject.SetActive(canBeGolden);

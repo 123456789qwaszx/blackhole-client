@@ -11,7 +11,8 @@ using Object = UnityEngine.Object;
 namespace BlackHole.Unity
 {
     // 업그레이드 콘솔(개발용, 오른쪽 아래). 업그레이드 화면(F02)이 생기기 전까지 전투 사이에 노드를 사는 자리다.
-    // 노드마다 한 줄: 상태(산 것 / 살 수 있음 / 선행 노드 없음 / Gold 부족 / 전투 중), ID, 가격, Grant.
+    // 원작처럼 노드를 사면 그 너머가 드러난다: 아직 사지 않았고 선행 노드를 산(또는 선행이 없는) 노드만 한 줄씩 보인다.
+    // 줄마다 상태(살 수 있음 / Gold 부족 / 전투 중), ID, 가격, Grant. 산 노드는 수만 보인다.
     // 살 수 있는 줄을 누르면 산다(UpgradePurchase). 산 노드는 다음 전투의 판 구성이 된다(Loadout).
     // 개발용 버튼으로 Gold를 더할 수 있다. 구매자는 지금 실제 구성인 로컬 Player 1명(진행 상태의 첫 번째)이다.
     //
@@ -48,7 +49,7 @@ namespace BlackHole.Unity
             DevGoldButton(devButtons, 1000);
             DevGoldButton(devButtons, 100000);
 
-            Text(panel, "Note", "Owned nodes apply from the next battle. Cannot buy during a battle.", 18);
+            Text(panel, "Note", "Buying reveals the next nodes. Owned nodes apply from the next battle.", 18);
 
             foreach (UpgradeNodeDefinition node in content.Upgrades)
                 _rows.Add(CreateRow(panel, node));
@@ -79,9 +80,16 @@ namespace BlackHole.Unity
 
             foreach (NodeRow row in _rows)
             {
-                PurchaseResult result = UpgradePurchase.Check(_buyer, row.Node);
+                UpgradeNodeDefinition node = row.Node;
+                bool revealed = !_buyer.Owns(node.Id) && (node.Requires == null || _buyer.Owns(node.Requires));
+                row.Button.gameObject.SetActive(revealed);
+
+                if (!revealed)
+                    continue;
+
+                PurchaseResult result = UpgradePurchase.Check(_buyer, node);
                 SetInteractable(row.Button, result == PurchaseResult.Purchased);
-                row.Label.text = Describe(row.Node, result);
+                row.Label.text = Describe(node, result);
             }
         }
 

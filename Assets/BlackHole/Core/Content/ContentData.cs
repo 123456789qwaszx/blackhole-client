@@ -4,7 +4,8 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 저작 형식. 검증 전 값이며 실행에 쓰지 않는다 — ContentLoader만 읽는다.
-    // 적 종류·공급·배치와 단계 표는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable)이 채운다.
+    // 적 종류·공급·배치·전체 개체 수 상한, 단계 표, 업그레이드 노드는
+    // Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable, UpgradeTree)이 채운다.
     // 판 설정은 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
     [Serializable]
     public sealed class ContentData
@@ -17,9 +18,11 @@ namespace BlackHole.Core
         public List<StageData> Stages = new List<StageData>();
         // 출현 위치. 공급이 하나라도 있으면 필요하다.
         public EnemyPlacementData EnemyPlacement;
+        // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수(성능 예산). 출현 배치가 있으면 1 이상이어야 한다.
+        public int MaxAliveEnemies;
         // 전투 시작 공급. 전투를 시작할 때(0초) 한 번 공급한다.
         public List<SupplyData> StartSupply = new List<SupplyData>();
-        // 업그레이드 노드. 판 설정과 함께 아직 BlackHole.Sample의 SampleContent가 코드로 채운다(노드 저작 툴 전까지).
+        // 업그레이드 노드. Unity 쪽 노드 목록 에셋(UpgradeTree)이 채운다(노드 저작 툴이 생기면 그 툴이 에셋을 쓴다).
         public List<UpgradeData> Upgrades = new List<UpgradeData>();
     }
 

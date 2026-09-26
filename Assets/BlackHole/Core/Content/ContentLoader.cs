@@ -40,18 +40,21 @@ namespace BlackHole.Core
             if (startSupply.Count > 0 && placement == null)
                 diagnostics.Add(new ContentDiagnostic("EnemyPlacement", "공급이 있으면 출현 배치가 필요하다."));
 
+            ContentInvariants.CheckMaxAlive(placement, data.MaxAliveEnemies, diagnostics);
+
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
             ContentInvariants.CollectPools(pools, diagnostics, out Dictionary<string, EnemyPoolDefinition> poolsById);
             List<StageDefinition> stages = LoadStages(data.Stages, poolsById, diagnostics);
             ContentInvariants.CollectUpgrades(upgrades, diagnostics, out _);
+            ContentInvariants.CheckStartSupplyFits(startSupply, upgrades, data.MaxAliveEnemies, diagnostics);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, enemies, placement, startSupply, pools, stages, upgrades),
+                new GameContent(timeLimit, enemies, placement, data.MaxAliveEnemies, startSupply, pools, stages, upgrades),
                 diagnostics);
         }
 

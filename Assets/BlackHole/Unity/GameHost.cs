@@ -11,8 +11,9 @@ namespace BlackHole.Unity
     // - Start: 전투 화면을 연다. 판은 아직 없다 — 전투 시작은 오케스트레이터에 요청한다(지금은 전투 시작·종료 콘솔의 Start).
     // - Update: 적·전투 시스템 → 화면 → 콘솔 순서로 한 프레임을 넘긴다.
     //
-    // 콘텐츠: 판 설정과 업그레이드 노드는 SampleContent(C#), 적 종류는 적 종류 목록 에셋,
-    // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
+    // 콘텐츠: 판 설정은 SampleContent(C#), 적 종류는 적 종류 목록 에셋,
+    // 출현 배치·전체 개체 수 상한·전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋,
+    // 업그레이드 노드는 노드 목록 에셋이 채운다.
     // 화면 프리팹을 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens).
     // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed class GameHost : MonoBehaviour
@@ -24,6 +25,7 @@ namespace BlackHole.Unity
         [SerializeField] private EnemyCatalog enemyCatalog;
         [SerializeField] private EnemySupplySetup enemySupply;
         [SerializeField] private StageTable stageTable;
+        [SerializeField] private UpgradeTree upgradeTree;
 
         [Header("UI Layers (비우면 임시 화면을 만든다)")]
         [SerializeField] private RectTransform rootLayer;
@@ -142,10 +144,11 @@ namespace BlackHole.Unity
         {
             content = null;
 
-            if (enemyCatalog == null || enemySupply == null || stageTable == null)
+            if (enemyCatalog == null || enemySupply == null || stageTable == null || upgradeTree == null)
             {
                 Debug.LogError(
-                    "[콘텐츠] GameHost에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 단계 표(StageTable)를 연결해야 한다.",
+                    "[콘텐츠] GameHost에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 단계 표(StageTable), " +
+                    "업그레이드 노드 목록(UpgradeTree)을 연결해야 한다.",
                     this);
                 return false;
             }
@@ -154,6 +157,7 @@ namespace BlackHole.Unity
             enemyCatalog.WriteTo(data);
             enemySupply.WriteTo(data);
             stageTable.WriteTo(data);
+            upgradeTree.WriteTo(data);
             ContentLoadResult result = ContentLoader.Load(data);
 
             foreach (ContentDiagnostic diagnostic in result.Diagnostics)

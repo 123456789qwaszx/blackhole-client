@@ -45,14 +45,18 @@ namespace BlackHole.Core
         public EnemyPoolDefinition Pool { get; }
         // 이 판의 종류별 질량 단계·색 비율·황금 비율과 (종류, 색 등급, 황금)별 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
         public EnemyStatTable Stats { get; }
+        // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수. 이 수에 닿으면 생성 요청을 거른다(PoolFilter).
+        public int MaxAliveEnemies { get; }
 
-        internal World(int seed, EnemyPoolDefinition pool, EnemyStatTable stats, EnemyPlacementDefinition placement)
+        internal World(
+            int seed, EnemyPoolDefinition pool, EnemyStatTable stats, EnemyPlacementDefinition placement, int maxAliveEnemies)
         {
             Pool = pool ?? throw new ArgumentNullException(nameof(pool));
             Stats = stats ?? throw new ArgumentNullException(nameof(stats));
             _placement = placement;
             _placementRandom = new BattleRandom(seed, PlacementStream);
-            _filter = new PoolFilter(pool);
+            _filter = new PoolFilter(pool, maxAliveEnemies);
+            MaxAliveEnemies = maxAliveEnemies;
             PendingSpawns = _spawnRequests.AsReadOnly();
             PendingDestroys = _destroyRequests.AsReadOnly();
 

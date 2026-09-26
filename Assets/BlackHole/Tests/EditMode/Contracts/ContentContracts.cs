@@ -13,6 +13,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsEveryErrorWithPath", ReportsEveryErrorWithPath);
             yield return new Contract("Content.ReportsMissingSections", ReportsMissingSections);
             yield return new Contract("Content.ReportsUpgradeErrorsWithPath", ReportsUpgradeErrorsWithPath);
+            yield return new Contract("Content.StartSupplyFitsTheEnemyCap", StartSupplyFitsTheEnemyCap);
             yield return new Contract("Content.ReportsEnemyErrorsWithPath", ReportsEnemyErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.SupplyNeedsPlacement", SupplyNeedsPlacement);
@@ -134,17 +135,11 @@ namespace BlackHole.Core.Tests
             Expect.Throws<ArgumentOutOfRangeException>(() => content.GetStage(4));
         }
 
-        // 샘플의 C# 부분(판 설정, 업그레이드 노드)은 [임시] 값이라 값 자체는 검사하지 않는다.
-        // 적 종류와 단계 표는 Unity 에셋이 채우므로, 최소 단계 표와 노드가 가리키는 소행성(질량 단계 표, 황금)을 붙여
-        // C# 부분이 로드되는지만 본다.
+        // 샘플의 C# 부분(판 설정)은 [임시] 값이라 값 자체는 검사하지 않는다.
+        // 적 종류와 단계 표는 Unity 에셋이 채우므로, 최소 단계 표를 붙여 C# 부분이 로드되는지만 본다.
         private static void SampleLoads()
         {
             ContentData data = SampleContent.Create();
-            EnemyData asteroid = TestContent.Enemy(SampleContent.Asteroid);
-            for (int i = 0; i < SampleContent.AsteroidMassNodes; i++)
-                asteroid.MassLevels.Add(TestContent.MassLevel(1, 1, 1));
-            asteroid.GoldenMultiplier = 50;
-            data.Enemies.Add(asteroid);
             data.Enemies.Add(TestContent.Enemy(TestContent.PoolEnemyId));
             data.EnemyPools.Add(TestContent.Pool(TestContent.PoolId, TestContent.PoolEnemyId));
             TestContent.AddStages(data, TestContent.PoolId, 1);
@@ -165,9 +160,11 @@ namespace BlackHole.Core.Tests
             values.Upgrades.Add(TestContent.Upgrade("fast", 5, null, TestContent.Grant("rock", "Speed", "Add", 1)));
             values.Upgrades.Add(TestContent.Upgrade("set-mass", 5, null, TestContent.Grant("rock", "MassLevel", "Set", 1)));
             values.Upgrades.Add(TestContent.Upgrade("gild", 5, null, TestContent.Grant("rock", "GoldenRatio", "Set", 0.1f)));
+            values.Upgrades.Add(TestContent.Upgrade("set-supply", 5, null, TestContent.Grant("rock", "StartSupply", "Set", 3)));
 
             ContentLoadResult result = ContentLoader.Load(values);
-            Expect.Equal(6, result.Diagnostics.Count);
+            Expect.Equal(7, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Upgrades[set-supply].Grants[0]", "시작 공급 수");
             TestContent.HasDiagnostic(result, "Upgrades[bad-price]", "price");
             TestContent.HasDiagnostic(result, "Upgrades[self]", "requires");
             TestContent.HasDiagnostic(result, "Upgrades[haunt].Grants[0].Enemy", "ghost");
@@ -188,6 +185,29 @@ namespace BlackHole.Core.Tests
             TestContent.HasDiagnostic(result, "Upgrades[1].Requires", "순환");
             TestContent.HasDiagnostic(result, "Upgrades[2].Requires", "순환");
             TestContent.HasDiagnostic(result, "Upgrades", "질량 단계 표는 0까지");
+        }
+
+        // 출현 배치가 있으면 전체 개체 수 상한이 필요하다. 공급 수 노드를 모두 산 전투 시작 공급이 상한 안이어야 한다
+        // (전투 시작에는 살아 있는 적이 없으므로, 넘으면 노드가 약속한 적이 매 판 시작부터 버려진다).
+        private static void StartSupplyFitsTheEnemyCap()
+        {
+            ContentData uncapped = TestContent.Arena(1, 3, TestContent.Supply(TestContent.EnemyId, 1));
+            uncapped.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            uncapped.MaxAliveEnemies = 0;
+            ContentLoadResult result = ContentLoader.Load(uncapped);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "MaxAliveEnemies", "상한");
+
+            ContentData crowded = TestContent.Arena(1, 3, TestContent.Supply(TestContent.EnemyId, 3));
+            crowded.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            crowded.MaxAliveEnemies = 5;
+            crowded.Upgrades.Add(TestContent.Upgrade("more", 5, null, TestContent.Grant(TestContent.EnemyId, "StartSupply", "Add", 2)));
+            TestContent.Load(crowded);
+
+            crowded.Upgrades.Add(TestContent.Upgrade("even-more", 5, "more", TestContent.Grant(TestContent.EnemyId, "StartSupply", "Add", 1)));
+            result = ContentLoader.Load(crowded);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "MaxAliveEnemies", "6마리");
         }
 
         private static void ReportsEveryErrorWithPath()

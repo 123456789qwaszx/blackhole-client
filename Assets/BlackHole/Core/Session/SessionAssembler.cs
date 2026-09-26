@@ -43,18 +43,20 @@ namespace BlackHole.Core
 
             var players = new List<PlayerState>(states);
             // 적의 수치(Gold 포함)와 색·황금 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
+            var stats = new EnemyStatTable(content.Enemies, compositions);
             var world = new World(
                 seed,
                 content.GetStage(stage).Pool,
-                new EnemyStatTable(content.Enemies, compositions),
-                content.EnemyPlacement);
+                stats,
+                content.EnemyPlacement,
+                content.MaxAliveEnemies);
             var session = new GameSession(
                 world,
                 new TimeLimitRule(content.TimeLimit),
                 stage,
                 seed,
                 players.AsReadOnly(),
-                content.StartSupply);
+                StartSupplyOf(content, stats));
 
             // 모든 검사를 통과한 뒤에 전투에 들인다. 조립이 실패하면 PlayerState는 묶이지 않는다.
             foreach (PlayerState state in players)
@@ -63,6 +65,33 @@ namespace BlackHole.Core
             }
 
             return session;
+        }
+
+        // 이 판의 전투 시작 공급: 콘텐츠의 공급에 판 구성의 더할 공급 수(산 공급 수 노드)를 더한다.
+        // 종류가 콘텐츠 공급에 있으면 그 종류의 첫 요청에 더하고, 없으면 콘텐츠 종류 순서로 요청을 뒤에 붙인다.
+        private static IReadOnlyList<SupplyRequest> StartSupplyOf(GameContent content, EnemyStatTable stats)
+        {
+            var supply = new List<SupplyRequest>(content.StartSupply);
+            var bonused = new HashSet<EnemyDefinition>();
+
+            for (int i = 0; i < supply.Count; i++)
+            {
+                EnemyDefinition kind = supply[i].Enemy;
+                int bonus = stats.CompositionOf(kind).StartSupplyBonus;
+
+                if (bonus > 0 && bonused.Add(kind))
+                    supply[i] = new SupplyRequest(kind, supply[i].Count + bonus);
+            }
+
+            foreach (EnemyDefinition kind in stats.Kinds)
+            {
+                int bonus = stats.CompositionOf(kind).StartSupplyBonus;
+
+                if (bonus > 0 && bonused.Add(kind))
+                    supply.Add(new SupplyRequest(kind, bonus));
+            }
+
+            return supply.AsReadOnly();
         }
 
         private static void VerifyParticipants(IReadOnlyList<PlayerState> states)

@@ -13,7 +13,42 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Upgrade.PurchaseByUnknownIdChangesNothing", PurchaseByUnknownIdChangesNothing);
             yield return new Contract("Upgrade.CannotPurchaseDuringBattle", CannotPurchaseDuringBattle);
             yield return new Contract("Upgrade.OwnedNodesBecomeTheEnemyComposition", OwnedNodesBecomeTheEnemyComposition);
+            yield return new Contract("Upgrade.SupplyNodesAddToTheStartSupply", SupplyNodesAddToTheStartSupply);
         }
+
+        // 산 공급 수 노드는 그 종류의 전투 시작 공급에 더해진다. 콘텐츠 공급에 없는 종류는 공급이 새로 붙는다.
+        private static void SupplyNodesAddToTheStartSupply()
+        {
+            ContentData data = TestContent.Arena(1, 3, TestContent.Supply("rock", 2));
+            data.Enemies.Add(TestContent.Enemy("rock"));
+            data.Enemies.Add(TestContent.Enemy("pebble"));
+            TestContent.Allow(data, "rock");
+            TestContent.Allow(data, "pebble");
+            data.Upgrades.Add(TestContent.Upgrade("more-rocks", 1, null, TestContent.Grant("rock", "StartSupply", "Add", 3)));
+            data.Upgrades.Add(TestContent.Upgrade("pebbles", 1, null, TestContent.Grant("pebble", "StartSupply", "Add", 2)));
+            GameContent content = TestContent.Load(data);
+            content.TryGetEnemy("rock", out EnemyDefinition rock);
+            content.TryGetEnemy("pebble", out EnemyDefinition pebble);
+            var state = new PlayerState(TestContent.First);
+
+            GameSession plain = Begin(content, state);
+            Expect.Equal(2, plain.World.CountAlive(rock));
+            Expect.Equal(0, plain.World.CountAlive(pebble));
+            plain.RequestEnd(SessionEndReason.TimeExpired);
+
+            state.EarnGold(2);
+            UpgradePurchase.TryPurchase(state, content, "more-rocks");
+            UpgradePurchase.TryPurchase(state, content, "pebbles");
+            Expect.Equal(3, Loadout.EnemiesFor(content, new[] { state })[rock].StartSupplyBonus);
+
+            GameSession supplied = Begin(content, state);
+            Expect.Equal(5, supplied.World.CountAlive(rock));
+            Expect.Equal(2, supplied.World.CountAlive(pebble));
+        }
+
+        private static GameSession Begin(GameContent content, PlayerState state) =>
+            TestContent.Begun(SessionAssembler.CreateBattle(
+                content, new[] { state }, SessionAssembler.FirstStage, 0, Loadout.EnemiesFor(content, new[] { state })));
 
         // 실패한 구매는 Gold와 구매 상태를 바꾸지 않는다.
         private static void PurchaseNeedsPrerequisiteAndGold()

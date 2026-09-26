@@ -33,11 +33,16 @@ namespace BlackHole.Core
             if (float.IsNaN(value) || float.IsInfinity(value) || value < 0)
                 throw new ArgumentOutOfRangeException(nameof(value), "0 이상의 유한한 값이 필요하다.");
 
-            // 질량 증가는 산 수만큼 단계가 오른다. 한 노드가 단계를 정하거나 곱하지 않는다.
-            if (stat == EnemyUpgradeStat.MassLevel && (operation != GrantOperation.Add || value != Math.Floor(value)))
-                throw new ArgumentException("질량 단계는 정수를 더하기만 한다.", nameof(operation));
+            // 질량 증가는 산 수만큼 단계가 오르고, 공급 수는 마리 수를 더한다. 한 노드가 이 값을 정하거나 곱하지 않는다.
+            bool counted = stat == EnemyUpgradeStat.MassLevel || stat == EnemyUpgradeStat.StartSupply;
 
-            if (stat != EnemyUpgradeStat.MassLevel && !enemy.CanBeGolden)
+            if (counted && (operation != GrantOperation.Add || value != Math.Floor(value)))
+                throw new ArgumentException(
+                    $"{(stat == EnemyUpgradeStat.MassLevel ? "질량 단계" : "시작 공급 수")}는 정수를 더하기만 한다.", nameof(operation));
+
+            bool golden = stat == EnemyUpgradeStat.GoldenRatio || stat == EnemyUpgradeStat.GoldenMultiplier;
+
+            if (golden && !enemy.CanBeGolden)
                 throw new ArgumentException($"'{enemy.Id}'는 황금이 되지 않아 황금 수치를 보정할 수 없다.", nameof(stat));
 
             Stat = stat;
