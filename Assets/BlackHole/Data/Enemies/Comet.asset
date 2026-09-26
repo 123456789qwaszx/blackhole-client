@@ -13,9 +13,18 @@ MonoBehaviour:
   m_Name: Comet
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: comet
-  maxHealth: 8
   moveSpeed: 3
-  size: 0.2
+  tiers:
+  - color: {r: 0.6, g: 0.95, b: 1, a: 1}
+    maxHealth: 8
+    size: 0.2
+    gold: 2
+  massLevels:
+  - tierRatios:
+    - 1
+    healthMultiplier: 1
+    goldMultiplier: 1
+  goldenMultiplier: 0
   clockwise: 0
   deathEffect: 4
   effectDamage: 0
@@ -24,4 +33,3 @@ MonoBehaviour:
   effectDuration: 5
   effectIntervalMultiplier: 0
   sprite: {fileID: 0}
-  color: {r: 0.6, g: 0.95, b: 1, a: 1}

@@ -18,8 +18,10 @@ namespace BlackHole.Unity
     // - 판이 있으면 그 판의 단계 풀과 지금 살아 있는 수(매 프레임).
     // - 판이 없으면 선택한 진행도의 풀. 살아 있는 수는 '-'다.
     // 종류 줄을 누르면 그 종류의 수치·형태·특성이 아래의 설명창에 나온다. 같은 줄을 다시 누르면 닫힌다.
+    // 설명창은 판 구성(질량 단계, 황금 비율·배율)과 색 등급마다 비율·HP·크기·Gold(황금이 되는 종류는 황금 Gold도)를 보여 준다.
+    // 판 구성은 산 노드가 정한다 — 노드는 업그레이드 화면에서 산다.
     // 적의 수치는 전투 Session이 시작되기 전에 정해지고 전투 중에는 바뀌지 않는다. 그래서 설명창은
-    // 판이 있으면 그 판의 수치를, 없으면 종류의 기본 수치를 보여 준다(업그레이드 보정은 판 조립 때 반영된다).
+    // 판이 있으면 그 판의 수치를, 없으면 지금 산 노드로 계산한 다음 전투의 수치를 보여 준다.
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
     internal sealed class ControlConsole : IDisposable
@@ -41,8 +43,9 @@ namespace BlackHole.Unity
         private readonly TMP_Text _detailTitle;
         private readonly Image _detailForm;
         private readonly TMP_Text _detailFormText;
+        private readonly TMP_Text _detailMassText;
+        private readonly TMP_Text _detailGoldenText;
         private readonly TMP_Text _detailStats;
-        private readonly TMP_Text _detailSource;
         private readonly StringBuilder _builder = new StringBuilder();
 
         private int _shownStage = -1;
@@ -56,6 +59,8 @@ namespace BlackHole.Unity
         private EnemyDefinition _selected;
         private bool _detailDirty;
         private GameSession _shownDetailBattle;
+        // 설명창이 마지막으로 본 산 노드 수. 노드를 사면 다음 전투의 판 구성이 바뀌므로 다시 쓴다.
+        private int _shownOwnedNodes = -1;
 
         public ControlConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle, EnemyLooks looks)
         {
@@ -97,8 +102,10 @@ namespace BlackHole.Unity
             _detailForm = FormPreview(form);
             _detailFormText = Text(form, "Shape", string.Empty, 22);
 
+            _detailMassText = Text(detail, "MassLevel", string.Empty, 22);
+            // 황금이 되는 종류에만 보인다.
+            _detailGoldenText = Text(detail, "Golden", string.Empty, 22);
             _detailStats = Text(detail, "Stats", string.Empty, 22);
-            _detailSource = Text(detail, "Source", string.Empty, 18);
             _detailPanel.SetActive(false);
 
             Refresh();
@@ -234,40 +241,102 @@ namespace BlackHole.Unity
             PaintRows();
         }
 
-        // 선택이 바뀌었거나, 수치의 출처(진행 중인 판 / 기본 수치)가 바뀌었을 때만 다시 쓴다.
+        // 선택이 바뀌었거나, 수치의 출처(진행 중인 판 / 다음 판)가 바뀌었거나, 노드를 샀을 때만 다시 쓴다.
         // 판의 수치는 판 동안 바뀌지 않으므로 매 프레임 다시 쓸 필요가 없다.
         private void RefreshDetail(GameSession battle)
         {
-            if (!_detailDirty && battle == _shownDetailBattle)
+            int owned = 0;
+
+            foreach (PlayerState player in _orchestrator.Progress)
+                owned += player.OwnedNodes.Count;
+
+            if (!_detailDirty && battle == _shownDetailBattle && owned == _shownOwnedNodes)
                 return;
 
             _detailDirty = false;
             _shownDetailBattle = battle;
+            _shownOwnedNodes = owned;
             _detailPanel.SetActive(_selected != null);
 
             if (_selected == null)
                 return;
 
             EnemyDefinition kind = _selected;
-            EnemyStats stats = battle != null ? battle.World.StatsOf(kind) : kind.BaseStats;
+            EnemyComposition next = _orchestrator.NextCompositions[kind];
+            EnemyComposition composition = battle != null ? battle.World.Stats.CompositionOf(kind) : next;
+            int level = composition.MassLevel;
+            IReadOnlyList<float> ratios = kind.MassLevels[level].TierRatios;
+            float ratioSum = 0;
+
+            foreach (float ratio in ratios)
+                ratioSum += ratio;
 
             _detailTitle.text = kind.Id;
             _detailForm.sprite = _looks.SpriteOf(kind.Id);
-            _detailForm.color = _looks.ColorOf(kind.Id);
-            _detailFormText.text = $"radius {Number(stats.Size)}";
+            _detailForm.color = _looks.ColorOf(kind.Id, MostCommon(ratios));
+            _detailFormText.text = kind.Tiers.Count == 1 ? "1 tier" : $"{kind.Tiers.Count} tiers";
+            string mass = $"Mass level  {level} / {kind.MassLevels.Count - 1}  Start supply +{composition.StartSupplyBonus}";
+            _detailMassText.text = battle != null
+                ? $"{mass}  (next {next.MassLevel}, +{next.StartSupplyBonus})"
+                : mass;
+
+            bool canBeGolden = kind.CanBeGolden;
+            _detailGoldenText.gameObject.SetActive(canBeGolden);
+
+            if (canBeGolden)
+            {
+                string now = $"Golden  {Percent(composition.GoldenRatio)}  x{Number(composition.GoldenMultiplier)} Gold";
+                _detailGoldenText.text = battle != null
+                    ? $"{now}  (next {Percent(next.GoldenRatio)}, x{Number(next.GoldenMultiplier)})"
+                    : now;
+            }
 
             _builder.Clear();
-            _builder.Append("Health<pos=6em>").Append(Number(stats.MaxHealth)).Append('\n');
-            _builder.Append("Speed<pos=6em>").Append(Number(stats.MoveSpeed)).Append('\n');
-            _builder.Append("Size<pos=6em>").Append(Number(stats.Size)).Append('\n');
+            _builder.Append("Speed<pos=6em>").Append(Number(kind.MoveSpeed)).Append('\n');
             _builder.Append("Behavior<pos=6em>").Append(Describe(kind.Behavior)).Append('\n');
             // 특성(사망 효과)은 종류에 붙는다.
-            _builder.Append("Traits<pos=6em>").Append(Describe(kind.DeathEffect));
-            _detailStats.text = _builder.ToString();
+            _builder.Append("Traits<pos=6em>").Append(Describe(kind.DeathEffect)).Append('\n');
+            _builder.Append("Tier<pos=3em>Ratio<pos=7em>HP<pos=11em>Size<pos=15em>Gold");
 
-            _detailSource.text = battle != null
-                ? $"Battle stats (stage {battle.Stage}), fixed at battle start."
-                : "Base stats. Upgrades apply at battle start.";
+            if (canBeGolden)
+                _builder.Append("<pos=19em>Golden");
+
+            for (int tier = 0; tier < kind.Tiers.Count; tier++)
+            {
+                EnemyStats stats = battle != null ? battle.World.Stats.Of(kind, tier) : kind.StatsAt(composition, tier);
+                string color = ColorUtility.ToHtmlStringRGB(_looks.ColorOf(kind.Id, tier));
+
+                _builder.Append("\n<color=#").Append(color).Append(">#").Append(tier).Append("</color>");
+                _builder.Append("<pos=3em>").Append(Mathf.RoundToInt(ratios[tier] / ratioSum * 100)).Append('%');
+                _builder.Append("<pos=7em>").Append(Number(stats.MaxHealth));
+                _builder.Append("<pos=11em>").Append(Number(stats.Size));
+                _builder.Append("<pos=15em>").Append(stats.Gold);
+
+                if (canBeGolden)
+                {
+                    EnemyStats golden = battle != null ? battle.World.Stats.Of(kind, tier, true) : kind.StatsAt(composition, tier, true);
+                    _builder.Append("<pos=19em>").Append(golden.Gold);
+                }
+            }
+
+            _detailStats.text = _builder.ToString();
+        }
+
+        // 0.001 → "0.1%". 황금 비율은 자릿수 단위로 바뀌므로 작은 값도 읽히게 쓴다.
+        private static string Percent(float ratio) => (ratio * 100).ToString("0.###") + "%";
+
+        // 가장 많이 나오는 색 등급(같으면 앞 번호). 형태 미리보기의 색으로 쓴다.
+        private static int MostCommon(IReadOnlyList<float> ratios)
+        {
+            int best = 0;
+
+            for (int i = 1; i < ratios.Count; i++)
+            {
+                if (ratios[i] > ratios[best])
+                    best = i;
+            }
+
+            return best;
         }
 
         // 설명창이 옆으로 늘어나지 않게 짧게 쓴다. 지금 행동은 HQ 공전 하나라 방향만 적는다.

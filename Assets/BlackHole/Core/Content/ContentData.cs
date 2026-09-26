@@ -4,8 +4,9 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 저작 형식. 검증 전 값이며 실행에 쓰지 않는다 — ContentLoader만 읽는다.
-    // 적 종류·공급·배치와 단계 표는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable)이, 스킬은 스킬 설정 에셋(SkillSetup)이 채운다.
-    // 판 설정은 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
+    // 적 종류·공급·배치·전체 개체 수 상한과 단계 표는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable)이,
+    // 스킬은 스킬 설정 에셋(SkillSetup)이 채운다. 판 설정은 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
+    // 업그레이드 노드는 판 조립 콘텐츠가 아니다 — 노드 목록 에셋(NodeCatalog → NodeTreeData)이 따로 가진다.
     [Serializable]
     public sealed class ContentData
     {
@@ -20,6 +21,8 @@ namespace BlackHole.Core
         public List<StageData> Stages = new List<StageData>();
         // 출현 위치. 공급이 하나라도 있으면 필요하다.
         public EnemyPlacementData EnemyPlacement;
+        // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수(성능 예산). 출현 배치가 있으면 1 이상이어야 한다.
+        public int MaxAliveEnemies;
         // 전투 시작 공급. 전투를 시작할 때(0초) 한 번 공급한다.
         public List<SupplyData> StartSupply = new List<SupplyData>();
     }
@@ -63,13 +66,36 @@ namespace BlackHole.Core
     public sealed class EnemyData
     {
         public string Id;
-        public float MaxHealth;
         public float MoveSpeed;
-        // 반지름.
-        public float Size;
+        // 색 등급 표. 색이 없는 종류는 한 줄이다.
+        public List<EnemyTierData> Tiers = new List<EnemyTierData>();
+        // 질량 단계 표. MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음). 하나 이상.
+        public List<MassLevelData> MassLevels = new List<MassLevelData>();
+        // 황금일 때 Gold에 곱하는 값. 0이면 황금이 되지 않는다.
+        public float GoldenMultiplier;
         public EnemyBehaviorData Behavior;
         // 없거나 종류 이름이 비어 있으면 사망 효과가 없다.
         public DeathEffectData DeathEffect;
+    }
+
+    // 색 등급 한 줄.
+    [Serializable]
+    public sealed class EnemyTierData
+    {
+        public float MaxHealth;
+        // 반지름.
+        public float Size;
+        // 사망 때 판의 합계에 드는 Gold의 기본값. 0 이상.
+        public long Gold;
+    }
+
+    // 질량 단계 한 줄: 색마다 나오는 비율(색 등급 표와 같은 순서·길이)과 HP·Gold 계수.
+    [Serializable]
+    public sealed class MassLevelData
+    {
+        public List<float> TierRatios = new List<float>();
+        public float HealthMultiplier;
+        public float GoldMultiplier;
     }
 
     // 사망 효과 종류마다 쓰는 칸이 다르다. 종류가 쓰지 않는 칸은 읽지 않는다.

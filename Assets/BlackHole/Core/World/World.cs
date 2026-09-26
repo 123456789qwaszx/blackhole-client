@@ -4,20 +4,29 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 한 판 안에 존재하는 것들과 한 단계의 처리 순서.
-    // 지금 판 안에 있는 것은 적, 참가자(조준점·스킬), 사망 효과 대기열이다. 다른 전투 시스템(HQ 성장)은 붙을 때
+    // 지금 판 안에 있는 것은 적, 참가자(조준점·스킬), 사망 효과 대기열, 이 판이 번 Gold다. 다른 전투 시스템(HQ 성장)은 붙을 때
     // Step의 정해진 자리(GAME_RULES 13절)에 들어간다.
     //
     // 적이 생기고 죽는 일은 요청으로 들어와 쌓이고, Step의 정해진 자리에서 요청 순서대로 처리된다.
     // - 파괴 요청(RequestDestroy) → 13절 3. Damage / Death 자리: 그 적의 사망을 확정한다(피해·HP 계산 없음).
     // - 생성 요청(RequestSpawn)  → 13절 7. Enemy Supply 자리: 풀 여과 장치를 거쳐 한 마리씩 생성한다.
+    //   한 마리마다: 풀 여과(종류별 최대 수·전체 상한) → 색 등급(그 종류의 색 비율) → 황금 여부(그 종류의 황금 비율) → 위치.
+    //   색과 황금은 몫 방식(QuotaPicker)으로 정한다. 수치(Gold 포함)는 판의 적 수치 표에서 (종류, 색 등급, 황금)의 값이다.
     // 같은 Step에서 사망이 생성보다 먼저다. 그래서 죽어서 비운 자리(풀의 최대 수)에 같은 Step의 생성이 들어갈 수 있다.
     // 생성된 적은 다음 Step부터 움직이고 공격 대상이 된다. 처리되지 않은 요청은 판 정리가 버린다.
+    //
+    // 판의 난수는 seed 하나에서 용도마다 스트림을 따로 만든다(BattleRandom). 한 용도의 비율을 바꿔도 다른 용도의 순서는 그대로다
+    // (예: 황금 비율을 바꿔도 색과 위치의 순서는 같다). 참가자마다의 스킬 난수는 BattlePlayer가 받는다.
     public sealed class World
     {
         private readonly EnemyRoster _enemies = new EnemyRoster();
         private readonly PoolFilter _filter;
-        private readonly EnemyStatTable _stats;
         private readonly EnemyPlacementDefinition _placement;
+        private readonly BattleRandom _placementRandom;
+        // 종류마다 색 등급과 황금 여부를 고르는 몫. 판 조립 때 만들고 판 동안 이어진다(공급이 여러 번이어도 비율이 판 전체에 걸쳐 맞는다).
+        // 황금 몫은 황금 비율이 0보다 큰 종류에만 있고, 칸은 (보통, 황금) 둘이다.
+        private readonly Dictionary<EnemyDefinition, QuotaPicker> _tierPickers = new Dictionary<EnemyDefinition, QuotaPicker>();
+        private readonly Dictionary<EnemyDefinition, QuotaPicker> _goldenPickers = new Dictionary<EnemyDefinition, QuotaPicker>();
         private readonly List<SupplyRequest> _spawnRequests = new List<SupplyRequest>();
         private readonly List<Enemy> _destroyRequests = new List<Enemy>();
         private readonly List<BattlePlayer> _players;
@@ -35,25 +44,43 @@ namespace BlackHole.Core
         public IReadOnlyList<Enemy> PendingDestroys { get; }
         // 이 판의 단계가 쓰는 적 풀. 생성 요청은 이 풀을 거쳐서만 적이 된다.
         public EnemyPoolDefinition Pool { get; }
-        // 이 판의 난수. 판 조립 때 seed로 만든다.
-        internal BattleRandom Random { get; }
+        // 이 판의 종류별 판 구성·색 비율과 (종류, 색 등급, 황금)별 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
+        public EnemyStatTable Stats { get; }
+        // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수. 이 수에 닿으면 생성 요청을 거른다(PoolFilter).
+        public int MaxAliveEnemies { get; }
 
         internal World(
-            BattleRandom random,
+            int seed,
             EnemyPoolDefinition pool,
             EnemyStatTable stats,
             EnemyPlacementDefinition placement,
+            int maxAliveEnemies,
             IReadOnlyList<BattlePlayer> players)
         {
-            Random = random;
+            Pool = pool ?? throw new ArgumentNullException(nameof(pool));
+            Stats = stats ?? throw new ArgumentNullException(nameof(stats));
+            _placement = placement;
+            _placementRandom = new BattleRandom(seed, BattleRandom.PlacementStream);
+            _filter = new PoolFilter(pool, maxAliveEnemies);
+            MaxAliveEnemies = maxAliveEnemies;
             _players = new List<BattlePlayer>(players);
             Players = _players.AsReadOnly();
-            Pool = pool ?? throw new ArgumentNullException(nameof(pool));
-            _stats = stats ?? throw new ArgumentNullException(nameof(stats));
-            _placement = placement;
-            _filter = new PoolFilter(pool);
             PendingSpawns = _spawnRequests.AsReadOnly();
             PendingDestroys = _destroyRequests.AsReadOnly();
+
+            // 종류마다 처음 몫을 콘텐츠 순서로 흩뜨린다. 같은 콘텐츠·판 구성·seed면 같은 색·황금 순서가 나온다.
+            var tierRandom = new BattleRandom(seed, BattleRandom.TierStream);
+            var goldenRandom = new BattleRandom(seed, BattleRandom.GoldenStream);
+
+            foreach (EnemyDefinition kind in stats.Kinds)
+            {
+                _tierPickers.Add(kind, new QuotaPicker(stats.TierRatiosOf(kind), tierRandom));
+
+                float golden = stats.CompositionOf(kind).GoldenRatio;
+
+                if (golden > 0)
+                    _goldenPickers.Add(kind, new QuotaPicker(new[] { 1 - golden, golden }, goldenRandom));
+            }
         }
 
         // 이 판의 참가자. 참가자가 아니면 예외다.
@@ -71,9 +98,6 @@ namespace BlackHole.Core
         // 지금 살아 있는 이 종류의 적 수.
         public int CountAlive(EnemyDefinition kind) => _enemies.CountAlive(kind);
 
-        // 이 판에서 이 종류가 받는 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
-        public EnemyStats StatsOf(EnemyDefinition kind) => _stats.Of(kind);
-
         // 이 판에서 지금까지 확정된 처치 수(모든 종류).
         public int TotalKills
         {
@@ -88,9 +112,13 @@ namespace BlackHole.Core
             }
         }
 
+        // 이 판에서 확정된 사망의 Gold 합계. 사망 순간에 늘어난다.
+        // 진행 상태(Gold)에는 판이 끝난 뒤 결산(GameSession.Settle)이 한 번 더한다 — 전투 중에는 진행 상태를 바꾸지 않는다.
+        public long EarnedGold => _enemies.EarnedGold;
+
         // 확정된 사망 중 아직 처리가 끝나지 않은 것이 있는가. 판을 정리하기 전에 이것이 false여야 한다.
-        // 사망 처리(목록에서 빠짐·사망 기록·처치 수)는 사망 확정 순간에 끝난다. 사망 효과는 같은 Step의 4 자리에서 처리되므로
-        // Step이 끝나면 대기열이 비어 있다. Step 밖에서 준 피해(DealDamage)로 죽은 효과 보유 적은 다음 Step까지 남는다.
+        // 사망 처리(목록에서 빠짐·사망 기록·처치 수·Gold 합계)는 사망 확정 순간에 끝난다. 사망 효과는 같은 Step의 4 자리에서
+        // 처리되므로 Step이 끝나면 대기열이 비어 있다. Step 밖에서 준 피해(DealDamage)로 죽은 효과 보유 적은 다음 Step까지 남는다.
         // 처리되지 않은 파괴 요청은 아직 사망이 아니다 — 판이 끝나면 처리되지 않고 판 정리가 버린다.
         public bool HasPendingDeathProcessing => DeathEffects.HasPending;
 
@@ -101,7 +129,7 @@ namespace BlackHole.Core
         // 풀에 없거나 최대 수에 닿은 종류는 처리 때 풀 여과 장치가 거른다.
         public void RequestSpawn(SupplyRequest request)
         {
-            _stats.Of(request.Enemy);
+            Stats.Require(request.Enemy);
 
             if (_placement == null)
                 throw new InvalidOperationException("이 판의 콘텐츠에는 출현 배치가 없어 적을 생성할 수 없다.");
@@ -116,7 +144,7 @@ namespace BlackHole.Core
             _destroyRequests.Add(enemy ?? throw new ArgumentNullException(nameof(enemy)));
         }
 
-        // 판이 끝난 뒤 남은 적과 처리되지 않은 요청·사망 효과를 치운다. 처치가 아니다(사망 기록·처치 수 없음). 치운 적의 수를 돌려준다.
+        // 판이 끝난 뒤 남은 적과 처리되지 않은 요청·사망 효과를 치운다. 처치가 아니다(사망 기록·처치 수·Gold 없음). 치운 적의 수를 돌려준다.
         internal int ClearRemainingEnemies()
         {
             _spawnRequests.Clear();
@@ -127,14 +155,20 @@ namespace BlackHole.Core
 
         // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 풀 여과 장치를 거쳐 배치 띠 안에 생성한다.
         // 거른 요청은 버린다 — 나중에 자리가 나도 다시 나오지 않는다. 전투 시작 공급은 Begin(0초)이 바로 부른다.
+        // 색 등급과 황금은 여과를 통과한 뒤에 고른다. 최대 수는 종류 단위라 색·황금 때문에 걸러지는 일은 없고,
+        // 걸러진 요청은 몫을 쓰지 않는다.
         internal void ProcessSpawnRequests()
         {
             foreach (SupplyRequest request in _spawnRequests)
             {
                 for (int i = 0; i < request.Count; i++)
                 {
-                    if (_filter.Allows(request.Enemy, _enemies))
-                        _enemies.Spawn(request.Enemy, _stats.Of(request.Enemy), _placement.Pick(Random));
+                    if (!_filter.Allows(request.Enemy, _enemies))
+                        continue;
+
+                    int tier = _tierPickers[request.Enemy].Pick();
+                    bool golden = _goldenPickers.TryGetValue(request.Enemy, out QuotaPicker goldenPicker) && goldenPicker.Pick() == 1;
+                    _enemies.Spawn(request.Enemy, tier, golden, Stats.Of(request.Enemy, tier, golden), _placement.Pick(_placementRandom));
                 }
             }
 
@@ -156,6 +190,7 @@ namespace BlackHole.Core
         // 3. Damage / Death: 쌓인 파괴 요청의 사망을 확정한다.
         // 4. Death Effect: 이번 Step에 피해로 죽은 효과 보유 적의 효과를 사망 순서대로 처리한다. 효과로 죽은 적도 같은 Step의 사망이다.
         // 7. Enemy Supply: 쌓인 생성 요청을 처리한다.
+        // Gold는 따로 자리가 없다 — 사망이 확정되는 순간 그 적에 이미 정해져 있던 Gold가 이 판의 합계에 든다.
         internal void Step(float delta)
         {
             _enemies.Move(delta);

@@ -10,9 +10,10 @@ namespace BlackHole.Core
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
-    // 1. 개별 정의: 판 설정, 스킬, 적 종류, 출현 배치.
-    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀.
-    // 3. 적 풀을 가리키는 것: 풀 ID 유일, 단계 표.
+    // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·질량 단계·사망 효과), 출현 배치.
+    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀, 전체 개체 수 상한.
+    // 3. 적 풀을 가리키는 것: 풀 ID 유일, 단계 표, 전투 시작 공급이 상한 안인가.
+    // 업그레이드 노드는 여기서 읽지 않는다(NodeTreeLoader). 노드와 콘텐츠를 함께 보는 검사는 UpgradeContentCheck가 한다.
     public static class ContentLoader
     {
         public static ContentLoadResult Load(ContentData data)
@@ -41,17 +42,20 @@ namespace BlackHole.Core
             if (startSupply.Count > 0 && placement == null)
                 diagnostics.Add(new ContentDiagnostic("EnemyPlacement", "공급이 있으면 출현 배치가 필요하다."));
 
+            ContentInvariants.CheckMaxAlive(placement, data.MaxAliveEnemies, diagnostics);
+
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
             ContentInvariants.CollectPools(pools, diagnostics, out Dictionary<string, EnemyPoolDefinition> poolsById);
             List<StageDefinition> stages = LoadStages(data.Stages, poolsById, diagnostics);
+            ContentInvariants.CheckStartSupplyFits(startSupply, 0, data.MaxAliveEnemies, diagnostics);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, breaker, laser, enemies, placement, startSupply, pools, stages),
+                new GameContent(timeLimit, breaker, laser, enemies, placement, data.MaxAliveEnemies, startSupply, pools, stages),
                 diagnostics);
         }
 
@@ -108,18 +112,68 @@ namespace BlackHole.Core
                 int errors = into.Count;
                 EnemyBehaviorDefinition behavior = LoadBehavior(item.Behavior, at + ".Behavior", into);
                 DeathEffectDefinition deathEffect = LoadDeathEffect(item.DeathEffect, at + ".DeathEffect", into);
-                EnemyStats? stats = GuardValue(at, into, () => new EnemyStats(item.MaxHealth, item.MoveSpeed, item.Size));
+                List<EnemyTier> tiers = LoadTiers(item.Tiers, at + ".Tiers", into);
+                List<MassLevelDefinition> massLevels = LoadMassLevels(item.MassLevels, at + ".MassLevels", into);
 
                 if (into.Count > errors)
                     continue;
 
-                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, stats.Value, behavior, deathEffect));
+                EnemyDefinition enemy = Guard(at, into, () =>
+                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, massLevels, item.GoldenMultiplier, behavior, deathEffect));
 
                 if (enemy != null)
                     enemies.Add(enemy);
             }
 
             return enemies;
+        }
+
+        // 줄마다 수치를 검사한다. 줄 수(하나 이상)와 질량 단계와의 길이 맞춤은 EnemyDefinition이 검사한다.
+        private static List<EnemyTier> LoadTiers(List<EnemyTierData> items, string at, List<ContentDiagnostic> into)
+        {
+            var tiers = new List<EnemyTier>();
+
+            for (int i = 0; items != null && i < items.Count; i++)
+            {
+                EnemyTierData item = items[i];
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic($"{at}[{i}]", "데이터가 없다."));
+                    continue;
+                }
+
+                EnemyTier? tier = GuardValue($"{at}[{i}]", into, () => new EnemyTier(item.MaxHealth, item.Size, item.Gold));
+
+                if (tier.HasValue)
+                    tiers.Add(tier.Value);
+            }
+
+            return tiers;
+        }
+
+        private static List<MassLevelDefinition> LoadMassLevels(List<MassLevelData> items, string at, List<ContentDiagnostic> into)
+        {
+            var levels = new List<MassLevelDefinition>();
+
+            for (int i = 0; items != null && i < items.Count; i++)
+            {
+                MassLevelData item = items[i];
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic($"{at}[{i}]", "데이터가 없다."));
+                    continue;
+                }
+
+                MassLevelDefinition level = Guard($"{at}[{i}]", into,
+                    () => new MassLevelDefinition(item.TierRatios, item.HealthMultiplier, item.GoldMultiplier));
+
+                if (level != null)
+                    levels.Add(level);
+            }
+
+            return levels;
         }
 
         // 종류 이름을 하위 정의로 바꾼다. 가능한 값을 진단에 그대로 싣는다.

@@ -13,9 +13,18 @@ MonoBehaviour:
   m_Name: Supernova
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: supernova
-  maxHealth: 20
   moveSpeed: 0.5
-  size: 0.5
+  tiers:
+  - color: {r: 1, g: 0.55, b: 0.2, a: 1}
+    maxHealth: 20
+    size: 0.5
+    gold: 15
+  massLevels:
+  - tierRatios:
+    - 1
+    healthMultiplier: 1
+    goldMultiplier: 1
+  goldenMultiplier: 0
   clockwise: 0
   deathEffect: 2
   effectDamage: 7
@@ -24,4 +33,3 @@ MonoBehaviour:
   effectDuration: 0
   effectIntervalMultiplier: 0
   sprite: {fileID: 0}
-  color: {r: 1, g: 0.55, b: 0.2, a: 1}

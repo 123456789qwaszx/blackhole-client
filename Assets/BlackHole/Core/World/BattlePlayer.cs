@@ -18,8 +18,8 @@ namespace BlackHole.Core
         internal BattlePlayer(PlayerId id, BreakerDefinition breaker, LaserDefinition laser, int seed)
         {
             Id = id;
-            Breaker = breaker != null ? new BreakerSkill(breaker, BattleRandom.Stream(seed, id, BattleRandom.CriticalStream)) : null;
-            Laser = laser != null ? new LaserSkill(laser, BattleRandom.Stream(seed, id, BattleRandom.LaserStream)) : null;
+            Breaker = breaker != null ? new BreakerSkill(breaker, BattleRandom.ForPlayer(seed, BattleRandom.CriticalStream, id)) : null;
+            Laser = laser != null ? new LaserSkill(laser, BattleRandom.ForPlayer(seed, BattleRandom.LaserStream, id)) : null;
         }
 
         internal void SetAimPoint(Point2? aimPoint) => AimPoint = aimPoint;

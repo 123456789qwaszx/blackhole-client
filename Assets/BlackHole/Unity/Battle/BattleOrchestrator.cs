@@ -9,11 +9,13 @@ namespace BlackHole.Unity
     // 전투의 시작과 끝의 순서를 책임지는 상위 오케스트레이터. 각 시스템은 여기서 불릴 때만 시작하고 정리한다.
     //
     // 시작 순서: (사운드 — 그 시스템이 붙으면 이 앞에) → 적·전투 시스템 시작.
-    // 종료 순서: 적·전투 시스템 정리 → (사운드 정리 — 붙으면 이 뒤에).
+    // 종료 순서: 적·전투 시스템 정리(결산 포함) → (사운드 정리 — 붙으면 이 뒤에).
     // 스킬은 판의 일부라 따로 준비·정리하지 않는다: 판 조립 때 생기고, 스킬 화면은 적·전투 시스템이 적 화면과 함께 정리한다.
     // 조준 입력(AimInput)은 시작·정리할 상태가 없다 — 매 프레임 진행 중인 판에 조준점을 넣을 뿐이다.
     //
-    // 진행 상태(PlayerState)와 다음 전투의 진행도(적의 강도 단계)를 가진다.
+    // 진행 상태(PlayerState: Gold, 산 노드)와 다음 전투의 진행도(적의 강도 단계)를 가진다.
+    // 진행 상태는 전투 밖에서만 바뀐다: 노드 구매(업그레이드 화면, 전투 중에는 살 수 없다)와
+    // 판의 결산(GameSession.Settle — 적·전투 시스템의 정리 순서 안에서 한 번). 그래서 저장은 전투 밖(휴식 공간)에서만 하면 된다.
     // 콘솔·전투 화면의 버튼과 판의 시간 종료는 모두 여기로 요청한다. 나중의 GoToBattle·GoToUpgrade도 여기를 쓴다.
     internal sealed class BattleOrchestrator : IDisposable
     {
@@ -26,6 +28,8 @@ namespace BlackHole.Unity
 
         // 참가자마다의 진행 상태(Gold, 산 노드). 참가자 순서다.
         public IReadOnlyList<PlayerState> Progress => _progress;
+        // 다음 전투의 판 구성: 지금 산 노드로 계산한다(판 조립과 같은 계산). 콘솔이 다음 판을 미리 보여 줄 때 쓴다.
+        public IReadOnlyDictionary<EnemyDefinition, EnemyComposition> NextCompositions => _battle.PreviewCompositions(_progress);
         public int Stage => _stage;
         public int StageCount => _content.StageCount;
         // 지금 진행도의 단계 정의(쓰는 적 풀 포함).

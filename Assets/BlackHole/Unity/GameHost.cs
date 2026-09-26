@@ -67,7 +67,9 @@ namespace BlackHole.Unity
 
         private void Awake()
         {
-            if (!TryLoadContent(out GameContent content) || !TryLoadNodeTree(out NodeTreeData layout, out NodeTree nodeTree))
+            if (!TryLoadContent(out GameContent content)
+                || !TryLoadNodeTree(out NodeTreeData layout, out NodeTree nodeTree)
+                || !NodesFitContent(content, nodeTree))
             {
                 enabled = false;
                 return;
@@ -214,6 +216,18 @@ namespace BlackHole.Unity
 
             tree = result.Tree;
             return result.Succeeded;
+        }
+
+        // 노드를 모두 산 경우에도 판을 조립할 수 있어야 한다(질량 단계 범위, 황금이 되는 종류, 전체 개체 수 상한).
+        // 두 데이터는 따로 불러오므로 여기서 함께 본다. 오류가 있으면 언젠가 전투 시작이 실패하므로 시작하지 않는다.
+        private bool NodesFitContent(GameContent content, NodeTree tree)
+        {
+            IReadOnlyList<ContentDiagnostic> diagnostics = UpgradeContentCheck.Check(content, tree);
+
+            foreach (ContentDiagnostic diagnostic in diagnostics)
+                Debug.LogError("[노드 트리 × 콘텐츠] " + diagnostic, this);
+
+            return diagnostics.Count == 0;
         }
 
         private UIPresentationSpec OrEmpty(UIPresentationSpec presentation, string id)

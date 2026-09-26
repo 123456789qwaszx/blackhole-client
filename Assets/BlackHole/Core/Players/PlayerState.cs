@@ -46,7 +46,8 @@ namespace BlackHole.Core
         public bool Owns(string nodeId) =>
             nodeId != null && _owned.Contains(nodeId);
 
-        // Gold를 더한다. 지금 부르는 곳은 개발용 콘솔뿐이다 — 처치 보상이 붙으면 그쪽이 부른다.
+        // Gold를 더한다. 전투 중에는 부르지 않는다 — 판이 끝난 뒤 결산(GameSession.Settle)이 그 판이 번 Gold로 한 번 부른다.
+        // 개발용 업그레이드 콘솔도 전투 밖에서 부른다. 그래서 진행 상태는 전투 밖에서만 바뀌고, 저장 시점도 전투 밖이다.
         public void EarnGold(long amount)
         {
             if (amount < 0)

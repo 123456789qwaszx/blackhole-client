@@ -14,12 +14,14 @@ namespace BlackHole.Unity
     // 사운드 같은 다른 시스템의 정리는 이 시스템의 일이 아니다.
     //
     // 시작 단계:
-    //   1. 업그레이드에서 바뀐 수치 받기 — 판을 조립한다: 진행 상태를 묶고 이 판의 적 수치를 확정한다(지금은 보정 없음).
+    //   1. 업그레이드에서 바뀐 수치 받기 — 판을 조립한다: 진행 상태를 묶고, 산 노드의 업그레이드 표로
+    //      이 판의 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수)과 적 수치·색 비율을 확정한다.
     //   2. 적 소환 단계 진입 — 전투 시작 공급을 내보내고 판을 진행 단계로 넣는다.
     // 종료 단계:
     //   1. 종료 요청(사유)             2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
-    //   3. 죽은 적의 처리 완료          4. 처치 집계를 계산해 보관(원자료)
-    //   5. 화면의 연출 정리             6. 모두 끝났으면 완전 초기화
+    //   3. 죽은 적의 처리 완료          4. 처치 집계와 번 Gold를 계산해 보관(원자료)
+    //   5. 결산(번 Gold를 진행 상태에)   6. 화면의 연출 정리
+    //   7. 모두 끝났으면 완전 초기화
     // 종료 뒤에 남는 것은 UI와 원자료(LastRawData)뿐이다. 판을 시작했던 다른 흔적은 없다.
     internal sealed class BattleSystem
     {
@@ -44,6 +46,7 @@ namespace BlackHole.Unity
             "Enemies on screen: 0",
             "Dead enemies processed",
             "Kill tally stored",
+            "Gold settled",
             "Presentation cleared",
             "Fully reset");
 
@@ -68,6 +71,10 @@ namespace BlackHole.Unity
             _deathEffectView = deathEffectView;
         }
 
+        // 지금 산 노드로 조립하면 받을 적 종류의 판 구성(조립과 같은 계산). 콘솔이 다음 판을 미리 보여 줄 때 쓴다.
+        public IReadOnlyDictionary<EnemyDefinition, EnemyComposition> PreviewCompositions(IReadOnlyList<PlayerState> players) =>
+            SessionAssembler.PreviewCompositions(_content, players, _nodes);
+
         // 전투 진입을 위한 초기화. 오케스트레이터만 부른다.
         public Task StartAsync(IReadOnlyList<PlayerState> players, int stage, int seed)
         {
@@ -80,8 +87,8 @@ namespace BlackHole.Unity
             StartSteps.Reset();
             EndSteps.Reset();
 
-            // 1. 업그레이드에서 바뀐 수치 받기: 조립이 이 판의 적 수치 표를 확정하고, 참가자마다 산 노드로 업그레이드 표를 만든다.
-            //    표를 읽어 수치를 바꾸는 시스템은 아직 없다(UPGRADE_LINK_PLAN 6절).
+            // 1. 업그레이드에서 바뀐 수치 받기: 조립이 참가자마다 산 노드로 업그레이드 표를 만들고,
+            //    그 표로 이 판의 판 구성과 적 수치 표를 확정한다. 판이 끝날 때까지 바뀌지 않는다.
             Session = SessionAssembler.CreateBattle(_content, players, stage, seed, _nodes);
             StartSteps.Mark(0, StepState.Done);
 
@@ -146,19 +153,23 @@ namespace BlackHole.Unity
                 // 3. 죽은 적의 처리 완료(사망 효과·보상 처리가 붙으면 그것이 끝났는지까지).
                 Verify(2, !Session.World.HasPendingDeathProcessing);
 
-                // 4. 처치 집계를 계산해 보관.
+                // 4. 처치 집계와 번 Gold를 계산해 보관.
                 LastRawData = Session.CreateRawData();
                 Verify(3, LastRawData != null);
 
-                // 5. 화면의 연출 정리. 지운 객체는 프레임 끝에 사라지므로 한 프레임 기다린 뒤 확인한다.
+                // 5. 결산: 판이 번 Gold를 진행 상태에 한 번 더한다. 앞선 정리가 이 뒤에서 실패했다가 다시 와도 두 번 더하지 않는다.
+                Session.Settle();
+                Verify(4, Session.IsSettled);
+
+                // 6. 화면의 연출 정리. 지운 객체는 프레임 끝에 사라지므로 한 프레임 기다린 뒤 확인한다.
                 _enemyView.Reset();
                 _skillView.Reset();
                 _deathEffectView.Reset();
                 await Awaitable.NextFrameAsync();
-                Verify(4, _enemyView.IsClear && _skillView.IsClear && _deathEffectView.IsClear);
+                Verify(5, _enemyView.IsClear && _skillView.IsClear && _deathEffectView.IsClear);
 
-                // 6. 완전 초기화: 판을 버리고, 진행 상태가 전투에서 풀렸는지 확인한다.
-                Verify(5, PlayersReleased());
+                // 7. 완전 초기화: 판을 버리고, 진행 상태가 전투에서 풀렸는지 확인한다.
+                Verify(6, PlayersReleased());
                 Session = null;
                 _players = null;
                 _timeExpiredRaised = false;

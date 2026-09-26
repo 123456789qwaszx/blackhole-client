@@ -12,6 +12,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.SampleLoads", SampleLoads);
             yield return new Contract("Content.ReportsEveryErrorWithPath", ReportsEveryErrorWithPath);
             yield return new Contract("Content.ReportsMissingSections", ReportsMissingSections);
+            yield return new Contract("Content.StartSupplyFitsTheEnemyCap", StartSupplyFitsTheEnemyCap);
             yield return new Contract("Content.ReportsEnemyErrorsWithPath", ReportsEnemyErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.SupplyNeedsPlacement", SupplyNeedsPlacement);
@@ -27,15 +28,20 @@ namespace BlackHole.Core.Tests
             chaser.Behavior.Kind = "Chase";
             EnemyData still = TestContent.Enemy("still");
             still.Behavior = null;
+            // 색 등급은 둘인데 질량 단계의 색 비율은 하나다.
+            EnemyData lopsided = TestContent.Tiered("lopsided", 1, false, TestContent.Tier(10, 0.2f, 1), TestContent.Tier(20, 0.3f, 2));
+            lopsided.MassLevels.Add(TestContent.MassLevel(1, 1, 1));
             data.Enemies.Add(TestContent.Enemy("fragile", health: 0));
             data.Enemies.Add(chaser);
             data.Enemies.Add(still);
+            data.Enemies.Add(lopsided);
             data.EnemyPlacement = new EnemyPlacementData { MinDistance = 5, MaxDistance = 2 };
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(!result.Succeeded, "적·배치 정의 오류가 있으면 로드에 실패해야 한다.");
-            Expect.Equal(4, result.Diagnostics.Count);
-            TestContent.HasDiagnostic(result, "Enemies[fragile]", "maxHealth");
+            Expect.Equal(5, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Enemies[fragile].Tiers[0]", "maxHealth");
+            TestContent.HasDiagnostic(result, "Enemies[lopsided]", "색 비율 수");
             TestContent.HasDiagnostic(result, "Enemies[chaser].Behavior.Kind", "Chase");
             TestContent.HasDiagnostic(result, "Enemies[still].Behavior", "데이터가 없다");
             TestContent.HasDiagnostic(result, "EnemyPlacement", "minDistance");
@@ -139,6 +145,29 @@ namespace BlackHole.Core.Tests
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(result.Succeeded, "샘플 콘텐츠가 로드되어야 한다: " + string.Join(" | ", result.Diagnostics));
+        }
+
+        // 출현 배치가 있으면 전체 개체 수 상한이 필요하다. 전투 시작 공급이 상한 안이어야 한다
+        // (전투 시작에는 살아 있는 적이 없으므로, 넘으면 약속한 적이 매 판 시작부터 버려진다).
+        // 공급 수 노드를 모두 산 경우는 노드 트리와 함께 본다(Composition.LoadCheckFindsNodesTheContentCannotTake).
+        private static void StartSupplyFitsTheEnemyCap()
+        {
+            ContentData uncapped = TestContent.Arena(1, 3, TestContent.Supply(TestContent.EnemyId, 1));
+            uncapped.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            uncapped.MaxAliveEnemies = 0;
+            ContentLoadResult result = ContentLoader.Load(uncapped);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "MaxAliveEnemies", "상한");
+
+            ContentData crowded = TestContent.Arena(1, 3, TestContent.Supply(TestContent.EnemyId, 3), TestContent.Supply(TestContent.EnemyId, 2));
+            crowded.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            crowded.MaxAliveEnemies = 5;
+            TestContent.Load(crowded);
+
+            crowded.StartSupply.Add(TestContent.Supply(TestContent.EnemyId, 1));
+            result = ContentLoader.Load(crowded);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "MaxAliveEnemies", "6마리");
         }
 
         private static void ReportsEveryErrorWithPath()
