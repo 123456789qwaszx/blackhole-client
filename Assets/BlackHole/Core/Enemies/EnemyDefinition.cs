@@ -89,8 +89,8 @@ namespace BlackHole.Core
         public IReadOnlyList<EnemyTier> Tiers { get; }
         // 질량 단계 표. MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음).
         public IReadOnlyList<MassLevelDefinition> MassLevels { get; }
-        // 황금일 때 그 적의 Gold에 곱하는 값. 0이면 이 종류는 황금이 되지 않는다(원작은 소행성만, 기본 50배).
-        // 황금은 종류가 아니라 생성 때 정해지는 특성이다. 얼마나 섞일지(황금 비율)는 판 조립이 받는다.
+        // 황금일 때 그 적의 Gold에 곱하는 기본값. 0이면 이 종류는 황금이 되지 않는다(원작은 소행성만, 기본 50배).
+        // 황금은 종류가 아니라 생성 때 정해지는 특성이다. 얼마나 섞일지(황금 비율)와 노드로 오른 배율은 판 구성(EnemyComposition)이 가진다.
         public float GoldenMultiplier { get; }
         public bool CanBeGolden => GoldenMultiplier > 0;
         public EnemyBehaviorDefinition Behavior { get; }
@@ -134,18 +134,21 @@ namespace BlackHole.Core
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
         }
 
-        // 질량 단계 massLevel에서 색 등급 tier의 실행 수치.
-        // HP = 색의 기본 HP × 단계의 HP 계수, Gold = 색의 기본 Gold × 단계의 Gold 계수(반올림 [임시]), 크기 = 색의 크기, 속도 = 종류의 속도.
-        // 황금이면 Gold에 황금 배율을 한 번 더 곱한다(반올림). HP·크기는 같은 색과 같다 [임시].
+        // 판 구성 composition에서 색 등급 tier의 실행 수치.
+        // HP = 색의 기본 HP × 질량 단계의 HP 계수, Gold = 색의 기본 Gold × 질량 단계의 Gold 계수(반올림 [임시]),
+        // 크기 = 색의 크기, 속도 = 종류의 속도.
+        // 황금이면 Gold에 판 구성의 황금 배율을 한 번 더 곱한다(반올림). HP·크기는 같은 색과 같다 [임시].
         // 판 조립(EnemyStatTable)과 다음 판을 미리 보는 콘솔이 같은 계산을 쓴다.
-        public EnemyStats StatsAt(int massLevel, int tier, bool golden = false)
+        public EnemyStats StatsAt(EnemyComposition composition, int tier, bool golden = false)
         {
             if (golden && !CanBeGolden)
                 throw new ArgumentException($"'{Id}'는 황금이 되지 않는다.", nameof(golden));
 
-            if (massLevel < 0 || massLevel >= MassLevels.Count)
+            int massLevel = composition.MassLevel;
+
+            if (massLevel >= MassLevels.Count)
                 throw new ArgumentOutOfRangeException(
-                    nameof(massLevel), $"'{Id}'의 질량 단계는 0부터 {MassLevels.Count - 1}까지다. 받은 값: {massLevel}.");
+                    nameof(composition), $"'{Id}'의 질량 단계는 0부터 {MassLevels.Count - 1}까지다. 받은 값: {massLevel}.");
 
             if (tier < 0 || tier >= Tiers.Count)
                 throw new ArgumentOutOfRangeException(
@@ -156,7 +159,7 @@ namespace BlackHole.Core
             long gold = Multiply(row.Gold, level.GoldMultiplier);
 
             if (golden)
-                gold = Multiply(gold, GoldenMultiplier);
+                gold = Multiply(gold, composition.GoldenMultiplier);
 
             return new EnemyStats(row.MaxHealth * level.HealthMultiplier, MoveSpeed, row.Size, gold);
         }

@@ -12,6 +12,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.SampleLoads", SampleLoads);
             yield return new Contract("Content.ReportsEveryErrorWithPath", ReportsEveryErrorWithPath);
             yield return new Contract("Content.ReportsMissingSections", ReportsMissingSections);
+            yield return new Contract("Content.ReportsUpgradeErrorsWithPath", ReportsUpgradeErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyErrorsWithPath", ReportsEnemyErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.SupplyNeedsPlacement", SupplyNeedsPlacement);
@@ -133,17 +134,60 @@ namespace BlackHole.Core.Tests
             Expect.Throws<ArgumentOutOfRangeException>(() => content.GetStage(4));
         }
 
-        // 샘플의 C# 부분(판 설정)은 [임시] 값이라 값 자체는 검사하지 않는다.
-        // 적 종류와 단계 표는 Unity 에셋이 채우므로, 최소 단계 표를 붙여 C# 부분이 로드되는지만 본다.
+        // 샘플의 C# 부분(판 설정, 업그레이드 노드)은 [임시] 값이라 값 자체는 검사하지 않는다.
+        // 적 종류와 단계 표는 Unity 에셋이 채우므로, 최소 단계 표와 노드가 가리키는 소행성(질량 단계 표, 황금)을 붙여
+        // C# 부분이 로드되는지만 본다.
         private static void SampleLoads()
         {
             ContentData data = SampleContent.Create();
+            EnemyData asteroid = TestContent.Enemy(SampleContent.Asteroid);
+            for (int i = 0; i < SampleContent.AsteroidMassNodes; i++)
+                asteroid.MassLevels.Add(TestContent.MassLevel(1, 1, 1));
+            asteroid.GoldenMultiplier = 50;
+            data.Enemies.Add(asteroid);
             data.Enemies.Add(TestContent.Enemy(TestContent.PoolEnemyId));
             data.EnemyPools.Add(TestContent.Pool(TestContent.PoolId, TestContent.PoolEnemyId));
             TestContent.AddStages(data, TestContent.PoolId, 1);
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(result.Succeeded, "샘플 콘텐츠가 로드되어야 한다: " + string.Join(" | ", result.Diagnostics));
+        }
+
+        // 노드와 Grant의 오류. 개별 노드·Grant는 적 종류를 해석하는 단계에서, 노드끼리의 규칙(선행 노드, 순환,
+        // 질량 단계 범위)은 모든 노드가 올바를 때 보고한다.
+        private static void ReportsUpgradeErrorsWithPath()
+        {
+            ContentData values = TestContent.Data();
+            values.Enemies.Add(TestContent.Enemy("rock"));
+            values.Upgrades.Add(TestContent.Upgrade("bad-price", 0, null));
+            values.Upgrades.Add(TestContent.Upgrade("self", 5, "self"));
+            values.Upgrades.Add(TestContent.Upgrade("haunt", 5, null, TestContent.Grant("ghost", "MassLevel", "Add", 1)));
+            values.Upgrades.Add(TestContent.Upgrade("fast", 5, null, TestContent.Grant("rock", "Speed", "Add", 1)));
+            values.Upgrades.Add(TestContent.Upgrade("set-mass", 5, null, TestContent.Grant("rock", "MassLevel", "Set", 1)));
+            values.Upgrades.Add(TestContent.Upgrade("gild", 5, null, TestContent.Grant("rock", "GoldenRatio", "Set", 0.1f)));
+
+            ContentLoadResult result = ContentLoader.Load(values);
+            Expect.Equal(6, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Upgrades[bad-price]", "price");
+            TestContent.HasDiagnostic(result, "Upgrades[self]", "requires");
+            TestContent.HasDiagnostic(result, "Upgrades[haunt].Grants[0].Enemy", "ghost");
+            TestContent.HasDiagnostic(result, "Upgrades[fast].Grants[0].Stat", "Speed");
+            TestContent.HasDiagnostic(result, "Upgrades[set-mass].Grants[0]", "질량 단계");
+            TestContent.HasDiagnostic(result, "Upgrades[gild].Grants[0]", "황금");
+
+            ContentData links = TestContent.Data();
+            links.Enemies.Add(TestContent.Enemy("rock"));
+            links.Upgrades.Add(TestContent.Upgrade("orphan", 5, "missing"));
+            links.Upgrades.Add(TestContent.Upgrade("a", 5, "b"));
+            links.Upgrades.Add(TestContent.Upgrade("b", 5, "a"));
+            links.Upgrades.Add(TestContent.Upgrade("heavy", 5, null, TestContent.Grant("rock", "MassLevel", "Add", 1)));
+
+            result = ContentLoader.Load(links);
+            Expect.Equal(4, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Upgrades[0].Requires", "missing");
+            TestContent.HasDiagnostic(result, "Upgrades[1].Requires", "순환");
+            TestContent.HasDiagnostic(result, "Upgrades[2].Requires", "순환");
+            TestContent.HasDiagnostic(result, "Upgrades", "질량 단계 표는 0까지");
         }
 
         private static void ReportsEveryErrorWithPath()

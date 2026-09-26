@@ -19,6 +19,29 @@ namespace BlackHole.Core
         public EnemyPlacementData EnemyPlacement;
         // 전투 시작 공급. 전투를 시작할 때(0초) 한 번 공급한다.
         public List<SupplyData> StartSupply = new List<SupplyData>();
+        // 업그레이드 노드. 판 설정과 함께 아직 BlackHole.Sample의 SampleContent가 코드로 채운다(노드 저작 툴 전까지).
+        public List<UpgradeData> Upgrades = new List<UpgradeData>();
+    }
+
+    // 업그레이드 노드 하나. 툴과 게임이 공유하는 형식 중 구매 규칙과 효과에 필요한 칸만 있다(위치·구역 없음).
+    [Serializable]
+    public sealed class UpgradeData
+    {
+        public string Id;
+        public long Price;
+        // 선행 노드 ID. 비어 있으면 처음부터 살 수 있다.
+        public string Requires;
+        public List<EnemyGrantData> Grants = new List<EnemyGrantData>();
+    }
+
+    // 적 종류의 판 구성 보정 하나: 적 종류 ID + 수치 + 연산 + 값. 수치·연산 이름은 ContentLoader의 해석 목록에 있다.
+    [Serializable]
+    public sealed class EnemyGrantData
+    {
+        public string Enemy;
+        public string Stat;
+        public string Operation;
+        public float Value;
     }
 
     [Serializable]

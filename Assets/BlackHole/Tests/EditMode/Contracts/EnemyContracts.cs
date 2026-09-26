@@ -180,7 +180,7 @@ namespace BlackHole.Core.Tests
             content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
 
             GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
-            Expect.Equal(0, plain.World.Stats.MassLevelOf(kind));
+            Expect.Equal(0, plain.World.Stats.CompositionOf(kind).MassLevel);
 
             foreach (Enemy enemy in plain.World.Enemies)
             {
@@ -189,10 +189,9 @@ namespace BlackHole.Core.Tests
                 Expect.Equal(3L, enemy.Stats.Gold);
             }
 
-            var levels = new Dictionary<EnemyDefinition, int> { { kind, 1 } };
             GameSession massive = TestContent.Begun(
-                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 1, 0, levels));
-            Expect.Equal(1, massive.World.Stats.MassLevelOf(kind));
+                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 1, 0, Mass(kind, 1)));
+            Expect.Equal(1, massive.World.Stats.CompositionOf(kind).MassLevel);
             Expect.Equal(4, massive.World.Enemies.Count);
 
             foreach (Enemy enemy in massive.World.Enemies)
@@ -204,12 +203,19 @@ namespace BlackHole.Core.Tests
             }
 
             var state = new PlayerState(TestContent.First);
-            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(
-                content, new[] { state }, 1, 0, new Dictionary<EnemyDefinition, int> { { kind, 2 } }));
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, new[] { state }, 1, 0, Mass(kind, 2)));
             Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(
-                content, new[] { state }, 1, 0, new Dictionary<EnemyDefinition, int> { { TestContent.Stranger(), 0 } }));
+                content, new[] { state }, 1, 0, Mass(TestContent.Stranger(), 0)));
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
         }
+
+        // 이 종류만 질량 단계를 정한 판 구성(황금 없음).
+        private static Dictionary<EnemyDefinition, EnemyComposition> Mass(EnemyDefinition kind, int level) =>
+            new Dictionary<EnemyDefinition, EnemyComposition> { { kind, new EnemyComposition(level, 0, kind.GoldenMultiplier) } };
+
+        // 이 종류만 황금 비율을 정한 판 구성(질량 단계 0, 기본 황금 배율).
+        private static Dictionary<EnemyDefinition, EnemyComposition> Golden(EnemyDefinition kind, float ratio) =>
+            new Dictionary<EnemyDefinition, EnemyComposition> { { kind, new EnemyComposition(0, ratio, kind.GoldenMultiplier) } };
 
         // 색 비율은 몫 방식으로 지킨다: 색이 둘이면 몇 마리를 공급한 시점이든 색마다 (비율 × 공급 수)에서 1마리 넘게 벗어나지 않는다.
         // 비율이 0인 색은 나오지 않는다. 같은 seed면 같은 색 순서가 나오고, 색 비율을 바꿔도 출현 위치의 순서는 같다(난수 스트림이 다르다).
@@ -260,8 +266,8 @@ namespace BlackHole.Core.Tests
             content.TryGetEnemy("plain", out EnemyDefinition plain);
 
             GameSession none = GoldenBattle(content, null);
-            GameSession half = GoldenBattle(content, new Dictionary<EnemyDefinition, float> { { kind, 0.5f } });
-            GameSession all = GoldenBattle(content, new Dictionary<EnemyDefinition, float> { { kind, 1f } });
+            GameSession half = GoldenBattle(content, Golden(kind, 0.5f));
+            GameSession all = GoldenBattle(content, Golden(kind, 1f));
             int golden = 0;
             long expected = 0;
 
@@ -292,16 +298,14 @@ namespace BlackHole.Core.Tests
             Expect.Equal(expected, half.World.EarnedGold);
 
             var state = new PlayerState(TestContent.First);
-            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(
-                content, new[] { state }, 1, 0, null, new Dictionary<EnemyDefinition, float> { { plain, 0.1f } }));
-            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(
-                content, new[] { state }, 1, 0, null, new Dictionary<EnemyDefinition, float> { { kind, 1.5f } }));
+            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, new[] { state }, 1, 0, Golden(plain, 0.1f)));
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, new[] { state }, 1, 0, Golden(kind, 1.5f)));
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
         }
 
-        private static GameSession GoldenBattle(GameContent content, IReadOnlyDictionary<EnemyDefinition, float> goldenRatios) =>
+        private static GameSession GoldenBattle(GameContent content, IReadOnlyDictionary<EnemyDefinition, EnemyComposition> compositions) =>
             TestContent.Begun(SessionAssembler.CreateBattle(
-                content, new[] { new PlayerState(TestContent.First) }, SessionAssembler.FirstStage, 3, null, goldenRatios));
+                content, new[] { new PlayerState(TestContent.First) }, SessionAssembler.FirstStage, 3, compositions));
 
         // 색 등급 둘(비율만 다름)인 종류를 count마리 공급한 판.
         private static GameSession TierSession(int count, int seed, float first, float second)

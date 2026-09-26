@@ -11,8 +11,8 @@ namespace BlackHole.Core
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
     // 1. 개별 정의: 판 설정, 적 종류, 출현 배치.
-    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀.
-    // 3. 적 풀을 가리키는 것: 풀 ID 유일, 단계 표.
+    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀, 업그레이드 노드(Grant가 적 종류를 가리킨다).
+    // 3. 적 풀·노드를 가리키는 것: 풀 ID 유일, 단계 표, 노드 ID 유일·선행 노드·질량 단계 범위.
     public static class ContentLoader
     {
         public static ContentLoadResult Load(ContentData data)
@@ -35,6 +35,7 @@ namespace BlackHole.Core
             ContentInvariants.CollectEnemies(enemies, diagnostics, out Dictionary<string, EnemyDefinition> enemiesById);
             List<SupplyRequest> startSupply = LoadSupplyList(data.StartSupply, "StartSupply", enemiesById, diagnostics);
             List<EnemyPoolDefinition> pools = LoadPools(data.EnemyPools, enemiesById, diagnostics);
+            List<UpgradeNodeDefinition> upgrades = LoadUpgrades(data.Upgrades, enemiesById, diagnostics);
 
             if (startSupply.Count > 0 && placement == null)
                 diagnostics.Add(new ContentDiagnostic("EnemyPlacement", "공급이 있으면 출현 배치가 필요하다."));
@@ -44,12 +45,13 @@ namespace BlackHole.Core
 
             ContentInvariants.CollectPools(pools, diagnostics, out Dictionary<string, EnemyPoolDefinition> poolsById);
             List<StageDefinition> stages = LoadStages(data.Stages, poolsById, diagnostics);
+            ContentInvariants.CollectUpgrades(upgrades, diagnostics, out _);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, enemies, placement, startSupply, pools, stages),
+                new GameContent(timeLimit, enemies, placement, startSupply, pools, stages, upgrades),
                 diagnostics);
         }
 
@@ -309,6 +311,84 @@ namespace BlackHole.Core
             }
 
             return stages;
+        }
+
+        // ── 업그레이드 노드 ─────────────────────────────────────────────────
+
+        // 없으면 업그레이드 노드가 없다. Grant의 적 종류는 ID로 해석하고, 수치·연산은 이름으로 해석한다.
+        private static List<UpgradeNodeDefinition> LoadUpgrades(
+            List<UpgradeData> items,
+            IReadOnlyDictionary<string, EnemyDefinition> enemies,
+            List<ContentDiagnostic> into)
+        {
+            var upgrades = new List<UpgradeNodeDefinition>();
+
+            for (int i = 0; items != null && i < items.Count; i++)
+            {
+                UpgradeData item = items[i];
+                string at = At("Upgrades", i, item?.Id);
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic(at, "업그레이드 데이터가 null이다."));
+                    continue;
+                }
+
+                int errors = into.Count;
+                var grants = new List<EnemyGrant>();
+
+                for (int j = 0; item.Grants != null && j < item.Grants.Count; j++)
+                {
+                    EnemyGrant? grant = LoadGrant(item.Grants[j], $"{at}.Grants[{j}]", enemies, into);
+
+                    if (grant.HasValue)
+                        grants.Add(grant.Value);
+                }
+
+                if (into.Count > errors)
+                    continue;
+
+                UpgradeNodeDefinition node = Guard(at, into, () => new UpgradeNodeDefinition(item.Id, item.Price, item.Requires, grants));
+
+                if (node != null)
+                    upgrades.Add(node);
+            }
+
+            return upgrades;
+        }
+
+        private static EnemyGrant? LoadGrant(
+            EnemyGrantData item,
+            string at,
+            IReadOnlyDictionary<string, EnemyDefinition> enemies,
+            List<ContentDiagnostic> into)
+        {
+            if (item == null)
+            {
+                into.Add(new ContentDiagnostic(at, "데이터가 없다."));
+                return null;
+            }
+
+            int errors = into.Count;
+
+            if (item.Enemy == null || !enemies.TryGetValue(item.Enemy, out EnemyDefinition enemy))
+            {
+                into.Add(new ContentDiagnostic(at + ".Enemy", $"정의되지 않은 적 ID '{item.Enemy}'."));
+                enemy = null;
+            }
+
+            if (!Enum.TryParse(item.Stat, false, out EnemyUpgradeStat stat) || !Enum.IsDefined(typeof(EnemyUpgradeStat), stat))
+                into.Add(new ContentDiagnostic(at + ".Stat",
+                    $"알 수 없는 수치 '{item.Stat}'. 가능한 값: {string.Join(", ", Enum.GetNames(typeof(EnemyUpgradeStat)))}."));
+
+            if (!Enum.TryParse(item.Operation, false, out GrantOperation operation) || !Enum.IsDefined(typeof(GrantOperation), operation))
+                into.Add(new ContentDiagnostic(at + ".Operation",
+                    $"알 수 없는 연산 '{item.Operation}'. 가능한 값: {string.Join(", ", Enum.GetNames(typeof(GrantOperation)))}."));
+
+            if (into.Count > errors)
+                return null;
+
+            return GuardValue(at, into, () => new EnemyGrant(enemy, stat, operation, item.Value));
         }
 
         // ── 공통 ────────────────────────────────────────────────────────────

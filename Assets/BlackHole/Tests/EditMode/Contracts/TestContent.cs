@@ -95,6 +95,12 @@ namespace BlackHole.Core.Tests
         public static MassLevelData MassLevel(float health, float gold, params float[] tierRatios) =>
             new MassLevelData { TierRatios = new List<float>(tierRatios), HealthMultiplier = health, GoldMultiplier = gold };
 
+        public static UpgradeData Upgrade(string id, long price, string requires, params EnemyGrantData[] grants) =>
+            new UpgradeData { Id = id, Price = price, Requires = requires, Grants = new List<EnemyGrantData>(grants) };
+
+        public static EnemyGrantData Grant(string enemy, string stat, string operation, float value) =>
+            new EnemyGrantData { Enemy = enemy, Stat = stat, Operation = operation, Value = value };
+
         // 콘텐츠에 없는 종류(판이 거부해야 하는 요청에 쓴다).
         public static EnemyDefinition Stranger() =>
             new EnemyDefinition(

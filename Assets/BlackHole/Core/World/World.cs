@@ -64,7 +64,7 @@ namespace BlackHole.Core
             {
                 _tierPickers.Add(kind, new QuotaPicker(stats.TierRatiosOf(kind), tierRandom));
 
-                float golden = stats.GoldenRatioOf(kind);
+                float golden = stats.CompositionOf(kind).GoldenRatio;
 
                 if (golden > 0)
                     _goldenPickers.Add(kind, new QuotaPicker(new[] { 1 - golden, golden }, goldenRandom));

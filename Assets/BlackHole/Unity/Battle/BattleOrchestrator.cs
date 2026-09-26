@@ -11,28 +11,26 @@ namespace BlackHole.Unity
     // 시작 순서: (Skill 준비·사운드·조준 — 그 시스템이 붙으면 이 앞에) → 적·전투 시스템 시작.
     // 종료 순서: (Skill 정리 — 붙으면 이 앞에) → 적·전투 시스템 정리(결산 포함) → (사운드 정리, 조준 정리 — 붙으면 이 뒤에).
     //
-    // 진행 상태(PlayerState)와 다음 전투의 진행도(적의 강도 단계)·종류별 질량 단계·종류별 황금 비율을 가진다.
-    // 질량 단계와 황금 비율은 지금 개발용 콘솔이 고른다. 업그레이드 시스템이 돌아오면 산 노드
-    // (종류별 질량 증가, 황금 소행성 추가·황금 비율)에서 정해진다.
-    // 진행 상태를 바꾸는 것은 판의 결산(GameSession.Settle)뿐이며, 적·전투 시스템의 정리 순서 안에서 한 번 일어난다.
-    // 전투 중에는 진행 상태가 바뀌지 않으므로 저장은 전투 밖(휴식 공간)에서만 하면 된다.
+    // 진행 상태(PlayerState: Gold, 산 노드)와 다음 전투의 진행도(적의 강도 단계)를 가진다.
+    // 판 구성(종류별 질량 단계·황금 비율·황금 배율)은 전투를 시작할 때 산 노드에서 계산한다(Loadout.EnemiesFor).
+    // 진행 상태는 전투 밖에서만 바뀐다: 노드 구매(업그레이드 콘솔, 전투 중에는 살 수 없다)와
+    // 판의 결산(GameSession.Settle — 적·전투 시스템의 정리 순서 안에서 한 번). 그래서 저장은 전투 밖(휴식 공간)에서만 하면 된다.
     // 콘솔·전투 화면의 버튼과 판의 시간 종료는 모두 여기로 요청한다. 나중의 GoToBattle·GoToUpgrade도 여기를 쓴다.
     internal sealed class BattleOrchestrator : IDisposable
     {
         private readonly GameContent _content;
         private readonly BattleSystem _battle;
-        private readonly PlayerId[] _participants;
-        private PlayerState[] _progress;
+        private readonly PlayerState[] _progress;
         private int _stage = SessionAssembler.FirstStage;
-        private readonly Dictionary<EnemyDefinition, int> _massLevels = new Dictionary<EnemyDefinition, int>();
-        private readonly Dictionary<EnemyDefinition, float> _goldenRatios = new Dictionary<EnemyDefinition, float>();
 
         public int Stage => _stage;
         public int StageCount => _content.StageCount;
-        // 진행 상태(Gold). 첫 전투를 시작하기 전에는 null이다.
+        // 진행 상태(Gold, 산 노드). 새 진행으로 만들고 이후 전투에 이어진다(저장은 없다).
         public IReadOnlyList<PlayerState> Progress => _progress;
         // 지금 진행도의 단계 정의(쓰는 적 풀 포함).
         public StageDefinition SelectedStage => _content.GetStage(_stage);
+        // 다음 전투의 판 구성: 지금 산 노드로 계산한다. 콘솔이 다음 판을 미리 보여 줄 때 쓴다.
+        public IReadOnlyDictionary<EnemyDefinition, EnemyComposition> NextCompositions => Loadout.EnemiesFor(_content, _progress);
         // 시작 또는 종료 순서를 처리하는 중인가. 이 동안 들어온 요청은 무시한다.
         public bool Busy { get; private set; }
         public bool CanStart => !Busy && _battle.IsIdle;
@@ -42,33 +40,17 @@ namespace BlackHole.Unity
         {
             _content = content;
             _battle = battle;
-            _participants = participants;
+            _progress = new PlayerState[participants.Length];
+
+            for (int i = 0; i < _progress.Length; i++)
+                _progress[i] = new PlayerState(participants[i]);
+
             _battle.TimeExpired += OnTimeExpired;
         }
 
         // 진행도를 바꾼다. 범위 밖의 값은 가장 가까운 단계가 된다. 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
         public void SetStage(int stage) =>
             _stage = Math.Max(SessionAssembler.FirstStage, Math.Min(StageCount, stage));
-
-        // 다음 전투에서 이 종류의 질량 단계. 고르지 않은 종류는 0이다.
-        public int MassLevelOf(EnemyDefinition kind) =>
-            _massLevels.TryGetValue(kind, out int level) ? level : 0;
-
-        // 질량 단계를 바꾼다. 범위 밖의 값은 가장 가까운 단계가 된다. 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
-        public void SetMassLevel(EnemyDefinition kind, int level) =>
-            _massLevels[kind] = Math.Max(0, Math.Min(kind.MassLevels.Count - 1, level));
-
-        // 다음 전투에서 이 종류의 황금 비율(0 ~ 1). 고르지 않은 종류는 0이다.
-        public float GoldenRatioOf(EnemyDefinition kind) =>
-            _goldenRatios.TryGetValue(kind, out float ratio) ? ratio : 0;
-
-        // 황금 비율을 바꾼다. 0 ~ 1 밖의 값은 가장 가까운 값이 되고, 황금이 되지 않는 종류는 바꾸지 않는다.
-        // 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
-        public void SetGoldenRatio(EnemyDefinition kind, float ratio)
-        {
-            if (kind.CanBeGolden)
-                _goldenRatios[kind] = Math.Max(0, Math.Min(1, ratio));
-        }
 
         public async Task StartBattleAsync()
         {
@@ -79,10 +61,9 @@ namespace BlackHole.Unity
 
             try
             {
-                // 진행 상태는 처음 시작할 때 만들고, 이후 전투에 이어진다(저장은 없다).
-                _progress ??= NewProgress();
                 // 전투마다 seed를 새로 정한다. 쓴 seed는 판과 원자료에 남는다.
-                await _battle.StartAsync(_progress, _stage, Environment.TickCount, _massLevels, _goldenRatios);
+                // 판 구성은 지금 산 노드로 계산해 넘긴다. 조립이 판의 적 수치 표로 옮겨 적으므로 전투 중에는 바뀌지 않는다.
+                await _battle.StartAsync(_progress, _stage, Environment.TickCount, Loadout.EnemiesFor(_content, _progress));
             }
             finally
             {
@@ -123,15 +104,5 @@ namespace BlackHole.Unity
         public void Dispose() => _battle.TimeExpired -= OnTimeExpired;
 
         private void OnTimeExpired() => RequestEnd(SessionEndReason.TimeExpired);
-
-        private PlayerState[] NewProgress()
-        {
-            var progress = new PlayerState[_participants.Length];
-
-            for (int i = 0; i < progress.Length; i++)
-                progress[i] = new PlayerState(_participants[i]);
-
-            return progress;
-        }
     }
 }

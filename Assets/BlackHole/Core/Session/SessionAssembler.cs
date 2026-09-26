@@ -14,9 +14,8 @@ namespace BlackHole.Core
     //
     // stage는 진행도(적의 강도 단계, 1 ~ 콘텐츠의 단계 수)다. HQ 성장 단계와 다르다.
     // 그 단계의 적 풀이 이 판의 풀 여과 장치가 된다 — 어떤 종류가 나오는가(이정표·종류 해금, BATTLE_COMPOSITION_PLAN 3절).
-    // massLevels는 종류별 질량 단계다 — 종류 안의 색 비율과 HP·Gold 계수. 없는 종류는 0이다.
-    // goldenRatios는 종류별 황금 비율(0 ~ 1)이다. 없는 종류는 0이고, 황금이 되는 종류만 0보다 클 수 있다.
-    // 둘 다 지금은 개발용 콘솔이 고르고, 업그레이드 시스템이 돌아오면 산 노드(질량 증가, 황금 소행성 추가·황금 비율)에서 정해진다.
+    // compositions는 종류별 판 구성(질량 단계·황금 비율·황금 배율)이다. 산 노드에서 계산해 넘긴다(Loadout.EnemiesFor).
+    // 없는 종류는 기본값(EnemyComposition.Base)이다.
     // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·단계·판 구성·seed·진행 시간이면 같은 결과가 나온다.
     public static class SessionAssembler
     {
@@ -31,8 +30,7 @@ namespace BlackHole.Core
             IReadOnlyList<PlayerState> states,
             int stage,
             int seed,
-            IReadOnlyDictionary<EnemyDefinition, int> massLevels = null,
-            IReadOnlyDictionary<EnemyDefinition, float> goldenRatios = null)
+            IReadOnlyDictionary<EnemyDefinition, EnemyComposition> compositions = null)
         {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
@@ -48,7 +46,7 @@ namespace BlackHole.Core
             var world = new World(
                 seed,
                 content.GetStage(stage).Pool,
-                new EnemyStatTable(content.Enemies, massLevels, goldenRatios),
+                new EnemyStatTable(content.Enemies, compositions),
                 content.EnemyPlacement);
             var session = new GameSession(
                 world,
