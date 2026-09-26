@@ -25,6 +25,8 @@ namespace BlackHole.Unity
         private enum State { Idle, Starting, Running, ShuttingDown, Faulted }
 
         private readonly GameContent _content;
+        // 판 조립이 참가자마다 산 노드로 업그레이드 표를 만들 때 쓴다.
+        private readonly NodeTree _nodes;
         private readonly EnemyView _enemyView;
         private State _state = State.Idle;
         private IReadOnlyList<PlayerState> _players;
@@ -54,9 +56,10 @@ namespace BlackHole.Unity
         // 판의 시간이 끝났다. 정리하지 않고 알리기만 한다(한 판에 한 번).
         public event Action TimeExpired;
 
-        public BattleSystem(GameContent content, EnemyView enemyView)
+        public BattleSystem(GameContent content, NodeTree nodes, EnemyView enemyView)
         {
             _content = content;
+            _nodes = nodes;
             _enemyView = enemyView;
         }
 
@@ -72,9 +75,9 @@ namespace BlackHole.Unity
             StartSteps.Reset();
             EndSteps.Reset();
 
-            // 1. 업그레이드에서 바뀐 수치 받기: 조립이 이 판의 적 수치 표를 확정한다.
-            //    업그레이드 시스템이 돌아오면 그 결과가 조립의 입력이 된다.
-            Session = SessionAssembler.CreateBattle(_content, players, stage, seed);
+            // 1. 업그레이드에서 바뀐 수치 받기: 조립이 이 판의 적 수치 표를 확정하고, 참가자마다 산 노드로 업그레이드 표를 만든다.
+            //    표를 읽어 수치를 바꾸는 시스템은 아직 없다(UPGRADE_LINK_PLAN 6절).
+            Session = SessionAssembler.CreateBattle(_content, players, stage, seed, _nodes);
             StartSteps.Mark(0, StepState.Done);
 
             // 2. 적 소환 단계 진입.

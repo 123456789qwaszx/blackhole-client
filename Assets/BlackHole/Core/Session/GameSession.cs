@@ -32,6 +32,7 @@ namespace BlackHole.Core
     public sealed class GameSession
     {
         private readonly IReadOnlyList<PlayerState> _players;
+        private readonly IReadOnlyDictionary<PlayerId, UpgradeTable> _upgrades;
         private readonly IReadOnlyList<SupplyRequest> _startSupply;
 
         public World World { get; }
@@ -51,6 +52,7 @@ namespace BlackHole.Core
             int stage,
             int seed,
             IReadOnlyList<PlayerState> players,
+            IReadOnlyDictionary<PlayerId, UpgradeTable> upgrades,
             IReadOnlyList<SupplyRequest> startSupply)
         {
             World = world;
@@ -58,7 +60,18 @@ namespace BlackHole.Core
             Stage = stage;
             Seed = seed;
             _players = players;
+            _upgrades = upgrades;
             _startSupply = startSupply;
+        }
+
+        // 이 판에서 그 참가자가 받는 업그레이드 표. 판 조립 때 그 참가자의 산 노드로 한 번 만들어졌고, 판이 끝날 때까지 같다.
+        // 표를 읽어 수치를 정하는 것은 각 시스템의 일이다(아직 읽는 시스템은 없다).
+        public UpgradeTable UpgradesOf(PlayerId player)
+        {
+            if (!_upgrades.TryGetValue(player, out UpgradeTable table))
+                throw new ArgumentException($"이 판의 참가자가 아니다: {player}.", nameof(player));
+
+            return table;
         }
 
         // 전투를 시작한다: 전투 시작 공급을 생성 요청으로 넣고 그 자리(0초)에서 공급 처리한 뒤 진행 단계로 들어간다.

@@ -17,6 +17,45 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Session.RemembersStageAndSeed", RemembersStageAndSeed);
             yield return new Contract("Session.RejectsStageOutsideContent", RejectsStageOutsideContent);
             yield return new Contract("Session.RawDataRecordsTheEndedBattle", RawDataRecordsTheEndedBattle);
+            yield return new Contract("Session.UpgradesAreFixedPerParticipantAtAssembly", UpgradesAreFixedPerParticipantAtAssembly);
+        }
+
+        // 판 조립 때 참가자마다 자기 산 노드로 업그레이드 표가 만들어진다. 표는 그 판의 것이라, 판이 끝난 뒤 산 노드가 바뀌어도 그대로다.
+        // 다음 판은 그때의 산 노드로 새 표를 받는다. 노드 트리 없이 조립하면 빈 표다.
+        private static void UpgradesAreFixedPerParticipantAtAssembly()
+        {
+            GameContent content = TestContent.Load(TestContent.Data());
+            var data = new NodeTreeData();
+            data.Nodes.Add(new NodeData
+            {
+                Id = "s",
+                Price = 1,
+                Start = true,
+                Upgrades = { new UpgradeData { Stat = "damage", Operation = UpgradeOperation.Add, Value = 2 } },
+            });
+            NodeTree tree = NodeTreeLoader.Load(data).Tree;
+            var buyer = new PlayerState(TestContent.First);
+            buyer.EarnGold(1);
+            NodePurchase.TryPurchase(buyer, tree, "s");
+            var other = new PlayerState(TestContent.Second);
+
+            GameSession battle = SessionAssembler.CreateBattle(content, new[] { buyer, other }, SessionAssembler.FirstStage, 0, tree);
+            Expect.Equal(12f, battle.UpgradesOf(buyer.Id).Apply("damage", 10));
+            Expect.Equal(10f, battle.UpgradesOf(other.Id).Apply("damage", 10));
+            Expect.Throws<ArgumentException>(() => battle.UpgradesOf(new PlayerId(99)));
+
+            battle.RequestEnd(SessionEndReason.TimeExpired);
+            ProgressCheats.LockAllNodes(buyer);
+            Expect.Equal(12f, battle.UpgradesOf(buyer.Id).Apply("damage", 10));
+
+            GameSession next = SessionAssembler.CreateBattle(content, new[] { buyer }, SessionAssembler.FirstStage, 0, tree);
+            Expect.Equal(10f, next.UpgradesOf(buyer.Id).Apply("damage", 10));
+            next.RequestEnd(SessionEndReason.TimeExpired);
+
+            buyer.EarnGold(1);
+            NodePurchase.TryPurchase(buyer, tree, "s");
+            GameSession withoutTree = SessionAssembler.CreateBattle(content, new[] { buyer });
+            Expect.Equal(10f, withoutTree.UpgradesOf(buyer.Id).Apply("damage", 10));
         }
 
         // 조립한 판은 준비 단계다: 적이 없고 시간이 흐르지 않는다. 시작하면 전투 시작 공급이 나오고 시간이 흐른다.

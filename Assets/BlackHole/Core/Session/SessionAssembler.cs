@@ -10,7 +10,9 @@ namespace BlackHole.Core
     // 조립한 판은 준비 단계(Preparing)다: 진행 상태를 전투에 묶고, 이 판의 적 수치를 확정한다. 적은 아직 없다.
     // 전투 시작 공급은 GameSession.Begin이 내보낸다.
     // 진행 상태(Gold)는 전투 사이에 이어진다. 새 진행을 시작할지는 호출하는 쪽이 새 PlayerState로 정한다.
-    // 업그레이드가 적 수치를 바꾸는 효과는 업그레이드 시스템이 돌아올 때 적 수치 표를 만들 때 반영한다.
+    // 업그레이드: 노드 트리를 받으면 참가자마다 산 노드로 업그레이드 표(UpgradeTable)를 한 번 만들어 판에 둔다(GameSession.UpgradesOf).
+    // 표는 판이 끝날 때까지 같다(전투 중에는 살 수 없다). 노드 트리가 없으면 빈 표다.
+    // 표를 읽는 시스템(적·스킬 수치)은 아직 잇지 않았다. 판 공유 수치에 누구의 표를 쓸지는 그때 정한다(F06, UPGRADE_LINK_PLAN 6절).
     //
     // stage는 진행도(적의 강도 단계, 1 ~ 콘텐츠의 단계 수)다. HQ 성장 단계와 다르다.
     // 그 단계의 적 풀이 이 판의 풀 여과 장치가 된다. 체력·크기 계수는 단계 표에 붙을 때 여기서 쓴다.
@@ -23,7 +25,7 @@ namespace BlackHole.Core
         public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states) =>
             CreateBattle(content, states, FirstStage, DefaultSeed);
 
-        public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states, int stage, int seed)
+        public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states, int stage, int seed, NodeTree nodes = null)
         {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
@@ -35,6 +37,11 @@ namespace BlackHole.Core
             VerifyParticipants(states);
 
             var players = new List<PlayerState>(states);
+            var upgrades = new Dictionary<PlayerId, UpgradeTable>();
+
+            foreach (PlayerState state in players)
+                upgrades.Add(state.Id, nodes == null ? new UpgradeTable(Array.Empty<Upgrade>()) : NodePurchase.UpgradesFor(state, nodes));
+
             // 적의 수치는 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
             var world = new World(
                 new BattleRandom(seed),
@@ -47,6 +54,7 @@ namespace BlackHole.Core
                 stage,
                 seed,
                 players.AsReadOnly(),
+                upgrades,
                 content.StartSupply);
 
             // 모든 검사를 통과한 뒤에 전투에 들인다. 조립이 실패하면 PlayerState는 묶이지 않는다.

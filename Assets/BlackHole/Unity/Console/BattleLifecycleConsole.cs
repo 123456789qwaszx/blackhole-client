@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using BlackHole.Core;
 using TMPro;
@@ -13,6 +14,8 @@ namespace BlackHole.Unity
     //
     // 시작·종료 버튼은 오케스트레이터(BattleOrchestrator)에 요청할 뿐이다. 순서와 책임은 오케스트레이터에 있다.
     // 버튼 아래에는 적·전투 시스템의 시작·종료 체크리스트가, 그 아래에는 마지막 판의 원자료가 나온다.
+    // 시작 체크리스트 아래에는 진행 중인 판의 업그레이드 표(보는 참가자의 것)가 나온다: 노드 트리에 있는 수치마다
+    // 기본값 0과 1일 때의 값이다. 표를 가져가는 시스템의 기본값은 아직 모른다(UPGRADE_LINK_PLAN 6절).
     // 종료 사유는 지금 시간 종료로 통일한다.
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
@@ -29,17 +32,29 @@ namespace BlackHole.Unity
         private readonly TMP_Text _startStepsText;
         private readonly TMP_Text _endStepsText;
         private readonly TMP_Text _rawDataText;
+        private readonly TMP_Text _upgradesText;
+        private readonly PlayerId _viewer;
+        private readonly SortedSet<string> _stats = new SortedSet<string>(StringComparer.Ordinal);
         private readonly StringBuilder _builder = new StringBuilder();
 
         private int _shownStartVersion = -1;
         private int _shownEndVersion = -1;
         private BattleRawData _shownRawData;
         private bool _rawDataShown;
+        private GameSession _shownSession;
+        private bool _upgradesShown;
 
-        public BattleLifecycleConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle)
+        public BattleLifecycleConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle, NodeTree nodes, PlayerId viewer)
         {
             _orchestrator = orchestrator;
             _battle = battle;
+            _viewer = viewer;
+
+            foreach (NodeDefinition node in nodes.Nodes)
+            {
+                foreach (Upgrade upgrade in node.Upgrades)
+                    _stats.Add(upgrade.Stat);
+            }
 
             RectTransform canvas = CreateCanvas(parent, "Battle Lifecycle Console");
             _canvas = canvas.gameObject;
@@ -49,6 +64,7 @@ namespace BlackHole.Unity
 
             _startButton = ButtonOf(panel, "StartBattle", "Start battle", ButtonWidth, () => _orchestrator.RequestStart());
             _startStepsText = Text(panel, "StartSteps", string.Empty, 20);
+            _upgradesText = Text(panel, "Upgrades", string.Empty, 20);
             _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth,
                 () => _orchestrator.RequestEnd(SessionEndReason.TimeExpired));
             _endStepsText = Text(panel, "EndSteps", string.Empty, 20);
@@ -85,6 +101,15 @@ namespace BlackHole.Unity
                 _endStepsText.text = Describe(_battle.EndSteps);
             }
 
+            GameSession session = _battle.Session;
+
+            if (!_upgradesShown || session != _shownSession)
+            {
+                _upgradesShown = true;
+                _shownSession = session;
+                _upgradesText.text = DescribeUpgrades(session);
+            }
+
             BattleRawData raw = _battle.LastRawData;
 
             if (!_rawDataShown || raw != _shownRawData)
@@ -112,6 +137,29 @@ namespace BlackHole.Unity
                 }
 
                 _builder.Append(steps.NameOf(i));
+            }
+
+            return _builder.ToString();
+        }
+
+        // 진행 중인 판이 보는 참가자에게 준 업그레이드 표. 수치마다 "기본값 0일 때 / 1일 때"다.
+        private string DescribeUpgrades(GameSession session)
+        {
+            if (session == null)
+                return "Upgrades  -";
+
+            _builder.Clear();
+            _builder.Append("Upgrades (").Append(_viewer).Append(")  base 0 / base 1");
+
+            if (_stats.Count == 0)
+                _builder.Append("\n  (none)");
+
+            UpgradeTable table = session.UpgradesOf(_viewer);
+
+            foreach (string stat in _stats)
+            {
+                _builder.Append("\n  ").Append(stat).Append("<pos=11em>")
+                    .Append(Number(table.Apply(stat, 0))).Append(" / ").Append(Number(table.Apply(stat, 1)));
             }
 
             return _builder.ToString();

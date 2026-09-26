@@ -69,7 +69,7 @@ namespace BlackHole.Unity
 
             _enemyLooks = new EnemyLooks(enemyCatalog.Kinds());
             _enemyView = new EnemyView(transform, _enemyLooks);
-            _battle = new BattleSystem(content, _enemyView);
+            _battle = new BattleSystem(content, nodeTree, _enemyView);
             _orchestrator = new BattleOrchestrator(content, _battle, LocalPlayers);
             // 업그레이드 화면과 콘솔이 보는 진행 상태: 지금 실제 구성인 로컬 Player 1명.
             PlayerState viewer = _orchestrator.Progress[0];
@@ -114,7 +114,7 @@ namespace BlackHole.Unity
             if (Debug.isDebugBuild)
             {
                 _console = new ControlConsole(transform, _orchestrator, _battle, _enemyLooks);
-                _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle);
+                _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, nodeTree, viewer.Id);
                 _commandConsole = new EnemyCommandConsole(transform, _battle, content.Enemies);
                 _upgradeConsole = new UpgradeConsole(transform, viewer, nodeTree);
             }
