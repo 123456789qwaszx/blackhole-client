@@ -22,6 +22,7 @@
 | [REFERENCE_ANALYSIS](REFERENCE_ANALYSIS.md) | 원작에서 확인한 사실·관찰·설계 해석 |
 | [REFERENCE_ANALYSIS_ENEMY](REFERENCE_ANALYSIS_ENEMY.md) | 원작 천체(Enemy)의 생성·파괴 형식 분석 |
 | [NODE_SYSTEM_SURVEY](NODE_SYSTEM_SURVEY.md) | 기존 노드 트리·노드 편집기·스탯 보정 구현 조사 (F01·F02·F03·F07) |
+| [UPGRADE_LINK_PLAN](UPGRADE_LINK_PLAN.md) | 업그레이드 화면과 전투를 한 루프로 잇고, 판이 참가자별 업그레이드 표를 받게 하기 (UL-001~004) |
 | [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
 | [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
 | [AUTHORING_PAIN](AUTHORING_PAIN.md) | 현재 형식의 저작 시험 결과와 Authoring Pain 목록 (CA-002~, CA-006의 입력) |
@@ -52,12 +53,12 @@
 | S11 | 콘텐츠 정의·검증 | 수치·종류 데이터, 참조 검사, 실행 구성 제공 | 지원 | Content, Sample 구현 있음 |
 | S12 | 디버깅·성능 검증 | 기준 상황 재현, 측정, 변경 전후 비교 | 지원 | CoreSmoke, CoreBench 출발점 있음 |
 | F01 | 노드 트리 | 그래프(노드·선·시작 노드·드러남·도달성)와 구매(가격·Gold·산 노드), 산 노드의 업그레이드를 F07에 넘기기 | 후속 | Core/Nodes 구현 있음(그래프 NodeGraph, 구매 NodePurchase), 개발용 노드 콘솔 |
-| F02 | 노드 트리 UI | 노드 배치·연결·상태·구매 피드백 | 후속 | 구매 샘플과 별도로 범위 확정 필요 |
+| F02 | 노드 트리 UI | 노드 배치·연결·상태·구매 피드백 | 후속 | 임시 업그레이드 화면 있음: 노드 도구의 격자 칸대로 노드·선, 네 상태(숨김은 그리지 않음), 확대·이동, 누르면 구매, 전투와 한 루프 (UPGRADE_LINK_PLAN) |
 | F03 | 노드 저작 도구 | 노드·연결·배치 데이터 편집과 검증 | 후속 지원 | 1차 구현 있음: 메뉴 BlackHole > Node Tree (격자 편집·선 긋기·이웃끼리 잇기 명령·검사·구매 미리보기) |
 | F04 | Gold·장기 진행·저장 | 경제, 전투 간 유지, 영구 저장 | 후속 | Gold·구매 유지 샘플만 있음 |
 | F05 | 추가 전투 콘텐츠 | 추가 Enemy·Skill·Death Effect | 후속 | 추가 종류별 명세 필요 |
 | F06 | Character·HQ HP·다인·Network | 새 플레이 규칙과 통신 | 후속 | MVP 제외, 정책과 범위 미정 |
-| F07 | 업그레이드 | 업그레이드(수치 이름·연산·값)를 수치별로 합성해 다른 시스템이 가져가게 한다 | 후속 | Core/Upgrades 구현 있음. 가져가는 시스템 연결은 그 시스템들이 완성된 뒤 |
+| F07 | 업그레이드 | 업그레이드(수치 이름·연산·값)를 수치별로 합성해 다른 시스템이 가져가게 한다 | 후속 | Core/Upgrades 구현 있음. 판 조립이 참가자마다 산 노드로 표를 만들어 판이 내준다(GameSession.UpgradesOf). 표를 읽는 시스템 연결은 그 시스템들이 완성된 뒤 |
 
 ## 3. MVP 시스템 명세
 
