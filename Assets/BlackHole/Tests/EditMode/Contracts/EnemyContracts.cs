@@ -18,6 +18,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.DeadEnemiesNoLongerMove", DeadEnemiesNoLongerMove);
             yield return new Contract("Enemy.DeathRecordsLastOneAdvance", DeathRecordsLastOneAdvance);
             yield return new Contract("Enemy.BattleCleanupIsNotAKill", BattleCleanupIsNotAKill);
+            yield return new Contract("Enemy.DeathEarnsItsGoldForTheBattleAtOnce", DeathEarnsItsGoldForTheBattleAtOnce);
             yield return new Contract("Enemy.EachBattleHasItsOwnEnemies", EachBattleHasItsOwnEnemies);
             yield return new Contract("Enemy.PoolFilterDropsKindsOutsideThePool", PoolFilterDropsKindsOutsideThePool);
             yield return new Contract("Enemy.PoolFilterCapsAliveCountPerKind", PoolFilterCapsAliveCountPerKind);
@@ -80,7 +81,7 @@ namespace BlackHole.Core.Tests
         private static void RejectsRequestsTheBattleCannotTake()
         {
             World world = TestContent.Session(OneEnemy(health: 10)).World;
-            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1), new OrbitBehaviorDefinition(false));
+            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1, 0), new OrbitBehaviorDefinition(false));
             Expect.Throws<ArgumentException>(() => world.RequestSpawn(new SupplyRequest(stranger, 1)));
             Expect.Throws<ArgumentException>(() => world.RequestSpawn(default));
             Expect.Throws<ArgumentNullException>(() => world.RequestDestroy(null));
@@ -157,7 +158,7 @@ namespace BlackHole.Core.Tests
             Expect.Near(battle.MoveSpeed, enemy.Stats.MoveSpeed);
             Expect.Near(enemy.Definition.BaseStats.MaxHealth, battle.MaxHealth);
 
-            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1), new OrbitBehaviorDefinition(false));
+            var stranger = new EnemyDefinition("stranger", new EnemyStats(1, 1, 1, 0), new OrbitBehaviorDefinition(false));
             Expect.Throws<ArgumentException>(() => game.World.StatsOf(stranger));
         }
 
@@ -316,6 +317,37 @@ namespace BlackHole.Core.Tests
             Expect.Equal(1, world.Deaths.Count);
 
             Expect.Throws<ArgumentOutOfRangeException>(() => new Damage(0, TestContent.First));
+        }
+
+        // 사망이 확정되는 순간 그 적의 Gold가 이 판의 합계에 한 번 더해진다. 피해 사망과 파괴 요청 사망이 같다.
+        // 이미 죽은 적은 다시 더하지 않고, 전투 정리로 치운 적은 더하지 않는다(GAME_RULES 9절).
+        // 판은 진행 상태의 Gold를 바꾸지 않는다. 번 Gold는 원자료에 남고, 진행 상태에 더하는 결산은 판 바깥이 한다.
+        private static void DeathEarnsItsGoldForTheBattleAtOnce()
+        {
+            ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 3));
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 10, gold: 7));
+            TestContent.Allow(data, TestContent.EnemyId);
+            var state = new PlayerState(TestContent.First);
+            state.EarnGold(20);
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), new[] { state }));
+            World world = game.World;
+            Enemy hit = world.Enemies[0];
+            Enemy destroyed = world.Enemies[1];
+
+            world.DealDamage(hit, new Damage(10, TestContent.First));
+            Expect.Equal(7L, world.EarnedGold);
+            world.DealDamage(hit, Hit);
+            Expect.Equal(7L, world.EarnedGold);
+
+            world.RequestDestroy(destroyed);
+            game.Advance(0.1f);
+            Expect.Equal(14L, world.EarnedGold);
+
+            game.RequestEnd(SessionEndReason.TimeExpired);
+            Expect.Equal(1, game.ClearRemainingEnemies());
+            Expect.Equal(14L, world.EarnedGold);
+            Expect.Equal(14L, game.CreateRawData().EarnedGold);
+            Expect.Equal(20L, state.Gold);
         }
 
         private static void DeadEnemiesNoLongerMove()

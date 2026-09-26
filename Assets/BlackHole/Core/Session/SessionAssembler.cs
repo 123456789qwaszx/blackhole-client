@@ -35,7 +35,7 @@ namespace BlackHole.Core
             VerifyParticipants(states);
 
             var players = new List<PlayerState>(states);
-            // 적의 수치는 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
+            // 적의 수치(Gold 포함)는 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
             var world = new World(
                 new BattleRandom(seed),
                 content.GetStage(stage).Pool,

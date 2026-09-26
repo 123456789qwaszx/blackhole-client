@@ -16,6 +16,7 @@ MonoBehaviour:
   maxHealth: 20
   moveSpeed: 1.2
   size: 0.35
+  gold: 2
   clockwise: 0
   sprite: {fileID: 0}
   color: {r: 0.85, g: 0.86, b: 0.9, a: 1}

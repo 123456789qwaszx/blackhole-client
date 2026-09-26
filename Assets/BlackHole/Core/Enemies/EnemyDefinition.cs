@@ -11,17 +11,20 @@ namespace BlackHole.Core
         public float MoveSpeed { get; }
         // 크기(반지름). 화면이 이 값으로 그린다.
         public float Size { get; }
+        // 이 적의 사망이 확정되는 순간 판의 Gold 합계에 드는 값. 같은 판의 같은 종류는 모두 같은 값이다.
+        public long Gold { get; }
 
-        public EnemyStats(float maxHealth, float moveSpeed, float size)
+        public EnemyStats(float maxHealth, float moveSpeed, float size, long gold)
         {
             MaxHealth = DefinitionGuard.Positive(maxHealth, nameof(maxHealth));
             MoveSpeed = DefinitionGuard.Positive(moveSpeed, nameof(moveSpeed));
             Size = DefinitionGuard.Positive(size, nameof(size));
+            Gold = DefinitionGuard.NotNegative(gold, nameof(gold));
         }
     }
 
-    // 적 종류 하나의 공유 정의: 기본 수치와 행동.
-    // 사망 보상과 사망 효과는 그 시스템이 붙을 때 더한다. 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
+    // 적 종류 하나의 공유 정의: 기본 수치(Gold 포함)와 행동.
+    // HQ EXP와 사망 효과는 그 시스템이 붙을 때 더한다. 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
     public sealed class EnemyDefinition
     {
         public string Id { get; }

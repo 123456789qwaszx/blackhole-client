@@ -64,10 +64,14 @@ namespace BlackHole.Core
             }
         }
 
+        // 이 판에서 확정된 사망의 Gold 합계. 사망 순간에 늘어난다.
+        // 진행 상태(Gold)에는 판이 끝난 뒤 결산이 원자료를 읽어 한 번 더한다 — 전투 중에는 진행 상태를 바꾸지 않는다.
+        public long EarnedGold => _enemies.EarnedGold;
+
         // 확정된 사망 중 아직 처리가 끝나지 않은 것이 있는가. 판을 정리하기 전에 이것이 false여야 한다.
-        // 지금은 사망 처리(목록에서 빠짐·사망 기록·처치 수)가 사망 확정 순간에 모두 끝나므로 늘 false다.
+        // 지금은 사망 처리(목록에서 빠짐·사망 기록·처치 수·Gold 합계)가 사망 확정 순간에 모두 끝나므로 늘 false다.
         // 처리되지 않은 파괴 요청은 아직 사망이 아니다 — 판이 끝나면 처리되지 않고 판 정리가 버린다.
-        // 사망 효과 대기열이나 보상 처리가 붙으면 그것이 빌 때까지 true다.
+        // 사망 효과 대기열이 붙으면 그것이 빌 때까지 true다.
         public bool HasPendingDeathProcessing => false;
 
         internal IReadOnlyList<EnemyKillCount> Kills() => _enemies.Kills();

@@ -83,7 +83,7 @@ namespace BlackHole.Core
 
                 int errors = into.Count;
                 EnemyBehaviorDefinition behavior = LoadBehavior(item.Behavior, at + ".Behavior", into);
-                EnemyStats? stats = GuardValue(at, into, () => new EnemyStats(item.MaxHealth, item.MoveSpeed, item.Size));
+                EnemyStats? stats = GuardValue(at, into, () => new EnemyStats(item.MaxHealth, item.MoveSpeed, item.Size, item.Gold));
 
                 if (into.Count > errors)
                     continue;

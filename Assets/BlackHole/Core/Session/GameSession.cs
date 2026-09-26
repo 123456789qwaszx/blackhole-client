@@ -120,11 +120,12 @@ namespace BlackHole.Core
             return World.ClearRemainingEnemies();
         }
 
-        // 끝난 판의 원자료(조립 조건, 끝난 사유와 시간, 종류별 처치 수)를 만든다.
+        // 끝난 판의 원자료(조립 조건, 끝난 사유와 시간, 종류별 처치 수, 번 Gold)를 만든다.
+        // 진행 상태는 바꾸지 않는다. 번 Gold를 진행 상태에 더하는 결산은 판 바깥(오케스트레이터)이 한 번 한다.
         public BattleRawData CreateRawData()
         {
             RequireEnded();
-            return new BattleRawData(Stage, Seed, Result.Reason, Result.PlayedSeconds, World.Kills());
+            return new BattleRawData(Stage, Seed, Result.Reason, Result.PlayedSeconds, World.Kills(), World.EarnedGold);
         }
 
         // 결과를 확정하고 진행 상태를 전투에서 풀어 준다.

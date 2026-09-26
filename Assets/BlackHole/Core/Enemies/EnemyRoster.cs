@@ -5,11 +5,11 @@ namespace BlackHole.Core
     // 한 판의 적 목록과 사망 절차. 적 시스템이 판 안에서 가진 상태는 여기에 모인다.
     // - 출현: 정의·이 판의 수치·위치로 적을 만들고 번호를 준다. 수치는 판의 적 수치 표(EnemyStatTable)에서 온다.
     // - 이동: 살아 있는 적이 행동에 따라 움직인다.
-    // - 피해: 살아 있는 적만 받는다. 처음 죽은 순간 목록에서 빠지고, 사망 기록을 한 번 남기고, 처치 수에 든다.
+    // - 피해: 살아 있는 적만 받는다. 처음 죽은 순간 목록에서 빠지고, 사망 기록을 한 번 남기고, 처치 수에 들고, 그 적의 Gold가 이 판의 합계에 든다.
     // - 파괴: 피해·HP 계산 없이 사망을 확정한다. 이 목록에 살아 있는 적만 죽고, 그 뒤는 피해로 죽을 때와 같다.
     // - 종류별 살아 있는 수: 출현 때 늘고 사망 때 준다. 풀 여과 장치의 출현 제한이 읽는다.
-    // - 정리: 판이 끝난 뒤 남은 적을 목록에서 치운다. 처치가 아니다 — 사망 기록도, 처치 수도 없다.
-    // 사망 보상(HQ EXP·Gold)과 사망 효과는 그 시스템이 사망 기록이나 이 절차에 붙는다.
+    // - 정리: 판이 끝난 뒤 남은 적을 목록에서 치운다. 처치가 아니다 — 사망 기록도, 처치 수도, Gold도 없다.
+    // HQ EXP와 사망 효과는 그 시스템이 사망 기록이나 이 절차에 붙는다.
     internal sealed class EnemyRoster
     {
         private readonly List<Enemy> _alive = new List<Enemy>();
@@ -24,6 +24,8 @@ namespace BlackHole.Core
         public IReadOnlyList<Enemy> Alive { get; }
         // 마지막 진행 동안 확정된 사망. 다음 진행이 시작될 때 비운다.
         public IReadOnlyList<DeathRecord> Deaths { get; }
+        // 이 판에서 확정된 사망의 Gold 합계. 진행 상태에는 판이 끝난 뒤 결산이 더한다 — 전투 중에는 진행 상태를 바꾸지 않는다.
+        public long EarnedGold { get; private set; }
 
         public EnemyRoster()
         {
@@ -86,10 +88,12 @@ namespace BlackHole.Core
             return true;
         }
 
-        // 막 죽은 적의 사망 절차: 사망 기록, 목록에서 제외, 종류별 살아 있는 수와 처치 수.
+        // 막 죽은 적의 사망 절차: 사망 기록, Gold, 목록에서 제외, 종류별 살아 있는 수와 처치 수.
+        // Gold는 흡수 연출을 기다리지 않고 지금 이 판의 합계에 든다(GAME_RULES 9절).
         private void RecordDeath(Enemy enemy)
         {
             _deaths.Add(new DeathRecord(_nextDeathSequence++, enemy));
+            EarnedGold = checked(EarnedGold + enemy.Stats.Gold);
 
             if (_alive.Remove(enemy))
                 _aliveByKind[enemy.Definition] = CountAlive(enemy.Definition) - 1;

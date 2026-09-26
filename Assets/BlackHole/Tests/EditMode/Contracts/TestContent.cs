@@ -72,10 +72,11 @@ namespace BlackHole.Core.Tests
             return data;
         }
 
-        public static EnemyData Enemy(string id, float health = 10, float speed = 1, float size = 0.3f, bool clockwise = false) =>
+        public static EnemyData Enemy(
+            string id, float health = 10, float speed = 1, float size = 0.3f, bool clockwise = false, long gold = 0) =>
             new EnemyData
             {
-                Id = id, MaxHealth = health, MoveSpeed = speed, Size = size,
+                Id = id, MaxHealth = health, MoveSpeed = speed, Size = size, Gold = gold,
                 Behavior = new EnemyBehaviorData { Kind = "Orbit", Clockwise = clockwise }
             };
 

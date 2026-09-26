@@ -36,6 +36,8 @@ namespace BlackHole.Core
         public float MoveSpeed;
         // 반지름.
         public float Size;
+        // 사망 때 받는 Gold. 0 이상.
+        public long Gold;
         public EnemyBehaviorData Behavior;
     }
 

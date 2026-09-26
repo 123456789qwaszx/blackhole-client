@@ -17,7 +17,7 @@ namespace BlackHole.Unity
     //   2. 적 소환 단계 진입 — 전투 시작 공급을 내보내고 판을 진행 단계로 넣는다.
     // 종료 단계:
     //   1. 종료 요청(사유)             2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
-    //   3. 죽은 적의 처리 완료          4. 처치 집계를 계산해 보관(원자료)
+    //   3. 죽은 적의 처리 완료          4. 처치 집계와 번 Gold를 계산해 보관(원자료)
     //   5. 화면의 연출 정리             6. 모두 끝났으면 완전 초기화
     // 종료 뒤에 남는 것은 UI와 원자료(LastRawData)뿐이다. 판을 시작했던 다른 흔적은 없다.
     internal sealed class BattleSystem
@@ -134,7 +134,7 @@ namespace BlackHole.Unity
                 // 3. 죽은 적의 처리 완료(사망 효과·보상 처리가 붙으면 그것이 끝났는지까지).
                 Verify(2, !Session.World.HasPendingDeathProcessing);
 
-                // 4. 처치 집계를 계산해 보관.
+                // 4. 처치 집계와 번 Gold를 계산해 보관. 진행 상태에 더하는 결산은 오케스트레이터가 이 원자료로 한다.
                 LastRawData = Session.CreateRawData();
                 Verify(3, LastRawData != null);
 

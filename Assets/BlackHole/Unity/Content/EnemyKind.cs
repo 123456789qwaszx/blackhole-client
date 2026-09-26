@@ -21,6 +21,8 @@ namespace BlackHole.Unity
         [SerializeField] private float moveSpeed = 1;
         [Tooltip("반지름. 화면에 그리는 크기도 이 값이다.")]
         [SerializeField] private float size = 0.3f;
+        [Tooltip("사망이 확정되는 순간 받는 Gold. 0 이상.")]
+        [SerializeField] private long gold;
 
         [Header("행동: HQ 공전")]
         [SerializeField] private bool clockwise;
@@ -40,6 +42,7 @@ namespace BlackHole.Unity
             MaxHealth = maxHealth,
             MoveSpeed = moveSpeed,
             Size = size,
+            Gold = gold,
             Behavior = new EnemyBehaviorData { Kind = "Orbit", Clockwise = clockwise },
         };
     }

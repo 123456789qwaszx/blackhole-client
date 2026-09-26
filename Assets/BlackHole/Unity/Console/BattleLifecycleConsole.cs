@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using BlackHole.Core;
 using TMPro;
@@ -12,7 +13,8 @@ namespace BlackHole.Unity
     // 전투 시작·종료 콘솔(개발용). 조종 콘솔과 다른 창이다(왼쪽 위).
     //
     // 시작·종료 버튼은 오케스트레이터(BattleOrchestrator)에 요청할 뿐이다. 순서와 책임은 오케스트레이터에 있다.
-    // 버튼 아래에는 적·전투 시스템의 시작·종료 체크리스트가, 그 아래에는 마지막 판의 원자료가 나온다.
+    // 버튼 아래에는 적·전투 시스템의 시작·종료 체크리스트가, 그 아래에는 Gold와 마지막 판의 원자료가 나온다.
+    // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
     // 종료 사유는 지금 시간 종료로 통일한다.
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
@@ -28,11 +30,14 @@ namespace BlackHole.Unity
         private readonly Button _endButton;
         private readonly TMP_Text _startStepsText;
         private readonly TMP_Text _endStepsText;
+        private readonly TMP_Text _goldText;
         private readonly TMP_Text _rawDataText;
         private readonly StringBuilder _builder = new StringBuilder();
 
         private int _shownStartVersion = -1;
         private int _shownEndVersion = -1;
+        private long[] _shownGold;
+        private long _shownEarned = -1;
         private BattleRawData _shownRawData;
         private bool _rawDataShown;
 
@@ -52,6 +57,7 @@ namespace BlackHole.Unity
             _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth,
                 () => _orchestrator.RequestEnd(SessionEndReason.TimeExpired));
             _endStepsText = Text(panel, "EndSteps", string.Empty, 20);
+            _goldText = Text(panel, "Gold", string.Empty, 20);
             _rawDataText = Text(panel, "RawData", string.Empty, 20);
 
             Refresh();
@@ -85,6 +91,8 @@ namespace BlackHole.Unity
                 _endStepsText.text = Describe(_battle.EndSteps);
             }
 
+            RefreshGold();
+
             BattleRawData raw = _battle.LastRawData;
 
             if (!_rawDataShown || raw != _shownRawData)
@@ -93,6 +101,37 @@ namespace BlackHole.Unity
                 _shownRawData = raw;
                 _rawDataText.text = Describe(raw);
             }
+        }
+
+        // 참가자마다 진행 상태의 Gold 한 줄, 판이 있으면 그 판이 번 Gold 한 줄. 값이 바뀐 프레임에만 다시 쓴다.
+        private void RefreshGold()
+        {
+            IReadOnlyList<PlayerState> progress = _orchestrator.Progress;
+            int count = progress?.Count ?? 0;
+            long earned = _battle.Session != null ? _battle.Session.World.EarnedGold : -1;
+            bool changed = _shownGold == null || _shownGold.Length != count || earned != _shownEarned;
+
+            for (int i = 0; !changed && i < count; i++)
+                changed = _shownGold[i] != progress[i].Gold;
+
+            if (!changed)
+                return;
+
+            _shownGold = new long[count];
+            _shownEarned = earned;
+            _builder.Clear();
+            _builder.Append(count == 0 ? "Gold  -" : "Gold");
+
+            for (int i = 0; i < count; i++)
+            {
+                _shownGold[i] = progress[i].Gold;
+                _builder.Append("\n  ").Append(progress[i].Id).Append("<pos=7em>").Append(_shownGold[i]);
+            }
+
+            if (earned >= 0)
+                _builder.Append("\n  This battle<pos=7em>+").Append(earned);
+
+            _goldText.text = _builder.ToString();
         }
 
         private string Describe(Checklist steps)
@@ -129,6 +168,7 @@ namespace BlackHole.Unity
             _builder.Append("\n  Seed<pos=6em>").Append(raw.Seed);
             _builder.Append("\n  Reason<pos=6em>").Append(raw.EndReason);
             _builder.Append("\n  Time<pos=6em>").Append(Number(raw.PlayedSeconds)).Append('s');
+            _builder.Append("\n  Gold<pos=6em>+").Append(raw.EarnedGold);
             _builder.Append("\n  Kills<pos=6em>").Append(raw.TotalKills);
 
             foreach (EnemyKillCount kill in raw.Kills)

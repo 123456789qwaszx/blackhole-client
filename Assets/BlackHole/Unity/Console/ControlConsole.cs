@@ -260,6 +260,7 @@ namespace BlackHole.Unity
             _builder.Append("Health<pos=6em>").Append(Number(stats.MaxHealth)).Append('\n');
             _builder.Append("Speed<pos=6em>").Append(Number(stats.MoveSpeed)).Append('\n');
             _builder.Append("Size<pos=6em>").Append(Number(stats.Size)).Append('\n');
+            _builder.Append("Gold<pos=6em>").Append(stats.Gold).Append('\n');
             _builder.Append("Behavior<pos=6em>").Append(Describe(kind.Behavior)).Append('\n');
             // 특성(전기·폭발·처치 버프)은 종류에 붙는다. 특성 시스템이 붙기 전에는 없다.
             _builder.Append("Traits<pos=6em>none");

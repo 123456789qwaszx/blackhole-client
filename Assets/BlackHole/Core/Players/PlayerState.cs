@@ -26,7 +26,8 @@ namespace BlackHole.Core
     public sealed class PlayerState
     {
         public PlayerId Id { get; }
-        public int Gold { get; private set; }
+        // 원작의 금액은 T(조) 단위까지 오르므로 int(약 21억)가 아니라 long이다.
+        public long Gold { get; private set; }
         // 진행 중인 전투에 들어가 있는가. 한 진행 상태는 한 번에 한 전투에만 들어간다.
         public bool InBattle { get; private set; }
 
@@ -35,8 +36,9 @@ namespace BlackHole.Core
             Id = id;
         }
 
-        // Gold를 더한다. 지금 부르는 곳은 없다 — 처치 보상이 붙으면 전투가 부른다.
-        public void EarnGold(int amount)
+        // Gold를 더한다. 전투 중에는 부르지 않는다 — 판이 끝난 뒤 결산이 그 판의 원자료(EarnedGold)로 한 번 부른다.
+        // 그래서 진행 상태는 전투 밖에서만 바뀌고, 저장 시점도 전투 밖이다.
+        public void EarnGold(long amount)
         {
             if (amount < 0)
                 throw new ArgumentOutOfRangeException(nameof(amount), "0 이상이어야 한다.");
