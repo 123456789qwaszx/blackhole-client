@@ -22,6 +22,7 @@
 | [REFERENCE_ANALYSIS](REFERENCE_ANALYSIS.md) | 원작에서 확인한 사실·관찰·설계 해석 |
 | [REFERENCE_ANALYSIS_ENEMY](REFERENCE_ANALYSIS_ENEMY.md) | 원작 천체(Enemy)의 생성·파괴 형식 분석 |
 | [NODE_SYSTEM_SURVEY](NODE_SYSTEM_SURVEY.md) | 기존 노드 트리·노드 편집기·스탯 보정 구현 조사 (F01·F02·F03·F07) |
+| [NODE_TREE_SCREEN_PLAN](NODE_TREE_SCREEN_PLAN.md) | 노드 트리를 게임 화면에 띄우고 순차 해금하기, 개발용 콘솔 (NS-001~005) |
 | [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
 | [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
 | [AUTHORING_PAIN](AUTHORING_PAIN.md) | 현재 형식의 저작 시험 결과와 Authoring Pain 목록 (CA-002~, CA-006의 입력) |
