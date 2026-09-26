@@ -1,0 +1,15 @@
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\bin\Release\net8.0\CoreSmoke.exe
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\bin\Release\net8.0\CoreSmoke.deps.json
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\bin\Release\net8.0\CoreSmoke.runtimeconfig.json
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\bin\Release\net8.0\CoreSmoke.dll
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\bin\Release\net8.0\CoreSmoke.pdb
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\CoreSmoke.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\CoreSmoke.AssemblyInfoInputs.cache
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\CoreSmoke.AssemblyInfo.cs
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\CoreSmoke.csproj.CoreCompileInputs.cache
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\CoreSmoke.sourcelink.json
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\CoreSmoke.dll
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\refint\CoreSmoke.dll
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\CoreSmoke.pdb
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\CoreSmoke.genruntimeconfig.cache
+C:\Users\river\Documents\GitHub\blackhole-client\tests\CoreSmoke\obj\Release\net8.0\ref\CoreSmoke.dll
