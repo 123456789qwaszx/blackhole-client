@@ -15,6 +15,28 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Node.FailedPurchaseChangesNothing", FailedPurchaseChangesNothing);
             yield return new Contract("Node.LoaderReportsBrokenNodesAndLinks", LoaderReportsBrokenNodesAndLinks);
             yield return new Contract("Node.EveryNodeIsReachableFromAStartNode", EveryNodeIsReachableFromAStartNode);
+            yield return new Contract("Node.GraphListsEachLinkOnce", GraphListsEachLinkOnce);
+        }
+
+        // 화면이 그리는 선 목록: 양쪽 노드에 적은 선도 한 번만 나온다.
+        private static void GraphListsEachLinkOnce()
+        {
+            NodeTree tree = Load(Node("s", 1, true, "a"), Node("a", 1, false, "s", "b"), Node("b", 1));
+            IReadOnlyList<(string A, string B)> links = tree.Graph.Links;
+
+            Expect.Equal(2, links.Count);
+            Expect.True(Has(links, "s", "a") && Has(links, "a", "b"), "선마다 한 번씩 있어야 한다.");
+        }
+
+        private static bool Has(IReadOnlyList<(string A, string B)> links, string a, string b)
+        {
+            foreach ((string A, string B) link in links)
+            {
+                if ((link.A == a && link.B == b) || (link.A == b && link.B == a))
+                    return true;
+            }
+
+            return false;
         }
 
         // 시작 노드는 처음부터 드러나고, 나머지는 산 이웃이 하나라도 있으면 드러난다.
