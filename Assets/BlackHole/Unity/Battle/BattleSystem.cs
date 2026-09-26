@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace BlackHole.Unity
 {
-    // 적·전투 시스템: 한 판(GameSession)과 그 표현(적 화면 EnemyView, 스킬 화면 SkillView)의 수명을 가진다.
+    // 적·전투 시스템: 한 판(GameSession)과 그 표현(적 화면 EnemyView, 스킬 화면 SkillView, 사망 효과 화면 DeathEffectView)의 수명을 가진다.
     // 스킬은 판의 일부다 — 판 조립 때 참가자마다 생기고 판과 함께 버려진다. 그래서 스킬 화면도 적 화면과 같이 정리한다.
     //
     // 스스로 시작하거나 끝내지 않는다. 상위 오케스트레이터(BattleOrchestrator)가 정해진 순서 안에서 부를 때만
@@ -30,6 +30,7 @@ namespace BlackHole.Unity
         private readonly NodeTree _nodes;
         private readonly EnemyView _enemyView;
         private readonly SkillView _skillView;
+        private readonly DeathEffectView _deathEffectView;
         private State _state = State.Idle;
         private IReadOnlyList<PlayerState> _players;
         private bool _timeExpiredRaised;
@@ -58,12 +59,13 @@ namespace BlackHole.Unity
         // 판의 시간이 끝났다. 정리하지 않고 알리기만 한다(한 판에 한 번).
         public event Action TimeExpired;
 
-        public BattleSystem(GameContent content, NodeTree nodes, EnemyView enemyView, SkillView skillView)
+        public BattleSystem(GameContent content, NodeTree nodes, EnemyView enemyView, SkillView skillView, DeathEffectView deathEffectView)
         {
             _content = content;
             _nodes = nodes;
             _enemyView = enemyView;
             _skillView = skillView;
+            _deathEffectView = deathEffectView;
         }
 
         // 전투 진입을 위한 초기화. 오케스트레이터만 부른다.
@@ -88,6 +90,7 @@ namespace BlackHole.Unity
             _enemyView.Reset();
             _enemyView.Synchronize(Session.World);
             _skillView.Reset();
+            _deathEffectView.Reset();
             StartSteps.Mark(1, StepState.Done);
 
             _state = State.Running;
@@ -102,6 +105,7 @@ namespace BlackHole.Unity
             Session.Advance(delta);
             _enemyView.Synchronize(Session.World);
             _skillView.Synchronize(Session.World, delta);
+            _deathEffectView.Synchronize(Session.World, delta);
 
             if (Session.Phase == SessionPhase.Ended && !_timeExpiredRaised)
             {
@@ -149,8 +153,9 @@ namespace BlackHole.Unity
                 // 5. 화면의 연출 정리. 지운 객체는 프레임 끝에 사라지므로 한 프레임 기다린 뒤 확인한다.
                 _enemyView.Reset();
                 _skillView.Reset();
+                _deathEffectView.Reset();
                 await Awaitable.NextFrameAsync();
-                Verify(4, _enemyView.IsClear && _skillView.IsClear);
+                Verify(4, _enemyView.IsClear && _skillView.IsClear && _deathEffectView.IsClear);
 
                 // 6. 완전 초기화: 판을 버리고, 진행 상태가 전투에서 풀렸는지 확인한다.
                 Verify(5, PlayersReleased());

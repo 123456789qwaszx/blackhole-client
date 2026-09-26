@@ -124,7 +124,7 @@
 | `SeededSkillRandom` | `BattleRandom`. 판 seed에서 방향·치명타 스트림을 나눈다 [제안] |
 | `DeathEffectDefinition`(평평, 종류별 칸) | `EnemyDefinition.DeathEffect`. 저작 형식은 `EnemyBehaviorData`처럼 종류 이름 + 칸이고, Loader가 종류별 정의를 만든다 [제안] |
 | `Skills.EnemyCatalog` | 가져오지 않는다. `EnemyKind` 에셋에 사망 효과 칸을 더한다 |
-| `DeathEffects.Resolve`(모든 적을 훑음) | Step 4에서 이번 Step의 사망 기록(`World.Deaths`)을 읽는다 |
+| `DeathEffects.Resolve`(모든 적을 훑음) | 효과 보유 적이 피해로 처음 죽는 순간(`World.DealDamage`) 대기열에 넣고, Step 4에서 사망 순서대로 처리한다(`World.DeathEffects`) |
 | `PlayerBuffs`(int → 상태) | 참가자마다의 버프 상태. 대상은 Breaker |
 | `LastVisuals`·`PendingShots`·`EffectHit`·`EffectActivation` | 순번 있는 기록: Breaker 원, 레이저 예고·발사, 번개 적중, 폭발, 치명타 적중 |
 | `GameHost`(IMGUI 콘솔·마우스·고정 적 5개) | 스킬 콘솔(`ConsoleParts`), 조준 입력, 스킬 화면. 적은 지금처럼 공급으로 나온다 |
@@ -145,9 +145,10 @@ World.Step(delta)
 ```
 
 - `DealDamage`는 죽은 적을 `World.Enemies`에서 바로 뺀다. 그래서 스킬은 대상을 먼저 모은 뒤 피해를 준다. 샌드박스도 그렇게 했다.
-- 효과를 가진 적은 효과 피해를 받지 않는다. 그래서 효과로 죽은 적에게는 효과가 없다. 4의 사망 기록은 한 번만 훑으면 끝난다. 효과로 생긴 사망 기록은 그 목록 뒤에 붙으므로, 처음 개수까지만 읽는다.
+- 효과를 가진 적은 효과 피해를 받지 않는다. 그래서 효과로 죽은 적은 대기열에 새 효과를 넣지 않고, 대기열은 한 번 훑으면 끝난다.
 - 효과 처리가 Step 안에서 끝나므로 `HasPendingDeathProcessing`은 계속 false다.
-- 사망 효과는 죽은 적의 효과 정의와 위치가 필요하다. 버프를 누구에게 줄지(D3)와 효과 피해의 출처도 필요하다. 그래서 `DeathRecord`에 적 정의와 `LastDamageSource`를 더한다. 출처는 기록일 뿐이다.
+- 사망 효과는 죽은 적의 효과 정의와 위치, 효과 피해의 출처가 필요하다. 대기열에 넣을 때 셋을 함께 담는다(`DeathRecord`는 바꾸지 않는다). 출처는 마지막 피해의 출처이며 기록일 뿐이다. 파괴 요청으로 죽은 적은 출처가 없어 넣지 않는다(D5).
+- Step 밖에서 준 피해로 죽은 효과 보유 적은 다음 Step까지 대기열에 남는다(`HasPendingDeathProcessing`). 판 정리는 처리되지 않은 효과를 버린다.
 
 ### 5.4 판 안의 참가자 [제안]
 
@@ -162,7 +163,7 @@ World.Step(delta)
 | D1 | 분기 기준 | `feature/업그레이드연결` | 적·전투·세션이 있어야 스킬이 실제 적을 친다. `feature/적시스템`보다 뒤이고, 업그레이드 화면 ↔ 전투 루프도 있다. `feature/처치보상`은 들어 있지 않다(11절) |
 | D2 | 치명타와 버프의 대상 | Breaker의 수치, Breaker 대상 | 4절 9·10. 샌드박스 명세와 다르다. **사용자 확정 (2026-09-26)** |
 | D3 | 버프를 받는 참가자 | 단일 참가자에게 명시적으로 준다. 여러 참가자는 미정 | 4절 11. 귀속 정책은 F06 |
-| D4 | 샘플에서 효과를 가진 적 [임시] | 달 = 공격 주기 감소, 혜성 = 확정 치명타. 전기 소행성(연쇄 번개)·초신성(폭발)은 새 종류 에셋으로 만들어 단계 풀에 넣는다 | 달·혜성은 원작과 짝을 맞춘 해석이다 [분석]. 사용자의 "처치 시 버프, 처치 시 공격 주기 감소"(SKILL_TREE_PLAN 1절)에 대응한다. `EnemyKind` 주석대로 효과는 종류가 아니라 종류에 붙는 특성이다 |
+| D4 | 샘플에서 효과를 가진 적 [임시] | 달 = 공격 주기 감소, 혜성 = 확정 치명타. 전기 소행성(`electric-asteroid`, 연쇄 번개)·초신성(`supernova`, 폭발)은 새 종류 에셋으로 만들어 세 단계 풀과 전투 시작 공급에 넣는다 | 달·혜성은 원작과 짝을 맞춘 해석이다 [분석]. 사용자의 "처치 시 버프, 처치 시 공격 주기 감소"(SKILL_TREE_PLAN 1절)에 대응한다. `EnemyKind` 주석대로 효과는 종류가 아니라 종류에 붙는 특성이다 |
 | D5 | 처치자가 없는 사망(개발용 파괴 요청)의 효과 | 미정. 제안: 효과를 내지 않는다(샌드박스와 같다) | 파괴 요청은 개발용 적 명령 콘솔만 쓴다 |
 | D6 | 시간 진행 | 지금처럼 프레임당 한 Step. 한 Step 안에서 공격이 여러 번 돌 수 있다(타이머 반복) | 샌드박스의 Step 나누기는 버프 만료 정밀도와 긴 프레임 때문이다. 필요해지면 S12(성능)와 함께 정한다. 버프 만료는 Step 단위로 판정한다 |
 | D7 | 참가자가 받는 스킬 | 콘텐츠의 스킬 전부. 콘솔에서 스킬마다 켜고 끈다 | 원작은 레이저를 트리에서 연다. 노드 해금은 업그레이드 연결 때 한다 |
@@ -180,9 +181,10 @@ World.Step(delta)
 | Core | `Session/SessionAssembler`, `Session/GameSession` | 참가자마다 스킬을 만든다, `SetAimPoint` | SK-002 |
 | Core | `Common/BattleRandom` | 판 seed에서 스트림 나누기 | SK-003 |
 | Core | `Content/ContentData`, `ContentLoader`, `GameContent` | 스킬 저작 형식·검증, 적의 사망 효과 칸 | SK-002·003·005 |
-| Core | `DeathEffects/`, `Enemies/EnemyDefinition`, `Enemies/DeathRecord` | 효과 정의 4종, 처리, 사망 기록에 정의·출처 | SK-005·006 |
+| Core | `DeathEffects/DeathEffectDefinition`, `DeathEffects/DeathEffects`, `Enemies/EnemyDefinition` | 효과 정의(SK-005 연쇄·폭발, SK-006 버프 둘), 대기열과 처리·기록(`LightningHit`, `ExplosionBlast`), 적 종류의 효과 | SK-005·006 |
+| Unity | `Enemies/DeathEffectView`, `Battle/LineStrokes` | 번개 선·폭발 원. 선 그리기 부품은 스킬 화면과 함께 쓴다 | SK-005 |
 | Unity | `Content/SkillSetup`(새 에셋), `Content/EnemyKind` | 스킬 수치, 적 종류의 사망 효과 칸 | SK-002·005 |
-| Unity | `Skills/AimInput`, `Skills/SkillView` | 마우스 → 조준점, 공격·효과 표시 | SK-002·003·005 |
+| Unity | `Skills/AimInput`, `Skills/SkillView` | 마우스 → 조준점, 공격 표시 | SK-002·003 |
 | Unity | `Battle/BattleSystem`, `Battle/BattleOrchestrator`, `GameHost` | 스킬 화면·조준의 시작·정리 자리(오케스트레이터 주석에 이미 비워 둔 자리) | SK-002 |
 | Unity | `Console/SkillConsole` | 켜기·끄기, 수치 창, 버프 남은 시간 | SK-004·006 |
 | Data | `Data/SkillSetup.asset`, `Data/Enemies/*.asset`, `Data/Pools/*.asset` | 샘플 값 [임시] | SK-002·005 |
@@ -202,9 +204,10 @@ World.Step(delta)
 | SK-003 | `Skill.LaserSkipsAimOutsideBoundaryAndStopsWithTheBattle` — 조준점이 없거나 경계 밖이면 그 주기는 예고 없이 지나가고, 끝난 판의 예고는 발사하지 않는다 |
 | SK-003 | `Skill.LaserStartIsReproducibleAndSeparateFromSpawns` — 같은 seed면 같은 시작점. 레이저 난수는 따로 돌아 출현 배치가 뽑는 횟수에 흔들리지 않는다(치명타 스트림은 SK-006) |
 | SK-004 | `Skill.DisabledSkillDropsItsTimerAndPendingShots` — 끈 스킬은 공격하지 않고 예고 중인 발사를 버린다. 다시 켜면 켠 뒤 첫 Step부터 처음처럼 돈다 |
+| SK-005 | `Death.EffectsAreValidatedAtLoad` — 알 수 없는 종류·잘못된 수치를 경로와 함께 보고, 종류 이름이 비면 효과 없음 |
 | SK-005 | `Death.EffectDamageSkipsEffectOwners` — 연쇄·폭발 모두 |
-| SK-005 | `Death.ChainEndsAtHopLimitWithoutRevisit` |
-| SK-005 | `Death.EffectKillsCountInTheSameStep` |
+| SK-005 | `Death.ChainEndsAtHopLimitWithoutRevisit` — 가장 가까운 순, 재방문 없음, 최대 횟수 |
+| SK-005 | `Death.EffectKillsCountInTheSameStep` — 효과 사망도 같은 Step의 사망·처치 수. 파괴 요청 사망은 효과 없음, 판 정리가 남은 효과를 버림 |
 | SK-006 | `Buff.StartsNextStepAndExpires` — 처치 Step의 공격에는 없고, 다음 Step부터, 시간이 끝나면 원래대로 |
 | SK-006 | `Buff.HasteKeepsTimerProgress` |
 | SK-006 | `Buff.KillBuffsApplyOnlyToBreaker` — 주기 감소·확정 치명타는 Breaker에만. 레이저의 주기·피해는 그대로 |
@@ -230,7 +233,7 @@ World.Step(delta)
 | SK-002 | 조준점과 Breaker: 판 안의 참가자·조준점, Breaker 정의·저작 형식·에셋, Step 2, 조준 입력, Breaker 원 표시, 계약 | SK-001 | 구현(계약 64개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-003 | 관통 레이저: 정의·저작 형식, 예고·발사, 경계 반지름, 난수 스트림, 예고·발사선 표시, 계약 | SK-002 | 구현(계약 67개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-004 | 스킬 콘솔: 스킬마다 켜기·끄기, 수치 창 (왼쪽 가운데, 고른 켜짐은 판 사이에 이어짐) | SK-003 | 구현(계약 68개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
-| SK-005 | 사망 효과: 적 종류의 사망 효과 칸, Step 4, 연쇄 번개·폭발, 샘플 종류와 풀 [임시], 번개·폭발 표시, 계약 | SK-002 | 대기 |
+| SK-005 | 사망 효과: 적 종류의 사망 효과 칸, Step 4, 연쇄 번개·폭발, 샘플 종류와 풀 [임시], 번개·폭발 표시, 계약 | SK-002 | 구현(계약 72개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-006 | 처치 버프와 Breaker 치명타: 달·혜성, 참가자 버프, 치명타 판정, 콘솔의 남은 시간, 치명타 표시, 계약 | SK-004·005 | 대기 |
 | SK-007 | 문서: SYSTEM_CATALOG S02·S04·S06 상태와 이 PLAN의 티켓 상태 | SK-006 | 대기 |
 
@@ -247,7 +250,7 @@ World.Step(delta)
 | 항목 | 지금 | 정할 때 |
 |---|---|---|
 | 여러 참가자일 때 버프 귀속 (D3) | 단일 참가자만 | F06 |
-| 처치자 없는 사망의 효과 (D5) | 효과 없음 [제안] | SK-005 |
+| 처치자 없는 사망의 효과 (D5) | 효과 없음 [제안, SK-005에서 그대로 구현] | 파괴가 개발용 명령 밖에서도 쓰일 때 |
 | 유효 간격 하한·버프 되먹임 상한 | 없음 | 업그레이드 연결 |
 | Step 나누기·프레임 예산 (D6) | 프레임당 한 Step | S12 기준 상황을 정할 때 |
 | 연쇄·폭발의 세부 규칙과 수치 | 샌드박스 값 [임시] | 원작 확인 또는 밸런스 |

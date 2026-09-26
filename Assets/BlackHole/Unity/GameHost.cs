@@ -6,7 +6,7 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
-    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면, 적·전투 시스템, 오케스트레이터, 조준 입력, UI(UIManager와 업그레이드·전투 화면),
+    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면, 적·전투 시스템, 오케스트레이터, 조준 입력, UI(UIManager와 업그레이드·전투 화면),
     //   화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔·스킬 콘솔(개발용) 조립.
     // - Start: 업그레이드 화면을 연다. 전투는 업그레이드 화면의 Start battle(또는 전투 시작·종료 콘솔)로 오케스트레이터에 요청한다.
     //   그 뒤로 화면은 전투 시스템의 상태를 따른다(ScreenFlow).
@@ -52,6 +52,7 @@ namespace BlackHole.Unity
         private EnemyLooks _enemyLooks;
         private EnemyView _enemyView;
         private SkillView _skillView;
+        private DeathEffectView _deathEffectView;
         private BattleSystem _battle;
         private BattleOrchestrator _orchestrator;
         private AimInput _aim;
@@ -75,7 +76,8 @@ namespace BlackHole.Unity
             _enemyLooks = new EnemyLooks(enemyCatalog.Kinds());
             _enemyView = new EnemyView(transform, _enemyLooks);
             _skillView = new SkillView(transform);
-            _battle = new BattleSystem(content, nodeTree, _enemyView, _skillView);
+            _deathEffectView = new DeathEffectView(transform);
+            _battle = new BattleSystem(content, nodeTree, _enemyView, _skillView, _deathEffectView);
             _orchestrator = new BattleOrchestrator(content, _battle, LocalPlayers);
             // 업그레이드 화면과 콘솔이 보는 진행 상태: 지금 실제 구성인 로컬 Player 1명.
             PlayerState viewer = _orchestrator.Progress[0];
@@ -152,6 +154,7 @@ namespace BlackHole.Unity
             _console?.Dispose();
             _flow?.Dispose();
             _orchestrator?.Dispose();
+            _deathEffectView?.Dispose();
             _skillView?.Dispose();
             _enemyView?.Dispose();
             _enemyLooks?.Dispose();

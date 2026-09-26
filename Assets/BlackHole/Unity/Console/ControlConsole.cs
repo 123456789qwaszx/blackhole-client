@@ -261,8 +261,8 @@ namespace BlackHole.Unity
             _builder.Append("Speed<pos=6em>").Append(Number(stats.MoveSpeed)).Append('\n');
             _builder.Append("Size<pos=6em>").Append(Number(stats.Size)).Append('\n');
             _builder.Append("Behavior<pos=6em>").Append(Describe(kind.Behavior)).Append('\n');
-            // 특성(전기·폭발·처치 버프)은 종류에 붙는다. 특성 시스템이 붙기 전에는 없다.
-            _builder.Append("Traits<pos=6em>none");
+            // 특성(사망 효과)은 종류에 붙는다.
+            _builder.Append("Traits<pos=6em>").Append(Describe(kind.DeathEffect));
             _detailStats.text = _builder.ToString();
 
             _detailSource.text = battle != null
@@ -279,6 +279,21 @@ namespace BlackHole.Unity
                     return orbit.Clockwise ? "clockwise" : "counterclockwise";
                 default:
                     return behavior.GetType().Name;
+            }
+        }
+
+        private static string Describe(DeathEffectDefinition effect)
+        {
+            switch (effect)
+            {
+                case null:
+                    return "none";
+                case ChainLightningDefinition chain:
+                    return $"chain lightning {Number(chain.Damage)} x{chain.MaxTargets}, hop {Number(chain.Radius)}";
+                case ExplosionDefinition explosion:
+                    return $"explosion {Number(explosion.Damage)}, radius {Number(explosion.Radius)}";
+                default:
+                    return effect.GetType().Name;
             }
         }
 

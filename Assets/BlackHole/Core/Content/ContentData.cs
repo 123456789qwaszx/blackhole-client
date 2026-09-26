@@ -64,6 +64,22 @@ namespace BlackHole.Core
         // 반지름.
         public float Size;
         public EnemyBehaviorData Behavior;
+        // 없거나 종류 이름이 비어 있으면 사망 효과가 없다.
+        public DeathEffectData DeathEffect;
+    }
+
+    // 사망 효과 종류마다 쓰는 칸이 다르다. 종류가 쓰지 않는 칸은 읽지 않는다.
+    [Serializable]
+    public sealed class DeathEffectData
+    {
+        // 종류 이름. 가능한 값은 ContentLoader의 해석 목록에 있다. 비어 있으면 효과가 없다.
+        public string Kind;
+        // ChainLightning, Explosion
+        public float Damage;
+        // ChainLightning(한 번 옮겨 가는 거리), Explosion(반경)
+        public float Radius;
+        // ChainLightning(옮겨 가는 최대 횟수)
+        public int MaxTargets;
     }
 
     // 행동 종류마다 쓰는 칸이 다르다. 지금은 Orbit 하나다.

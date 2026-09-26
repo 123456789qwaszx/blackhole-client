@@ -20,15 +20,17 @@ namespace BlackHole.Core
         }
     }
 
-    // 적 종류 하나의 공유 정의: 기본 수치와 행동.
-    // 사망 보상과 사망 효과는 그 시스템이 붙을 때 더한다. 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
+    // 적 종류 하나의 공유 정의: 기본 수치, 행동, 사망 효과(특성).
+    // 사망 보상은 그 시스템이 붙을 때 더한다. 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
     public sealed class EnemyDefinition
     {
         public string Id { get; }
         public EnemyStats BaseStats { get; }
         public EnemyBehaviorDefinition Behavior { get; }
+        // 이 종류가 죽을 때의 효과. 없으면 null이다. 효과를 가진 적은 사망 효과의 피해를 받지 않는다.
+        public DeathEffectDefinition DeathEffect { get; }
 
-        public EnemyDefinition(string id, EnemyStats baseStats, EnemyBehaviorDefinition behavior)
+        public EnemyDefinition(string id, EnemyStats baseStats, EnemyBehaviorDefinition behavior, DeathEffectDefinition deathEffect = null)
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("ID가 비어 있다.", nameof(id));
@@ -36,6 +38,7 @@ namespace BlackHole.Core
             Id = id;
             BaseStats = baseStats;
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
+            DeathEffect = deathEffect;
         }
     }
 

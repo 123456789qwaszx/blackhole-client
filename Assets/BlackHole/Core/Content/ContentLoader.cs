@@ -106,12 +106,13 @@ namespace BlackHole.Core
 
                 int errors = into.Count;
                 EnemyBehaviorDefinition behavior = LoadBehavior(item.Behavior, at + ".Behavior", into);
+                DeathEffectDefinition deathEffect = LoadDeathEffect(item.DeathEffect, at + ".DeathEffect", into);
                 EnemyStats? stats = GuardValue(at, into, () => new EnemyStats(item.MaxHealth, item.MoveSpeed, item.Size));
 
                 if (into.Count > errors)
                     continue;
 
-                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, stats.Value, behavior));
+                EnemyDefinition enemy = Guard(at, into, () => new EnemyDefinition(item.Id, stats.Value, behavior, deathEffect));
 
                 if (enemy != null)
                     enemies.Add(enemy);
@@ -132,6 +133,24 @@ namespace BlackHole.Core
                     return new OrbitBehaviorDefinition(item.Clockwise);
                 default:
                     into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 행동 종류 '{item.Kind}'. 가능한 값: Orbit."));
+                    return null;
+            }
+        }
+
+        // 없거나 종류 이름이 비어 있으면 효과가 없다(null). 종류 이름을 하위 정의로 바꾸고, 가능한 값을 진단에 싣는다.
+        private static DeathEffectDefinition LoadDeathEffect(DeathEffectData item, string at, List<ContentDiagnostic> into)
+        {
+            if (item == null || string.IsNullOrEmpty(item.Kind))
+                return null;
+
+            switch (item.Kind)
+            {
+                case "ChainLightning":
+                    return Guard(at, into, () => new ChainLightningDefinition(item.Damage, item.Radius, item.MaxTargets));
+                case "Explosion":
+                    return Guard(at, into, () => new ExplosionDefinition(item.Damage, item.Radius));
+                default:
+                    into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 사망 효과 종류 '{item.Kind}'. 가능한 값: ChainLightning, Explosion."));
                     return null;
             }
         }
