@@ -7,7 +7,7 @@ namespace BlackHole.Unity
 {
     // 스킬의 화면. 매 프레임 판의 참가자를 읽어 그린다. 게임 상태를 바꾸지 않고, 피해를 다시 계산하지 않는다.
     // - Breaker 범위 원: 참가자의 조준점에 Breaker 반지름으로 늘 그린다. 판정과 같은 값이다(GAME_RULES 6절). 조준점이 없으면 숨긴다.
-    // - Breaker Tick 원: Tick 기록마다 한 번 굵게 그렸다가 옅어진다. 빈 Tick(조준점 없음)은 그리지 않는다.
+    // - Breaker Tick 원: Tick 기록마다 한 번 굵게 그렸다가 옅어진다. 치명타 Tick은 금색이다. 빈 Tick(조준점 없음)은 그리지 않는다.
     // - 레이저 예고선: 예고 중인 발사마다 얇은 선. 발사에 가까울수록 진해진다(CONTENT_DEFINITION 5.2).
     // - 레이저 발사선: 발사 기록마다 판정 굵기 그대로의 선이 잠깐 보였다가 옅어진다.
     // 정지 중에는 판이 기록을 비우지 않으므로, 이미 그린 Tick·발사는 번호로 걸러 두 번 그리지 않는다.
@@ -19,6 +19,7 @@ namespace BlackHole.Unity
         private const float TelegraphWidth = 0.04f;
         private const float FireSeconds = 0.2f;
         private static readonly Color BreakerColor = new Color(0.3f, 1f, 0.55f, 1f);
+        private static readonly Color CriticalColor = new Color(1f, 0.85f, 0.2f, 1f);
         private static readonly Color RangeColor = new Color(0.3f, 1f, 0.55f, 0.45f);
         private static readonly Color TelegraphColor = new Color(1f, 0.9f, 0.3f, 1f);
         private static readonly Color FireColor = new Color(0.35f, 0.9f, 1f, 1f);
@@ -96,7 +97,10 @@ namespace BlackHole.Unity
                 drawn = tick.Number;
 
                 if (tick.Center.HasValue)
-                    LineStrokes.SetCircle(_strokes.Flash("Breaker Tick", TickWidth, BreakerColor, TickSeconds), tick.Center.Value, tick.Radius);
+                {
+                    Color color = tick.IsCritical ? CriticalColor : BreakerColor;
+                    LineStrokes.SetCircle(_strokes.Flash("Breaker Tick", TickWidth, color, TickSeconds), tick.Center.Value, tick.Radius);
+                }
             }
 
             _drawnTicks[player.Id] = drawn;

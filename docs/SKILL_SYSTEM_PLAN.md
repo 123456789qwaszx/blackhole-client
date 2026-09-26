@@ -162,7 +162,7 @@ World.Step(delta)
 |---|---|---|---|
 | D1 | 분기 기준 | `feature/업그레이드연결` | 적·전투·세션이 있어야 스킬이 실제 적을 친다. `feature/적시스템`보다 뒤이고, 업그레이드 화면 ↔ 전투 루프도 있다. `feature/처치보상`은 들어 있지 않다(11절) |
 | D2 | 치명타와 버프의 대상 | Breaker의 수치, Breaker 대상 | 4절 9·10. 샌드박스 명세와 다르다. **사용자 확정 (2026-09-26)** |
-| D3 | 버프를 받는 참가자 | 단일 참가자에게 명시적으로 준다. 여러 참가자는 미정 | 4절 11. 귀속 정책은 F06 |
+| D3 | 버프를 받는 참가자 | 단일 참가자에게 명시적으로 준다. 여러 참가자는 미정 — 참가자가 둘 이상이면 아무도 받지 않는다(`feature/처치보상`의 결산과 같은 전제) | 4절 11. 귀속 정책은 F06 |
 | D4 | 샘플에서 효과를 가진 적 [임시] | 달 = 공격 주기 감소, 혜성 = 확정 치명타. 전기 소행성(`electric-asteroid`, 연쇄 번개)·초신성(`supernova`, 폭발)은 새 종류 에셋으로 만들어 세 단계 풀과 전투 시작 공급에 넣는다 | 달·혜성은 원작과 짝을 맞춘 해석이다 [분석]. 사용자의 "처치 시 버프, 처치 시 공격 주기 감소"(SKILL_TREE_PLAN 1절)에 대응한다. `EnemyKind` 주석대로 효과는 종류가 아니라 종류에 붙는 특성이다 |
 | D5 | 처치자가 없는 사망(개발용 파괴 요청)의 효과 | 미정. 제안: 효과를 내지 않는다(샌드박스와 같다) | 파괴 요청은 개발용 적 명령 콘솔만 쓴다 |
 | D6 | 시간 진행 | 지금처럼 프레임당 한 Step. 한 Step 안에서 공격이 여러 번 돌 수 있다(타이머 반복) | 샌드박스의 Step 나누기는 버프 만료 정밀도와 긴 프레임 때문이다. 필요해지면 S12(성능)와 함께 정한다. 버프 만료는 Step 단위로 판정한다 |
@@ -176,7 +176,8 @@ World.Step(delta)
 | Core | `Skills/BreakerDefinition`, `Skills/BreakerSkill`(Tick 기록 `BreakerTick` 포함) | 새로 만든다 | SK-002 |
 | Core | `Skills/LaserDefinition`, `Skills/LaserSkill` | 새로 만든다 | SK-003 |
 | Core | `World/World` | 참가자 목록, Step 2·4 자리 | SK-002·005 |
-| Core | `World/BattlePlayer` [제안] | 조준점·스킬·버프 | SK-002·006 |
+| Core | `World/BattlePlayer` [제안] | 조준점·스킬 | SK-002 |
+| Core | `Skills/BreakerSkill`, `Skills/BreakerDefinition` | 처치 버프 상태(남은 시간·주기 배율)는 대상인 Breaker가 가진다. 치명타 확률·배율, Tick의 `IsCritical`, 치명타 난수 스트림 | SK-006 |
 | Core | `Skills/BreakerSkill`, `Skills/LaserSkill` | 켜기·끄기(`SetEnabled`, 개발용 콘솔만 부른다) | SK-004 |
 | Core | `Session/SessionAssembler`, `Session/GameSession` | 참가자마다 스킬을 만든다, `SetAimPoint` | SK-002 |
 | Core | `Common/BattleRandom` | 판 seed에서 스트림 나누기 | SK-003 |
@@ -209,8 +210,10 @@ World.Step(delta)
 | SK-005 | `Death.ChainEndsAtHopLimitWithoutRevisit` — 가장 가까운 순, 재방문 없음, 최대 횟수 |
 | SK-005 | `Death.EffectKillsCountInTheSameStep` — 효과 사망도 같은 Step의 사망·처치 수. 파괴 요청 사망은 효과 없음, 판 정리가 남은 효과를 버림 |
 | SK-006 | `Buff.StartsNextStepAndExpires` — 처치 Step의 공격에는 없고, 다음 Step부터, 시간이 끝나면 원래대로 |
-| SK-006 | `Buff.HasteKeepsTimerProgress` |
-| SK-006 | `Buff.KillBuffsApplyOnlyToBreaker` — 주기 감소·확정 치명타는 Breaker에만. 레이저의 주기·피해는 그대로 |
+| SK-006 | `Buff.HasteKeepsTimerProgress` — 주기 절반에서 얻으면 남은 절반만 빨리 찬다 |
+| SK-006 | `Buff.KillBuffsApplyOnlyToBreaker` — 주기 감소·확정 치명타는 Breaker에만. 레이저의 주기·피해는 그대로. 확정 치명타는 Breaker의 배율을 한 번 |
+| SK-006 | `Buff.GoesToTheSingleParticipantOnly` — 참가자가 둘 이상이면 아무도 받지 않는다(D3) |
+| SK-006 | `Skill.BreakerCriticalIsOneRollPerTickOnItsOwnStream` — Tick마다 한 번 판정해 맞은 적 모두 같은 결과, 치명타 확률이 레이저 시작점을 바꾸지 않는다 |
 
 마지막 계약은 D2(Breaker에만)를 지킨다.
 
@@ -234,7 +237,7 @@ World.Step(delta)
 | SK-003 | 관통 레이저: 정의·저작 형식, 예고·발사, 경계 반지름, 난수 스트림, 예고·발사선 표시, 계약 | SK-002 | 구현(계약 67개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-004 | 스킬 콘솔: 스킬마다 켜기·끄기, 수치 창 (왼쪽 가운데, 고른 켜짐은 판 사이에 이어짐) | SK-003 | 구현(계약 68개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-005 | 사망 효과: 적 종류의 사망 효과 칸, Step 4, 연쇄 번개·폭발, 샘플 종류와 풀 [임시], 번개·폭발 표시, 계약 | SK-002 | 구현(계약 72개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
-| SK-006 | 처치 버프와 Breaker 치명타: 달·혜성, 참가자 버프, 치명타 판정, 콘솔의 남은 시간, 치명타 표시, 계약 | SK-004·005 | 대기 |
+| SK-006 | 처치 버프와 Breaker 치명타: 달·혜성, 참가자 버프, 치명타 판정, 콘솔의 남은 시간, 치명타 표시, 계약 | SK-004·005 | 구현(계약 77개 통과, Unity 밖 빌드 성공), 플레이 확인 대기 |
 | SK-007 | 문서: SYSTEM_CATALOG S02·S04·S06 상태와 이 PLAN의 티켓 상태 | SK-006 | 대기 |
 
 - SK-002 뒤에는 레이저 쪽(SK-003·004)과 사망 효과 쪽(SK-005)을 따로 진행할 수 있다.

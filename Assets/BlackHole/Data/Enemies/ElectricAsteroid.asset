@@ -21,5 +21,7 @@ MonoBehaviour:
   effectDamage: 5
   effectRadius: 2.5
   effectMaxTargets: 3
+  effectDuration: 0
+  effectIntervalMultiplier: 0
   sprite: {fileID: 0}
   color: {r: 0.45, g: 0.75, b: 1, a: 1}

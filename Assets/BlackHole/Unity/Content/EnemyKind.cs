@@ -13,7 +13,7 @@ namespace BlackHole.Unity
     public sealed class EnemyKind : ScriptableObject
     {
         // 사망 효과 종류. None은 효과가 없다. 이름이 Core 저작 형식의 종류 이름이 된다.
-        public enum DeathEffectKind { None, ChainLightning, Explosion }
+        public enum DeathEffectKind { None, ChainLightning, Explosion, AttackHaste, GuaranteedCritical }
 
         [Tooltip("공급과 다른 데이터가 이 종류를 가리키는 식별자. 정한 뒤에는 바꾸지 않는다.")]
         [SerializeField] private string id;
@@ -36,6 +36,10 @@ namespace BlackHole.Unity
         [SerializeField] private float effectRadius;
         [Tooltip("ChainLightning: 번개가 옮겨 가는 최대 횟수.")]
         [SerializeField] private int effectMaxTargets;
+        [Tooltip("AttackHaste·GuaranteedCritical: 버프 시간(초). 버프는 Breaker에만 붙는다.")]
+        [SerializeField] private float effectDuration;
+        [Tooltip("AttackHaste: Breaker 공격 주기 배율(0 ~ 1). 0.5면 주기가 절반이다.")]
+        [SerializeField] private float effectIntervalMultiplier;
 
         [Header("외형 (Core는 모른다)")]
         [Tooltip("비우면 임시 원으로 그린다.")]
@@ -59,6 +63,8 @@ namespace BlackHole.Unity
                 Damage = effectDamage,
                 Radius = effectRadius,
                 MaxTargets = effectMaxTargets,
+                Duration = effectDuration,
+                IntervalMultiplier = effectIntervalMultiplier,
             },
         };
     }

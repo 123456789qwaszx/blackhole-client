@@ -13,6 +13,7 @@ namespace BlackHole.Unity
     // - 켜기·끄기: 고른 상태를 진행 중인 판의 로컬 참가자 스킬에 맞춘다. 고른 상태는 판 사이에 이어져, 새 판이 시작되면 그 판에도 맞춘다.
     //   끄면 돌던 주기와 예고 중인 발사를 버리고, 다시 켜면 처음부터 돈다(BreakerSkill·LaserSkill.SetEnabled).
     // - 이름: 그 스킬의 수치가 아래 설명창에 나온다. 같은 이름을 다시 누르면 닫힌다. 수치는 콘텐츠의 기본 수치다(업그레이드는 아직 잇지 않았다).
+    // - 버프: 진행 중인 판에서 로컬 참가자의 Breaker에 붙은 처치 버프(공격 주기 감소·확정 치명타)의 남은 시간.
     // 새 판의 첫 Step 전에 맞추도록 GameHost가 이 콘솔을 전투 시스템보다 먼저 부른다(끈 스킬이 판 시작에 한 번 공격하지 않게).
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
@@ -30,7 +31,11 @@ namespace BlackHole.Unity
         private readonly List<Row> _rows = new List<Row>();
         private readonly GameObject _detailPanel;
         private readonly TMP_Text _detailText;
+        private readonly TMP_Text _buffText;
         private Row _selected;
+        // 버프 표시가 마지막으로 그린 값(0.1초 단위). 바뀔 때만 다시 쓴다.
+        private int _shownHaste = -1;
+        private int _shownCritical = -1;
 
         // 스킬 한 줄. 스킬 종류마다 켜짐을 읽고 바꾸는 방법만 다르다.
         private sealed class Row
@@ -62,7 +67,8 @@ namespace BlackHole.Unity
                 AddRow(panel, new Row
                 {
                     Name = "Breaker",
-                    Stats = $"Damage {Number(breaker.Damage)}\nInterval {Number(breaker.Interval)} s\nRadius {Number(breaker.Radius)}",
+                    Stats = $"Damage {Number(breaker.Damage)}\nInterval {Number(breaker.Interval)} s\nRadius {Number(breaker.Radius)}\n" +
+                        $"Crit {Number(breaker.CritChance * 100)}% x{Number(breaker.CritMultiplier)}",
                     IsEnabled = p => p.Breaker?.Enabled,
                     SetEnabled = (p, on) => p.Breaker?.SetEnabled(on),
                 });
@@ -84,6 +90,9 @@ namespace BlackHole.Unity
             if (_rows.Count == 0)
                 Text(panel, "None", "No skills in content.", 20);
 
+            _buffText = Text(panel, "Buffs", string.Empty, 20);
+            ShowBuffs(0, 0);
+
             RectTransform detail = Panel(stack, "Detail", DetailColor);
             _detailPanel = detail.gameObject;
             _detailText = Text(detail, "Stats", string.Empty, 22);
@@ -96,6 +105,9 @@ namespace BlackHole.Unity
                 _canvas.SetActive(!_canvas.activeSelf);
 
             Apply();
+
+            BreakerSkill breaker = _battle.IsRunning ? _battle.Session.World.PlayerOf(_player).Breaker : null;
+            ShowBuffs(breaker?.HasteRemaining ?? 0, breaker?.GuaranteedCriticalRemaining ?? 0);
         }
 
         public void Dispose() => Object.Destroy(_canvas);
@@ -139,6 +151,21 @@ namespace BlackHole.Unity
 
             if (_selected != null)
                 _detailText.text = $"{_selected.Name}\n{_selected.Stats}";
+        }
+
+        private void ShowBuffs(float haste, float critical)
+        {
+            int hasteTenths = Mathf.CeilToInt(haste * 10);
+            int criticalTenths = Mathf.CeilToInt(critical * 10);
+
+            if (hasteTenths == _shownHaste && criticalTenths == _shownCritical)
+                return;
+
+            _shownHaste = hasteTenths;
+            _shownCritical = criticalTenths;
+            string hasteText = hasteTenths > 0 ? $"{hasteTenths / 10f:0.0} s" : "-";
+            string criticalText = criticalTenths > 0 ? $"{criticalTenths / 10f:0.0} s" : "-";
+            _buffText.text = $"Breaker haste  {hasteText}\nBreaker always crit  {criticalText}";
         }
 
         private static void ShowToggle(Row row)

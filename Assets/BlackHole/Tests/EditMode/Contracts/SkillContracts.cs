@@ -21,6 +21,42 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Skill.LaserSkipsAimOutsideBoundaryAndStopsWithTheBattle", LaserSkipsAimOutsideBoundaryAndStopsWithTheBattle);
             yield return new Contract("Skill.LaserStartIsReproducibleAndSeparateFromSpawns", LaserStartIsReproducibleAndSeparateFromSpawns);
             yield return new Contract("Skill.DisabledSkillDropsItsTimerAndPendingShots", DisabledSkillDropsItsTimerAndPendingShots);
+            yield return new Contract("Skill.BreakerCriticalIsOneRollPerTickOnItsOwnStream", BreakerCriticalIsOneRollPerTickOnItsOwnStream);
+        }
+
+        // Breaker의 치명타는 Tick마다 한 번 정해지고, 그 Tick에 맞은 적 모두가 같은 결과를 받는다.
+        // 치명타 난수는 Breaker만 쓰므로, 치명타 확률이 달라도 같은 seed의 레이저 시작점은 같다.
+        private static void BreakerCriticalIsOneRollPerTickOnItsOwnStream()
+        {
+            GameSession rolling = CriticalArena(critChance: 0.5f);
+            GameSession never = CriticalArena(critChance: 0);
+            int critical = 0;
+            int plain = 0;
+
+            for (int i = 0; i < 10; i++)
+            {
+                float step = i == 0 ? 0.1f : 1;
+                rolling.Advance(step);
+                never.Advance(step);
+
+                BreakerTick tick = rolling.World.Players[0].Breaker.Ticks[0];
+                float expected = rolling.World.Enemies[0].Health;
+
+                foreach (Enemy enemy in rolling.World.Enemies)
+                    Expect.Near(expected, enemy.Health);
+
+                if (tick.IsCritical)
+                    critical++;
+                else
+                    plain++;
+
+                Expect.Equal(
+                    never.World.Players[0].Laser.PendingShots[0].Start,
+                    rolling.World.Players[0].Laser.PendingShots[0].Start);
+            }
+
+            Expect.True(critical > 0 && plain > 0, "확률 0.5면 이 seed의 10 Tick에 치명타와 아닌 Tick이 모두 있어야 한다.");
+            Expect.Near(1000 - plain - 2 * critical, rolling.World.Enemies[0].Health);
         }
 
         // 끈 스킬은 공격하지 않고, 돌던 주기와 예고 중인 발사를 버린다(발사하지 않는다).
@@ -69,12 +105,19 @@ namespace BlackHole.Core.Tests
             Expect.Near(1, without.Elapsed);
 
             ContentData data = TestContent.Data();
-            data.Breaker = new BreakerData { Damage = 0, Interval = 1, Radius = 1 };
+            data.Breaker = new BreakerData { Damage = 0, Interval = 1, Radius = 1, CritMultiplier = 1 };
             data.Laser = new LaserData { Damage = 1, Interval = 1, Width = 1, TelegraphDuration = 0.4f, BoundaryRadius = -1 };
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(!result.Succeeded, "잘못된 수치의 스킬로는 조립할 수 없다.");
             TestContent.HasDiagnostic(result, "Breaker", "양수");
             TestContent.HasDiagnostic(result, "Laser", "양수");
+
+            // 치명타 확률은 0 ~ 1, 치명타 배율은 1 이상이다.
+            data.Laser = null;
+            data.Breaker = new BreakerData { Damage = 1, Interval = 1, Radius = 1, CritChance = 1.5f, CritMultiplier = 2 };
+            TestContent.HasDiagnostic(ContentLoader.Load(data), "Breaker", "0부터 1");
+            data.Breaker = new BreakerData { Damage = 1, Interval = 1, Radius = 1, CritChance = 0, CritMultiplier = 0.5f };
+            TestContent.HasDiagnostic(ContentLoader.Load(data), "Breaker", "1 이상");
         }
 
         // 첫 Step에 첫 Tick. 조준점이 없으면 빈 Tick이고 주기는 소비된다(미뤄 두지 않는다).
@@ -276,7 +319,7 @@ namespace BlackHole.Core.Tests
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, count));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health));
             TestContent.Allow(data, TestContent.EnemyId);
-            data.Breaker = new BreakerData { Damage = damage, Interval = 1, Radius = radius };
+            data.Breaker = new BreakerData { Damage = damage, Interval = 1, Radius = radius, CritMultiplier = 1 };
             return data;
         }
 
@@ -291,6 +334,16 @@ namespace BlackHole.Core.Tests
                 Damage = damage, Interval = 1, Width = width, TelegraphDuration = 0.4f, BoundaryRadius = Boundary,
             };
             return data;
+        }
+
+        // Breaker(피해 1, 배율 2, 원은 판 전체)와 아무도 맞히지 않는 가는 레이저가 있는 판. seed 3, HQ에 조준한다.
+        private static GameSession CriticalArena(float critChance)
+        {
+            ContentData data = Arena(radius: 100, count: 6, health: 1000, damage: 1);
+            data.Breaker.CritChance = critChance;
+            data.Breaker.CritMultiplier = 2;
+            data.Laser = new LaserData { Damage = 1, Interval = 1, Width = 0.001f, TelegraphDuration = 0.4f, BoundaryRadius = Boundary };
+            return Laser(TestContent.Load(data), seed: 3);
         }
 
         // 레이저 판을 seed로 조립해 시작하고, HQ에 조준한다.

@@ -15,6 +15,8 @@ MonoBehaviour:
   breakerDamage: 2
   breakerInterval: 1
   breakerRadius: 1.5
+  breakerCritChance: 0
+  breakerCritMultiplier: 2
   laserDamage: 3
   laserInterval: 4
   laserWidth: 0.5

@@ -17,5 +17,11 @@ MonoBehaviour:
   moveSpeed: 3
   size: 0.2
   clockwise: 0
+  deathEffect: 4
+  effectDamage: 0
+  effectRadius: 0
+  effectMaxTargets: 0
+  effectDuration: 5
+  effectIntervalMultiplier: 0
   sprite: {fileID: 0}
   color: {r: 0.6, g: 0.95, b: 1, a: 1}

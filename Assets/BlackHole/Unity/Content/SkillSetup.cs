@@ -15,6 +15,10 @@ namespace BlackHole.Unity
         [SerializeField] private float breakerInterval = 1;
         [Tooltip("공격 원의 반지름. 화면의 범위 표시도 이 값이다.")]
         [SerializeField] private float breakerRadius = 1.5f;
+        [Tooltip("한 Tick이 치명타일 확률(0 ~ 1).")]
+        [SerializeField] private float breakerCritChance;
+        [Tooltip("치명타 Tick의 피해 배율(1 이상). 혜성의 확정 치명타도 이 배율을 쓴다.")]
+        [SerializeField] private float breakerCritMultiplier = 2;
 
         [Header("관통 레이저: 경계 원 위의 무작위 지점에서 조준점을 향해 예고한 뒤 관통한다")]
         [SerializeField] private float laserDamage = 3;
@@ -35,6 +39,8 @@ namespace BlackHole.Unity
                 Damage = breakerDamage,
                 Interval = breakerInterval,
                 Radius = breakerRadius,
+                CritChance = breakerCritChance,
+                CritMultiplier = breakerCritMultiplier,
             };
             data.Laser = new LaserData
             {

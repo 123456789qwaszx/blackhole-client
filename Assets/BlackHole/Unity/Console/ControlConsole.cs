@@ -292,6 +292,10 @@ namespace BlackHole.Unity
                     return $"chain lightning {Number(chain.Damage)} x{chain.MaxTargets}, hop {Number(chain.Radius)}";
                 case ExplosionDefinition explosion:
                     return $"explosion {Number(explosion.Damage)}, radius {Number(explosion.Radius)}";
+                case AttackHasteDefinition haste:
+                    return $"Breaker haste x{Number(haste.IntervalMultiplier)}, {Number(haste.Duration)} s";
+                case GuaranteedCriticalDefinition critical:
+                    return $"Breaker always critical, {Number(critical.Duration)} s";
                 default:
                     return effect.GetType().Name;
             }

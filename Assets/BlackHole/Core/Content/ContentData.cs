@@ -39,6 +39,10 @@ namespace BlackHole.Core
         public float Interval;
         // 조준점을 중심으로 한 공격 원의 반지름.
         public float Radius;
+        // 한 Tick이 치명타일 확률(0 ~ 1).
+        public float CritChance;
+        // 치명타 Tick의 피해 배율(1 이상).
+        public float CritMultiplier;
     }
 
     [Serializable]
@@ -80,6 +84,10 @@ namespace BlackHole.Core
         public float Radius;
         // ChainLightning(옮겨 가는 최대 횟수)
         public int MaxTargets;
+        // AttackHaste, GuaranteedCritical(버프 시간, 초)
+        public float Duration;
+        // AttackHaste(공격 주기 배율, 0 ~ 1)
+        public float IntervalMultiplier;
     }
 
     // 행동 종류마다 쓰는 칸이 다르다. 지금은 Orbit 하나다.

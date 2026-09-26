@@ -28,11 +28,15 @@ namespace BlackHole.Core.Tests
             data.Enemies.Add(WithEffect(Electric, 1, new DeathEffectData { Kind = "ChainLightning", Damage = 1, Radius = 1, MaxTargets = 0 }));
             data.Enemies.Add(WithEffect("frozen", 1, new DeathEffectData { Kind = "Freeze" }));
             data.Enemies.Add(WithEffect(Normal, 1, new DeathEffectData { Kind = string.Empty }));
+            data.Enemies.Add(WithEffect("moon", 1, new DeathEffectData { Kind = "AttackHaste", Duration = 5, IntervalMultiplier = 1 }));
+            data.Enemies.Add(WithEffect("comet", 1, new DeathEffectData { Kind = "GuaranteedCritical", Duration = 0 }));
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.True(!result.Succeeded, "잘못된 사망 효과로는 조립할 수 없다.");
             TestContent.HasDiagnostic(result, $"Enemies[{Electric}].DeathEffect", "1부터");
             TestContent.HasDiagnostic(result, "Enemies[frozen].DeathEffect.Kind", "Freeze");
-            Expect.Equal(2, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Enemies[moon].DeathEffect", "1보다 작은");
+            TestContent.HasDiagnostic(result, "Enemies[comet].DeathEffect", "양수");
+            Expect.Equal(4, result.Diagnostics.Count);
         }
 
         // 폭발과 연쇄 번개는 효과를 가진 적에게 피해를 주지 않는다. 효과 없는 적만 맞는다.
@@ -104,7 +108,7 @@ namespace BlackHole.Core.Tests
         private static void EffectKillsCountInTheSameStep()
         {
             ContentData data = Arena(normals: 3, electrics: 0, explosives: 3, normalHealth: 5);
-            data.Breaker = new BreakerData { Damage = 1, Interval = 100, Radius = 100 };
+            data.Breaker = new BreakerData { Damage = 1, Interval = 100, Radius = 100, CritMultiplier = 1 };
             GameSession game = TestContent.Session(data);
             World world = game.World;
             game.SetAimPoint(TestContent.First, BattleSpace.Origin);

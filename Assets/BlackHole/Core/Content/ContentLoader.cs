@@ -71,7 +71,8 @@ namespace BlackHole.Core
             if (item == null)
                 return null;
 
-            return Guard("Breaker", into, () => new BreakerDefinition(item.Damage, item.Interval, item.Radius));
+            return Guard("Breaker", into, () =>
+                new BreakerDefinition(item.Damage, item.Interval, item.Radius, item.CritChance, item.CritMultiplier));
         }
 
         // 없으면 판에 레이저가 없다.
@@ -149,8 +150,13 @@ namespace BlackHole.Core
                     return Guard(at, into, () => new ChainLightningDefinition(item.Damage, item.Radius, item.MaxTargets));
                 case "Explosion":
                     return Guard(at, into, () => new ExplosionDefinition(item.Damage, item.Radius));
+                case "AttackHaste":
+                    return Guard(at, into, () => new AttackHasteDefinition(item.Duration, item.IntervalMultiplier));
+                case "GuaranteedCritical":
+                    return Guard(at, into, () => new GuaranteedCriticalDefinition(item.Duration));
                 default:
-                    into.Add(new ContentDiagnostic(at + ".Kind", $"알 수 없는 사망 효과 종류 '{item.Kind}'. 가능한 값: ChainLightning, Explosion."));
+                    into.Add(new ContentDiagnostic(at + ".Kind",
+                        $"알 수 없는 사망 효과 종류 '{item.Kind}'. 가능한 값: ChainLightning, Explosion, AttackHaste, GuaranteedCritical."));
                     return null;
             }
         }

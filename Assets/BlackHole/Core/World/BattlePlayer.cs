@@ -14,11 +14,11 @@ namespace BlackHole.Core
         public BreakerSkill Breaker { get; }
         public LaserSkill Laser { get; }
 
-        // seed는 판의 seed다. 레이저는 여기서 자기만 쓰는 난수를 받는다.
+        // seed는 판의 seed다. 레이저(시작점)와 Breaker(치명타)는 여기서 자기만 쓰는 난수를 받는다.
         internal BattlePlayer(PlayerId id, BreakerDefinition breaker, LaserDefinition laser, int seed)
         {
             Id = id;
-            Breaker = breaker != null ? new BreakerSkill(breaker) : null;
+            Breaker = breaker != null ? new BreakerSkill(breaker, BattleRandom.Stream(seed, id, BattleRandom.CriticalStream)) : null;
             Laser = laser != null ? new LaserSkill(laser, BattleRandom.Stream(seed, id, BattleRandom.LaserStream)) : null;
         }
 

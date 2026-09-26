@@ -44,6 +44,8 @@ namespace BlackHole.Core
     // 사망 1회·사망 기록·처치 수는 적 시스템이 맡는다. 효과를 가진 적은 효과 피해를 받지 않으므로 효과로 생긴 사망은
     // 대기열에 새 효과를 넣지 않는다. 그래서 한 번 훑으면 끝난다.
     // 효과 피해의 출처는 그 효과를 가진 적을 죽인 참가자다. 기록일 뿐이며 귀속 규칙이 아니다(Damage.Source).
+    // 처치 버프(공격 주기 감소·확정 치명타)는 받는 참가자의 Breaker에 붙는다. 받는 참가자: 지금 실제 구성은 로컬 1명이다.
+    // 다인 플레이의 귀속은 미정이라 참가자가 둘 이상이면 아무도 받지 않는다(처치보상의 결산과 같은 전제, SKILL_SYSTEM_PLAN D3).
     // 판이 끝나면 처리되지 않은 효과는 버린다(끝난 판은 새 결과를 만들지 않는다).
     public sealed class DeathEffects
     {
@@ -110,11 +112,20 @@ namespace BlackHole.Core
                     case ExplosionDefinition explosion:
                         Explode(explosion, pending, world);
                         break;
+                    case AttackHasteDefinition haste:
+                        BuffReceiver(world)?.Breaker?.GrantHaste(haste);
+                        break;
+                    case GuaranteedCriticalDefinition critical:
+                        BuffReceiver(world)?.Breaker?.GrantGuaranteedCritical(critical);
+                        break;
                 }
             }
 
             _pending.Clear();
         }
+
+        // 처치 버프를 받는 참가자. 참가자가 한 명일 때만 있다(다인 귀속은 미정).
+        private static BattlePlayer BuffReceiver(World world) => world.Players.Count == 1 ? world.Players[0] : null;
 
         // 효과 피해를 받을 수 있는 적: 살아 있고 효과가 없는 적(World.Enemies는 살아 있는 적뿐이다).
         private static bool CanBeStruck(Enemy enemy) => enemy.Definition.DeathEffect == null;
