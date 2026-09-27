@@ -8,17 +8,21 @@ namespace BlackHole.Unity
     internal sealed class GameFlow : IDisposable
     {
         private readonly ScreenFlow _screens;
+        private readonly UIManager _ui;
         private readonly BattleSystem _battle;
         private readonly BattleOrchestrator _orchestrator;
         private readonly NodeTree _tree;
         private readonly PlayerState _player;
         private readonly SettlementState _settlement;
         private readonly IReadOnlyList<NodeTreeView.NodeItem> _nodes;
+        private long _shownGold;
+        private int _shownOwned;
 
-        public GameFlow(ScreenFlow screens, BattleSystem battle, BattleOrchestrator orchestrator,
+        public GameFlow(ScreenFlow screens, UIManager ui, BattleSystem battle, BattleOrchestrator orchestrator,
             NodeTree tree, NodeTreeData layout, PlayerState player, SettlementState settlement)
         {
             _screens = screens;
+            _ui = ui;
             _battle = battle;
             _orchestrator = orchestrator;
             _tree = tree;
@@ -47,7 +51,7 @@ namespace BlackHole.Unity
         {
             FollowBattle();
             ShowBattle();
-            _screens.RefreshUpgrade();
+            RefreshUpgrade();
         }
 
         // 시작·정리 중에는 기존 화면을 유지한다. 실패 시에도 기존 화면을 유지한다.
@@ -60,34 +64,57 @@ namespace BlackHole.Unity
             if (_battle.IsRunning)
             {
                 _settlement.Clear();
-                if (!_screens.IsBattleOpen)
+                if (!(_ui.CurrentRoot is BattleScreen))
                     _screens.GoToBattle();
             }
             else if (_settlement.Pending != null)
             {
-                if (!_screens.IsSettlementOpen)
+                if (!(_ui.CurrentRoot is SettlementScreen))
                 {
                     BattleRawData raw = _settlement.Pending;
                     _screens.GoToSettlement(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
                         raw.Kills, raw.EarnedGold, _player.Gold);
                 }
             }
-            else if (_battle.IsIdle && !_screens.IsUpgradeOpen)
+            else if (_battle.IsIdle && !(_ui.CurrentRoot is UpgradeScreen))
             {
                 _screens.GoToUpgrade(_nodes, _tree.Graph.Links);
+                ShowUpgrade((UpgradeScreen)_ui.CurrentRoot);
             }
         }
 
         private void ShowBattle()
         {
-            if (!_screens.IsBattleOpen)
+            if (!(_ui.CurrentRoot is BattleScreen screen))
                 return;
 
             GameSession session = _battle.Session;
             if (session == null)
-                _screens.ShowBattleIdle();
+                screen.ShowIdle();
             else
-                _screens.ShowBattle(session.Remaining, session.World.EarnedGold, session.Phase == SessionPhase.Paused);
+                screen.Show(session.Remaining, session.World.EarnedGold, session.Phase == SessionPhase.Paused);
+        }
+
+        // 개발용 콘솔도 진행 상태를 바꿀 수 있으므로 현재 화면에서 값이 달라졌을 때만 표시한다.
+        private void RefreshUpgrade()
+        {
+            if (_ui.CurrentRoot is UpgradeScreen screen &&
+                (_player.Gold != _shownGold || _player.OwnedNodes.Count != _shownOwned))
+                ShowUpgrade(screen);
+        }
+
+        private void ShowUpgrade(UpgradeScreen screen)
+        {
+            _shownGold = _player.Gold;
+            _shownOwned = _player.OwnedNodes.Count;
+            screen.ShowGold(_shownGold);
+            screen.ShowProgress(_shownOwned, _tree.Nodes.Count);
+
+            var states = new Dictionary<string, NodeState>(_tree.Nodes.Count, StringComparer.Ordinal);
+            foreach (NodeDefinition node in _tree.Nodes)
+                states.Add(node.Id, NodePurchase.StateOf(_player, _tree, node.Id));
+
+            screen.ShowNodes(states);
         }
 
         private void OnBattleCompleted(BattleRawData raw) => _settlement.Set(raw);

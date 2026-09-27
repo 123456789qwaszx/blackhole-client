@@ -56,7 +56,7 @@ namespace BlackHole.Unity
         public void BuildTree(IReadOnlyList<NodeTreeView.NodeItem> nodes, IReadOnlyList<(string A, string B)> links) =>
             _tree?.Build(nodes, links);
 
-        public void ShowNodes(Func<string, NodeState> stateOf) => _tree?.Show(stateOf);
+        public void ShowNodes(IReadOnlyDictionary<string, NodeState> states) => _tree?.Show(states);
 
         public void ShowGold(long gold)
         {

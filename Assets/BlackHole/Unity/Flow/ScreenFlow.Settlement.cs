@@ -5,9 +5,6 @@ namespace BlackHole.Unity
 {
     internal sealed partial class ScreenFlow
     {
-        private SettlementScreen _settlementScreen;
-        public bool IsSettlementOpen => _settlementScreen != null;
-
         public void GoToSettlement(SessionEndReason reason, float seconds, int totalKills,
             IReadOnlyList<EnemyKillCount> kills, long earnedGold, long totalGold)
         {
@@ -25,9 +22,6 @@ namespace BlackHole.Unity
 
         private void ApplyBindings(SettlementScreen root)
         {
-            _settlementScreen = root;
-            AddCleanup(root, () => _settlementScreen = null);
-
             AddBinding(root,
                 r => r.ContinueClicked += HandleSettlementContinueClicked,
                 r => r.ContinueClicked -= HandleSettlementContinueClicked);

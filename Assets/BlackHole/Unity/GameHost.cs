@@ -119,7 +119,7 @@ namespace BlackHole.Unity
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
                 _battle, _orchestrator, nodeTree, viewer, settlement);
-            _flow = new GameFlow(_screens, _battle, _orchestrator, nodeTree, layout, viewer, settlement);
+            _flow = new GameFlow(_screens, ui, _battle, _orchestrator, nodeTree, layout, viewer, settlement);
 
             if (displayRefreshDriver != null)
                 displayRefreshDriver.Initialize(ui);

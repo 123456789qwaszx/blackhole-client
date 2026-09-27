@@ -95,11 +95,11 @@ namespace BlackHole.Unity
         }
 
         // 노드마다 상태를 받아 칠한다. 바뀐 프레임에만 부르면 된다.
-        public void Show(Func<string, NodeState> stateOf)
+        public void Show(IReadOnlyDictionary<string, NodeState> states)
         {
             foreach (NodeVisual node in _nodes.Values)
             {
-                node.State = stateOf(node.Id);
+                node.State = states[node.Id];
                 bool visible = node.State != NodeState.Hidden;
                 node.Root.SetActive(visible);
 

@@ -99,7 +99,7 @@
 - 씬(`SampleScene`)의 `UI > UI Canvas > RootLayer`에 세 화면이 있고 GameHost의 Root Layer·Panel Layer·Registered Views에 연결돼 있다. 자식 이름은 각 화면의 `Refs`와 같다(`UIRoot<TRefs>`).
 - 연결을 비우면 코드로 만든 임시 화면(`PlaceholderScreens`)을 쓴다. 개발용 대체일 뿐 정상 실행 경로가 아니다.
 - 화면은 규칙을 계산하지 않는다. 가격·구매 가능 여부는 `NodePurchase`, 번 Gold는 `World.EarnedGold`, 결산은 `GameSession.Settle`이 가진다.
-- `GameFlow`는 판 상태와 결산 대기를 보고 화면을 선택한다. `ScreenFlow`는 `UIManager`로 화면을 열고 표시 값을 전달하며, 각 화면의 클릭 이벤트를 필요한 시스템에 직접 연결한다. 결산 대기 상태는 두 흐름이 공유하며 Continue에서 비운다.
+- `GameFlow`는 판 상태와 결산 대기를 보고 화면을 선택한다. `UIManager.CurrentRoot`에서 현재 화면을 받아 표시 값(Gold, 소유 수, 노드별 상태)을 계산해 넘긴다. `ScreenFlow`는 화면을 열고 클릭 이벤트를 필요한 시스템에 직접 연결한다. 결산 대기 상태는 두 흐름이 공유하며 Continue에서 비운다.
 - 적·스킬·사망 효과 표현(EnemyView, SkillView, DeathEffectView)은 Core 기록을 읽어 그린다. 결산 화면으로 넘어가기 전에 셋 다 비었는지 확인한다(정리 6단계).
 - 개발용 콘솔(` 키)은 그대로 있다. 루프의 어떤 단계도 콘솔 없이 된다.
 
