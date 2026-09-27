@@ -1,5 +1,7 @@
 # CONTENT DEFINITION — 대표 콘텐츠 명세
 
+> **CA-001~005 당시의 대표 콘텐츠 기록.** 아래 SampleContent·Milestone 공급·사운드 설명은 당시 기준이다. 현재 성장 효과는 산 노드의 Level업 시간·공급이고, 이정표는 판 즉시 종료·고정 Gold 결산이다. 현재 데이터와 수치 출처는 [INTEGRATED_GAMEPLAY_FLOW](INTEGRATED_GAMEPLAY_FLOW.md) 4·8절, 변경 내역은 [BLACKHOLE_LEVEL_PLAN](BLACKHOLE_LEVEL_PLAN.md) 12절을 본다.
+
 작성일: 2026-09-25
 
 상위 계획: [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) — 이 문서는 **CA-001 산출물**이며, 5절은 CA-005의 결과다.

@@ -2,6 +2,7 @@
 
 작성일: 2026-09-24  
 범위: **Core Gameplay / Playable MVP**
+갱신: 2026-09-27 — `feature/블랙홀성장` BL-007 (`e8a4e0e` 구현 기준)
 
 > 이 문서는 블랙홀 키우기의 플레이가 성립하기 위한 최소 게임 법칙을 정의한다.  
 > 콘텐츠 목록, 업그레이드 설계, 적 종류 설계, 밸런스 수치는 별도 단계에서 다룬다.
@@ -11,7 +12,7 @@
 ## 1. 게임 한 줄 정의
 
 플레이어는 **조준 위치를 움직여 자동 공격으로 천체를 파괴하고**,  
-그 결과로 **블랙홀(HQ)을 성장시켜 현재 전투의 규모와 시간을 확장**한다.
+그 결과로 **판을 넘어 블랙홀(HQ)을 성장시키고, 성장 노드로 전투를 확장하며 이정표에 도달**한다.
 
 ---
 
@@ -34,9 +35,11 @@ HQ Growth
     ↓
 Battle 확장
     ↓
-Time End
+Time End / Milestone
     ↓
 Battle End
+    ↓
+Gold·누적 EXP 결산 → 업그레이드 → 다음 Battle
 ```
 
 MVP는 이 한 사이클이 처음부터 끝까지 실제 플레이로 이어지는 것을 목표로 한다.
@@ -65,7 +68,9 @@ MVP에서는 다음이 HQ를 기준으로 한다.
 
 ### 3.2 HQ Growth
 
-HQ는 `EXP`와 `Level`을 가진다.
+HQ는 `EXP`와 `Level`을 가진다. **누적 EXP는 판 밖 진행 상태에 유지**된다. 새 진행만 EXP 0·Level 1이며, 매 판은 진행 상태의 EXP·Level을 이어받는다. Level과 이정표 진행도는 누적 EXP와 Level 표에서 계산한다.
+
+전투 중에는 판의 HQ가 EXP를 쌓고, 종료 후 결산이 누적 EXP를 진행 상태에 돌려놓는다. 앱 종료 후 영구 저장은 아직 없다.
 
 ```text
 Enemy Death
@@ -94,7 +99,9 @@ Battle이 시작되면 새로운 전투 실행 상태를 만든다.
 - Enemy를 배치한다.
 - Battle Time을 시작한다.
 - Passive Skill의 실행 상태를 시작한다.
-- HQ의 해당 Battle 성장 상태를 준비한다.
+- HQ를 진행 상태의 누적 EXP에서 만든다. 이전 Level업의 성장 효과를 다시 지급하지 않는다.
+- 시작 Level로 종류별 색 비율을 정한다. 판 중 Level업으로 색 비율은 바뀌지 않고, 다음 판에 반영된다.
+- 산 노드로 종류 변환·특수 종류 생성 확률과 질량·황금·공급 수치를 한 번 계산한다.
 
 이전 Battle의 다음 실행 상태는 그대로 이어받지 않는다.
 
@@ -104,7 +111,7 @@ Battle이 시작되면 새로운 전투 실행 상태를 만든다.
 - Skill Timer
 - Death / Absorb Presentation
 
-전투 바깥에서 어떤 진행 상태를 유지할지는 MVP 이후 별도로 정의한다.
+Gold·산 노드·블랙홀 누적 EXP는 전투 사이에 유지한다. 이전 판에서 늘어난 제한 시간과 처치 버프는 이어받지 않는다.
 
 ---
 
@@ -210,7 +217,7 @@ Presentation Lifetime
 
 Enemy Death가 확정되는 순간 그 사망의 게임 결과도 확정한다.
 
-MVP의 핵심 보상은 `HQ EXP`다.
+사망 순간 그 적의 `Gold`는 판의 처치 Gold 합계에, 색 등급의 `EXP`는 HQ에 적립한다. EXP에는 질량·황금 배율을 곱하지 않는다. 진행 상태의 Gold·누적 EXP에는 결산 때 한 번 반영한다.
 
 ```text
 Enemy Death
@@ -263,8 +270,8 @@ Death Effect로 죽은 Enemy도 일반적인 Death 규칙을 따른다.
 HQ Level Up은 **Growth Effect**를 통해 현재 Battle을 확장한다.
 
 Growth Effect는 Level마다 다른 것이 아니라, 전투 사이에 산 **성장 노드**가 정하는 한 벌의 값이다.
-성장 노드를 사기 전에는 Level만 오르고 Battle은 바뀌지 않는다.
-성장 노드를 산 뒤에는 **Level Up마다** 같은 Growth Effect가 온다.
+성장 노드를 사기 전에는 Level만 오르고 시간·공급은 늘지 않는다. 이정표 도달에 따른 종료는 성장 노드 구매와 무관하다.
+성장 노드를 산 뒤에는 **Level Up마다** 같은 Growth Effect가 온다. 단, 이정표를 넘은 Step은 그 Step 전체의 성장 효과를 건너뛴다.
 
 ```text
 HQ Level Up (성장 노드를 산 뒤)
@@ -288,9 +295,15 @@ Time + Enemy 증가
 더 큰 Battle
 ```
 
-구체적인 Threshold, 연장 시간, 공급량은 Balance 영역이므로 이 문서에서 정하지 않는다([BLACKHOLE_GROWTH_PLAN](BLACKHOLE_GROWTH_PLAN.md)).
+구체적인 Threshold, 연장 시간, 공급량은 Balance 영역이므로 이 문서에서 정하지 않는다([BLACKHOLE_LEVEL_PLAN](BLACKHOLE_LEVEL_PLAN.md)).
 
-원작의 "이정표(Milestone)"는 한 판에서 정해진 Level에 닿는 판의 목표이며 이 절의 Growth Effect와 다르다. 이정표는 이 문서의 범위 밖이다.
+### 이정표(Milestone)
+
+- Level 표와 별도로 이정표 Level·고정 보상 Gold 목록을 둔다.
+- Step 5에서 이정표 Level을 넘으면 남은 시간과 관계없이 그 Step에서 종료한다. Step 6·7과 시간 연장은 하지 않는다.
+- 결산 Gold는 그 판의 처치 Gold **대신** 이정표 고정 보상이다. 한 Step에 여러 이정표를 넘으면 보상을 합한다.
+- 확정된 사망 EXP와 임계값을 넘은 EXP는 그대로 남긴다. 남은 적 정리는 EXP·Gold를 주지 않는다.
+- 누적 EXP가 줄지 않으므로 지난 이정표는 다시 지급하지 않는다. 이정표는 노드를 자동 구매하거나 변환 수치를 올리지 않는다.
 
 ---
 
@@ -315,6 +328,12 @@ O  Battle Start Supply
 O  Growth Effect Supply (Level Up마다)
 ```
 
+생성 한 마리마다 전체 상한을 먼저 검사하고, 통과하면 **종류 변환 사슬 → 특수 종류 선택 → 색 → 황금 → 위치·수치 적용** 순서로 처리한다. 변환과 특수 선택은 수량 추가가 아니라 요청 한 마리의 종류 교체다. 걸러진 요청은 버리고 몫을 소비하지 않는다.
+
+색은 시작 Level, 질량 노드는 HP·Gold 계수, 변환·확률 노드는 종류 비율을 각각 정한다. 종류 해금 수치·진행도 단계·적 풀은 없다.
+
+파괴 뒤 같은 종류 생성은 다음 PLAN의 세 번째 공급 계기이며 아직 구현하지 않았다.
+
 모든 Supply에는 명확한 Trigger가 존재한다.
 
 한 번의 Trigger가 공급하는 수량은 유한해야 한다.
@@ -330,7 +349,7 @@ O  Growth Effect Supply (Level Up마다)
 2. Passive Attack
 3. Damage / Death
 4. Death Effect
-5. HQ EXP / Level 반영
+5. HQ EXP / Level 반영 — 이정표 도달이면 여기서 종료
 6. Growth Effect
 7. Enemy Supply
 8. Battle End 판정
@@ -340,7 +359,8 @@ O  Growth Effect Supply (Level Up마다)
 
 - 해당 Step에서 발생한 Death는 같은 Step의 성장에 반영된다.
 - Death Effect가 만든 추가 Death도 같은 성장 판정에 반영된다.
-- 해당 Step의 성장으로 시간이 연장되면 그 결과를 반영한 뒤 Battle End를 판정한다.
+- 이정표에 닿으면 Step 6·7과 시간 연장을 건너뛰고 종료한다.
+- 이정표에 닿지 않았으면 공급 후 시간 연장을 적용하고 시간 종료를 판정한다.
 - Growth Effect로 공급된 Enemy는 공급된 이후의 Gameplay에 참가한다.
 
 ---
@@ -353,7 +373,7 @@ Battle 진행에 따라 시간이 감소한다.
 
 Growth Effect는 현재 Battle의 시간을 연장할 수 있다. 늘어난 시간은 그 Battle에만 있다.
 
-Gameplay Step의 결과를 모두 처리한 뒤 종료 여부를 판정한다.
+시간 종료는 Gameplay Step의 결과와 시간 연장을 반영한 뒤 판정한다. 이정표 종료는 Step 5 직후 우선하며, End battle 요청으로도 종료할 수 있다.
 
 ```text
 Gameplay Step 완료
@@ -383,7 +403,7 @@ Cleanup
 New Battle
 ```
 
-새 Battle에서는 전투 실행 상태를 새로 만든다.
+새 Battle에서는 전투 실행 상태를 새로 만들고, 결산된 누적 EXP·산 노드·Gold를 이어받는다.
 
 MVP에서는 **전투를 정상 종료한 뒤 다시 시작할 수 있으면 된다.**
 
@@ -395,11 +415,11 @@ MVP에서는 **전투를 정상 종료한 뒤 다시 시작할 수 있으면 된
 
 - Upgrade Tree
 - Upgrade Effect
-- Gold Economy
+- Gold 가격·보상 밸런스의 상세 설계 (처치·이정표 결산 규칙은 포함)
 - Enemy 종류별 상세 설계
 - Enemy 콘텐츠 목록
 - Balance 수치
-- 장기 Progression
+- 블랙홀 EXP 이외의 장기 Progression
 - Permanent Save
 - Character 전투
 - HQ HP / Defeat
@@ -439,17 +459,19 @@ Battle Start
 
 → HQ Level이 오른다.
 
-→ 성장 노드를 산 뒤에는 Level Up마다 시간이 늘어난다.
+→ 이정표에 닿지 않은 Step에서는 산 성장 노드에 따라 Level Up마다 시간이 늘어난다.
 
-→ 성장 노드를 산 뒤에는 Level Up마다 Enemy가 추가된다.
+→ 같은 조건에서 성장 공급이 추가된다(전체 상한 적용).
 
 → 플레이가 잘 될수록 Battle 규모가 커지는 것을 체감한다.
 
-→ 최종적으로 시간이 끝난다.
+→ 시간이 끝나거나 이정표에 닿는다.
 
 → Battle이 종료된다.
 
-→ 새 Battle을 다시 시작할 수 있다.
+→ 처치 Gold 또는 이정표 보상과 누적 EXP를 한 번 결산한다.
+
+→ 누적 EXP·Level을 이어받은 새 Battle을 시작할 수 있다.
 ```
 
 ---
@@ -464,16 +486,16 @@ Battle Start
 4. **HP가 0 이하가 되는 순간 Death와 그 결과가 확정된다.**
 5. **Gameplay Death와 Presentation Lifetime은 분리된다.**
 6. **Enemy Death는 HQ EXP를 만든다.**
-7. **HQ는 EXP로 Level이 오른다. 성장 노드를 산 뒤에는 Level Up마다 Growth Effect가 온다.**
-8. **Growth Effect는 현재 Battle의 시간과 Enemy 공급을 확장한다.**
+7. **HQ의 누적 EXP·Level은 판을 넘어 이어진다. 시작 Level이 그 판의 색 비율을 정한다.**
+8. **산 성장 노드는 Level Up마다 현재 Battle의 시간·공급을 확장한다. 이정표 도달 Step은 제외한다.**
 9. **Enemy는 시간 경과만으로 무한히 Spawn되지 않는다.**
 10. **Death Effect에는 반드시 끝나는 규칙이 있다.**
-11. **한 Step의 결과와 Growth를 반영한 뒤 Battle End를 판정한다.**
+11. **이정표에 닿으면 성장 효과 전에 종료하고 처치 Gold 대신 고정 보상을 결산한다. 그 외에는 성장 효과 뒤 시간 종료를 판정한다.**
 12. **Battle Cleanup은 Enemy Kill이 아니다.**
-13. **새 Battle은 새로운 전투 실행 상태로 시작한다.**
+13. **새 Battle은 새 실행 상태와 결산된 진행 상태로 시작한다.**
 
 ---
 
 ## 19. 한 문장 기준
 
-> **블랙홀 키우기는 조준 위치를 움직여 자동 공격으로 적을 파괴하고, 그 결과 HQ를 성장시켜 제한 시간과 적 공급을 확장하면서 한 Battle 안에서 더 큰 전투를 만들어 가는 게임이다.**
+> **블랙홀 키우기는 자동 공격으로 적을 파괴해 블랙홀을 판마다 이어 키우고, 노드로 전투의 시간·공급·종류를 바꾸며 이정표에 도달하는 게임이다.**

@@ -91,9 +91,9 @@
 | 수치 | 뜻 | 기본값 | 한계 |
 |---|---|---|---|
 | `enemy.<종류>.upgrade` | 이 종류 요청 중 변환 대상 종류로 나오는 %(원작 "소행성 → 행성 업그레이드") | 0 | ≥ 0, 100에서 멈춘다. 100을 넘는 값의 뜻은 [미정] |
-| `enemy.<특수 종류>.chance` | 부모 종류로 정해진 생성 중 이 특수 종류로 나오는 % | 0 | 0 ~ 100. 한 부모의 특수 종류 확률 합이 100을 넘지 않는다 |
+| `enemy.<특수 종류>.chance` | 부모 종류로 정해진 생성 중 이 특수 종류로 나오는 % | 0 | 유한한 값 ≥ 0, 각 값은 100에서 멈춘다. 한 부모의 특수 종류 확률 합이 100을 넘지 않는다 |
 
-- 비율과 확률은 몫 방식(`QuotaPicker`)으로 판 전체에 걸쳐 지킨다. 색·황금처럼 용도별 난수 스트림을 따로 쓴다.
+- 비율과 확률은 몫 방식(`QuotaPicker`)으로 판 전체에 걸쳐 지킨다. 색·황금과 분리된 종류용 난수 스트림(`KindStream`)을 쓴다. 변환·특수 선택은 이 스트림에서 각자의 몫 선택기를 초기화한다.
 - 변환 대상과 부모는 종류 에셋이 가리킨다(소행성의 변환 대상 = 행성, 전기 소행성의 부모 = 소행성).
 - 생성 여과(전체 상한)는 종류를 정하기 전에 본다. 걸러진 요청은 변환·확률 몫을 쓰지 않는다.
 - 판 구성(`EnemyComposition`)에 변환 비율과 생성 확률이 들어가고, 판 조립 때 한 번 정해진다.
@@ -119,8 +119,8 @@
 ### 4.6 화면
 
 - 전투 화면: Lv·%는 이어진 Level이다.
-- 결산 화면: 이정표로 끝났으면 "Milestone n / 전체"와 보상, 아니면 지금처럼 번 Gold. 결산 뒤 Gold, 도달 Level.
-- 업그레이드 화면: 블랙홀 Level·막대, 이정표 진행도 [제안].
+- 결산 화면: 이정표로 끝났으면 "Milestone reached"와 고정 보상·참고용 처치 Gold, 아니면 번 Gold. 결산 뒤 Gold·도달 Level도 표시한다. n / 전체는 업그레이드 화면에 표시한다.
+- 업그레이드 화면: 블랙홀 Level·% 텍스트, 이정표 진행도 n / 전체. 별도 진행 막대 위젯은 없다.
 
 ## 5. 지우거나 바꾸는 것
 
@@ -130,8 +130,8 @@
 | Core | `MassLevelDefinition`에서 색 비율을 빼고 종류에 Level별 색 비율. `EnemyStatTable`의 색 비율 출처를 바꾼다 |
 | Core | 변환·특수 종류: 종류 정의에 변환 대상·부모, 판 구성에 비율·확률, `World` 공급 처리에 종류 결정 단계. `SpawnFilter`는 전체 상한만 |
 | Core | 해금 수치·`Unlocked`·`StartsLocked` 지우기 |
-| Core | Level 표 줄에 이정표 보상, 판 종료 이유(시간·요청·이정표), 결산의 보상, 원자료 |
-| Unity·데이터 | 종류 에셋: Level별 색 비율 칸, 변환 대상·부모 칸, 질량 단계의 색 비율 칸과 `startsLocked` 제거. 적 공급 설정: 시작 공급을 소행성만 [임시]. 성장 설정: 줄마다 이정표 보상 |
+| Core | Level 표와 별도의 이정표 목록, 이번 판 도달 이정표로 종료 여부 식별, 결산 보상과 원자료. 별도 종료 이유 enum은 없음 |
+| Unity·데이터 | 종류 에셋: Level별 색 비율 칸, 변환 대상·부모 칸, 질량 단계의 색 비율 칸과 `startsLocked` 제거. 적 공급 설정: 시작 공급을 소행성만 [임시]. 성장 설정: 별도의 이정표 목록(Level·보상) |
 | Unity·데이터 | 노드 목록: 해금 노드 다섯 개 제거, 변환·확률 샘플 노드, 행성·별 질량 줄의 앞 노드 다시 잇기 |
 | 문서 | GAME_RULES 3.2·4·11·13·14, INTEGRATED_GAMEPLAY_FLOW, SYSTEM_CATALOG S07·S08, BLACKHOLE_GROWTH_PLAN·ENEMY_UNLOCK_PLAN 머리에 바뀐 안내 |
 
@@ -154,7 +154,7 @@
 플레이로 맞춘다.
 
 - 이정표 셋: Level 10, 20, 30. 보상은 그 무렵 한 판 수입의 몇 배이고 첫 변환 노드 가격과 맞춘다 — 30,000(= 소행성 → 행성 첫 노드) · 200,000,000(= 행성 → 별 첫 노드) · 1,000,000,000.
-- Level 표 30줄: Level 2~10은 10 ~ 950(소행성), 11~20은 2,500 ~ 60,000(행성), 21~30은 80,000 ~ 560,000(별). 이정표 뒤에 필요 EXP가 크게 뛴다.
+- Level 1~30 표(`levelExp`는 Level 2~30의 누적 임계값 29개): Level 2~10은 10 ~ 950(소행성), 11~20은 2,500 ~ 60,000(행성), 21~30은 80,000 ~ 560,000(별). 이정표 뒤에 필요 EXP가 크게 뛴다.
 - 소행성 Level별 색: 지금 질량 단계 아홉 줄의 색 비율을 Level 1~9에(아홉째 줄이 보라만이라 Level 9부터 보라만). 특수 종류(색 하나)는 Level 1부터 한 줄.
 - 행성 Level별 색: 지금 질량 단계 줄을 Level 10~19에, Level 20부터 보라만. 별: Level 20~29.
 - 시작 공급: 소행성 8.
@@ -188,7 +188,7 @@
 | BL-004 | Core: 변환·특수 종류 생성 확률, 해금 수치 지우기. 플레이에 필요해 종류 에셋의 변환 대상·부모, 시작 공급(소행성 8), 해금 노드 → 첫 변환·확률 노드(+ 달 확률 노드)도 여기서 | BL-003 | 완료 |
 | BL-005 | Core: 이정표(Level 표의 이정표 목록, 판 즉시 종료, 보상 결산, 원자료). 플레이에 필요해 성장 설정의 이정표 칸과 샘플(Level 10, 30,000 [임시]), 결산 화면·콘솔 표시, 개발용 전투 치트(BattleCheats.AddHqExp)와 전투 수명 콘솔의 EXP 버튼도 여기서 | BL-002 | 완료 |
 | BL-006 | Unity·데이터: 종류 에셋 칸과 값, 공급·성장 설정, 노드 목록(해금 노드 제거, 변환·확률 노드), 화면(결산·업그레이드), 콘솔 | BL-003~005 | 완료 |
-| BL-007 | 문서 | BL-006 | — |
+| BL-007 | 문서: GAME_RULES·실제 흐름·SYSTEM_CATALOG, 이전 PLAN 대체 안내, 데이터 저작 위치·구현/검증 범위·후속 작업 | BL-006 | 완료 |
 
 ## 10. 남은 결정
 
@@ -206,3 +206,46 @@
 - 2025-12-16 업데이트 "LIVE: New Game Mode - The Line": "Milestone rewards now only round up".
 - 토론 "Earning loss on beating game/epilogue"(discussions/0/846244042088020477): 막대를 75~90%까지만 채우고 End Session.
 - 토론 "It keeps crashing on me now"(discussions/0/581680621764516401): "When the black hole is about to go up a size".
+
+
+## 12. BL-007 완료 기록과 인수인계 (2026-09-27)
+
+구현 대조 기준은 `feature/블랙홀성장`의 `e8a4e0e`다. `integration/dev-all`의 `a05fe37` 뒤 12개 커밋을 대조했다. BL-007은 문서만 변경한다.
+
+### 12.1 커밋별 완료 내용
+
+| 커밋 | 작업 | 결과 |
+|---|---|---|
+| `4c3cfd4` | BG-001 | 판 안 성장·성장 노드 계획 |
+| `715ab40` | BG-002 | 색 등급 EXP, Hq·Level 표, Level업 시간·공급 Core |
+| `a75dea0` | BG-003 | 성장 에셋·전투 Lv·%·HqView·기본 14초 |
+| `73cd89a` | BG-004 | 성장 시간 +3초·소행성 요청 +4 샘플 노드 |
+| `871e499` | BG-005 | 성장 효과 규칙과 문서 반영 |
+| `82055da` | BL-001 | 누적 EXP·Level별 색·변환·이정표 계획 |
+| `01ce5d0` | BL-002 | PlayerState.HqExp → 판의 Hq → 결산으로 EXP 유지 |
+| `b9e9408` | BL-003 | 시작 Level이 색 비율 선택, 질량은 HP·Gold 계수만 |
+| `8c22cba` | BL-004 | 해금 제거, 변환·특수 확률과 종류 몫 선택 |
+| `296cecf` | 데이터 정리 | 행성·별 시작 공급 노드 제거 |
+| `0ced836` | BL-005 | 이정표 도달 Step 종료·처치 Gold 대체 보상·원자료·결산 표시 |
+| `e8a4e0e` | BL-006 | Level 1~30·이정표 셋·변환 노드 추가·업그레이드 진행 표시 |
+
+BG의 “매 판 Level 1”과 EU의 “종류 해금”은 BL이 대체했다. 이전 PLAN은 당시 기록으로 보존하고 머리에 대체 안내를 붙였다. 최신 규칙은 GAME_RULES_MVP, 책임은 SYSTEM_CATALOG, 실행 흐름·수치 이름·저작 위치는 INTEGRATED_GAMEPLAY_FLOW를 따른다. CA 시대 CONTENT_DEFINITION에도 현재 구현과 구분하는 안내를 붙였다.
+
+### 12.2 구현과 검증의 범위
+
+- Core 계약 등록은 **108개**다(소스의 등록 목록 대조). 이번 문서 작업 환경에는 .NET SDK·Unity 실행기가 없어 계약 실행이나 Unity Play를 재수행하지 않았다. 108개를 이번 작업에서 통과한 수로 해석하지 않는다.
+- 누적 EXP 유지·Cleanup 무보상: `Hq.LevelCarriesOverBetweenBattles`, `Hq.CleanupGivesNoExp`.
+- 색·질량 분리: `Composition.StartLevelChoosesTheColors`, `Composition.LevelUpDuringBattleKeepsTheColors`, `Composition.MassLevelScalesHealthAndGoldOnly`.
+- 종류 선택·상한: `Spawn.UpgradeTurnsTheRatioIntoTheNextKind`, `Spawn.SpecialKindsNeedTheirChance`, `Spawn.FilteredSpawnsUseNoKindQuota`.
+- 이정표: `Milestone.EndsTheBattleAtOnce`, `Milestone.PaysTheFixedRewardInsteadOfEarnedGold`, `Milestone.IsReachedOnce`.
+- 데이터 오류 경로: `Content.ReportsLevelErrorsWithPath`. 샘플 에셋의 임계값·이정표·노드 ID와 문서 값을 정적으로 대조했다.
+- 기존 INTEGRATED_GAMEPLAY_FLOW 7절의 93개 통과·Unity Play 기록은 성장 브랜치 이전 기록이다. 현재 브랜치의 재검증 증거로 사용하지 않는다.
+- 실행 가능한 환경의 계약 진입점: `dotnet run --project tests/CoreSmoke/CoreSmoke.csproj`. Unity EditMode도 같은 계약 목록을 사용한다.
+
+### 12.3 현재 표현과 다음 작업
+
+- 전투·업그레이드의 진행 표시는 Lv·% **텍스트**다. 업그레이드에는 이정표 n / 전체, 결산에는 Milestone reached·고정 보상·참고용 처치 Gold가 보인다. 별도 막대 위젯·이정표 전용 화면·흡수 연출은 없다.
+- Level 표는 Level 1~30이다. 에셋의 `levelExp`에는 Level 2~30 임계값 29개가 들어간다. 표 끝에서는 EXP만 쌓인다.
+- 현재 앱 실행 중의 전투 간 진행은 유지되지만 영구 저장은 없다.
+- 다음 PLAN의 범위는 2·10절 그대로다: 판 기본 시간 노드, 성장 공급 확률, 파괴 뒤 같은 종류 생성, 특수 종류 최대 개수. 변환 100 초과의 의미·노드 밖 기본값·질량의 EXP 배율은 아직 미정이다.
+- Unity에서 이어서 확인할 흐름: 이정표 직전 판 → 도달 즉시 결산 → 고정 보상·Level 표시 → Continue → 유지된 EXP·이정표 진행 → 다음 판의 새 색 비율. 실제 플레이의 밸런스·화면 배치는 별도 확인이 필요하다.

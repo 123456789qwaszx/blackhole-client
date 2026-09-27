@@ -1,5 +1,7 @@
 # ENEMY UNLOCK PLAN — 단계·풀을 지우고, 나오는 적 종류를 노드가 정하게 하기
 
+> **EU-001~004 당시의 구현 기록.** 단계·적 풀 제거는 유지된다. 종류 해금(`enemy.<종류>.unlock`, `StartsLocked`)은 [BLACKHOLE_LEVEL_PLAN](BLACKHOLE_LEVEL_PLAN.md)의 BL-004에서 변환 비율(`upgrade`)·특수 종류 생성 확률(`chance`)로 대체했다. 현재 `SpawnFilter`는 전체 개체 수 상한만 검사한다. 현재 규칙은 [INTEGRATED_GAMEPLAY_FLOW](INTEGRATED_GAMEPLAY_FLOW.md)를 본다.
+
 작성일: 2026-09-27
 
 브랜치: `integration/dev-all`

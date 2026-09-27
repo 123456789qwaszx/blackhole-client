@@ -1,5 +1,7 @@
 # BLACKHOLE GROWTH PLAN — 판 안에서 블랙홀이 크고, 산 노드가 성장마다 판을 넓힌다
 
+> **BG-001~005 당시의 구현 기록.** 이후 [BLACKHOLE_LEVEL_PLAN](BLACKHOLE_LEVEL_PLAN.md)(BL-002~006, `e8a4e0e`)이 일부 규칙을 대체했다. 현재는 누적 EXP·Level이 판을 넘어 이어지고, 이정표에 닿은 Step에는 성장 효과 없이 판이 끝난다. 이 문서의 매 판 Level 1·EXP 0, 종류 해금, 이정표 미구현 설명은 당시 기록이다. 기본 시간 노드는 다음 PLAN이며, 현재 샘플 기본 시간은 14초다. 현재 흐름은 [INTEGRATED_GAMEPLAY_FLOW](INTEGRATED_GAMEPLAY_FLOW.md)를 본다.
+
 작성일: 2026-09-27
 
 브랜치: `feature/블랙홀성장` (`integration/dev-all` `a05fe37`에서)
