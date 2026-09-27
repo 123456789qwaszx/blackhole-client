@@ -161,7 +161,7 @@ Level업 한 번마다 이 판의 성장 효과가 한 번 온다. 값은 판 �
 | BG-002 | Core: 색 등급 EXP, Level 표 정의와 로더 검사, 성장 수치(`hq.growth-time`, `enemy.<종류>.growth-supply`)와 판 조립, 판의 블랙홀(EXP·Level), Step 5·6, 제한 시간 연장, 원자료, 계약 | BG-001 | 완료 |
 | BG-003 | Unity·데이터: 종류 에셋 EXP 칸과 값, 블랙홀 성장 에셋과 GameBootstrap 연결, 기본 제한 시간 14초, 전투 화면 Level·막대, 블랙홀 그림, 결산 도달 Level, 콘솔 | BG-002 | 완료 |
 | BG-004 | 데이터: 샘플 성장 노드 둘(6절) | BG-002 | 완료 |
-| BG-005 | 문서: INTEGRATED_GAMEPLAY_FLOW, SYSTEM_CATALOG S07, GAME_RULES 11절(성장 효과는 성장 노드를 산 뒤의 Level업마다) | BG-003 | — |
+| BG-005 | 문서: INTEGRATED_GAMEPLAY_FLOW, SYSTEM_CATALOG S07, GAME_RULES 11절(성장 효과는 성장 노드를 산 뒤의 Level업마다) | BG-003 | 완료 |
 
 ## 9. 출처
 

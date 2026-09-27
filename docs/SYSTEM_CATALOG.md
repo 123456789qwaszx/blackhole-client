@@ -27,14 +27,14 @@
 | [SKILL_SYSTEM_PLAN](SKILL_SYSTEM_PLAN.md) | 스킬 샌드박스(별도 레포)와의 비교, 규칙 출처 가르기, 스킬·사망 효과·처치 버프를 전투에 들이는 방법 (SK-001~007) |
 | [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) | 판 조립 때 정하는 판 구성(생성)과 처치 보상(Gold)의 계획과 티켓 (BC-001~006) |
 | [ENEMY_UNLOCK_PLAN](ENEMY_UNLOCK_PLAN.md) | 단계·풀을 지우고 나오는 적 종류를 노드(해금 수치)가 정하게 하기 (EU-001~004 완료) |
-| [BLACKHOLE_GROWTH_PLAN](BLACKHOLE_GROWTH_PLAN.md) | 판 안의 블랙홀 성장: EXP·Level, 성장 노드를 산 뒤 Level업마다 시간 연장·추가 공급 (BG-001~005) |
+| [BLACKHOLE_GROWTH_PLAN](BLACKHOLE_GROWTH_PLAN.md) | 판 안의 블랙홀 성장: EXP·Level, 성장 노드를 산 뒤 Level업마다 시간 연장·추가 공급 (BG-001~005 완료) |
 | [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
 | [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
 | [AUTHORING_PAIN](AUTHORING_PAIN.md) | 현재 형식의 저작 시험 결과와 Authoring Pain 목록 (CA-002~, CA-006의 입력) |
 
 과거 Reference의 PLAN·마일스톤 기록(docs/v1, docs/v2)은 삭제되었고 `4304467` 이전의 git 기록에 남아 있다.
 
-규칙이 충돌하면 최신 GAME_RULES_MVP를 기준으로 판단한다. 성능 원칙의 예시 숫자와 후속 기능 예시는 확정 밸런스가 아니다. 예를 들어 사망 시 적 생성은 후속 후보이며, **MVP 공급 계기는 Battle Start와 Growth Milestone 두 가지**다.
+규칙이 충돌하면 최신 GAME_RULES_MVP를 기준으로 판단한다. 성능 원칙의 예시 숫자와 후속 기능 예시는 확정 밸런스가 아니다. 예를 들어 사망 시 적 생성은 후속 후보이며, **MVP 공급 계기는 Battle Start와 HQ Level Up(Growth Effect) 두 가지**다.
 
 ## 2. 시스템 총괄표
 
@@ -49,12 +49,12 @@
 | S02 | HQ 기준 공간·입력 | 원점 공유, 화면 좌표 변환, Aim Point 전달 | MVP | 조준 입력(AimInput: 마우스 → 로컬 참가자의 조준점)과 판 안의 참가자(BattlePlayer.AimPoint) 구현 있음 (SKILL_SYSTEM_PLAN) |
 | S03 | Enemy 상태·행동 | HP·위치·생존 상태, HQ 공전 | MVP | Enemies 구현 있음 |
 | S04 | Passive Attack | 공격 주기, 범위 대상 선택, 피해 요청 | MVP | Breaker(BreakerSkill) 구현 있음, World.Step 2 자리. 수치는 판 조립 때 참가자의 업그레이드 표로 계산(BreakerDefinition.Upgraded). 두 번째 스킬(관통 레이저)은 F05 (SKILL_SYSTEM_PLAN) |
-| S05 | Damage·Death Result | 사망 1회 확정, 대상 제외, HQ EXP와 사망 기록 | MVP | World.DealDamage 구현 있음(이 판에 살아 있는 적만 받음). 사망 순간 그 적의 Gold가 판의 합계(World.EarnedGold)에 든다 |
+| S05 | Damage·Death Result | 사망 1회 확정, 대상 제외, HQ EXP와 사망 기록 | MVP | World.DealDamage 구현 있음(이 판에 살아 있는 적만 받음). 사망 순간 그 적의 Gold가 판의 합계(World.EarnedGold)에, EXP가 블랙홀(Hq.Exp)에 든다 |
 | S06 | Death Effect | Chain Lightning 대상·횟수·종료, 공통 피해 처리 | MVP 기준 효과 | 사망 효과 대기열과 연쇄 번개(DeathEffects) 구현 있음, World.Step 4 자리. 폭발·처치 버프는 F05 (SKILL_SYSTEM_PLAN) |
-| S07 | HQ 성장·Milestone | EXP·Level, 성장 구간별 시간 연장·공급 요청 | MVP | Hq, GrowthProgression 구현 있음 |
+| S07 | HQ 성장·Growth Effect | EXP·Level, 성장 노드를 산 뒤 Level업마다 시간 연장·공급 요청 | MVP | Hq(EXP·Level)·HqGrowthDefinition(Level 표) 구현 있음, World.Step 5·6 자리. 성장 효과는 성장 노드(hq.growth-time, enemy.<종류>.growth-supply)가 정한다 (BLACKHOLE_GROWTH_PLAN) |
 | S08 | Enemy 공급·배치 | 요청 수량 관리, HQ 주변 생성 | MVP | Supply, Spawn 구현 있음 |
 | S09 | 전투 표현 | 천체·범위 표시, 피격·사망·흡수·번개·성장 표현 | MVP | 임시 표현 있음: 적 화면(EnemyView), 스킬 화면(SkillView: 범위·Tick·예고·발사선), 사망 효과 화면(DeathEffectView: 번개·폭발). 피격·흡수·성장 표현 없음 |
-| S10 | HUD·전투 화면 흐름 | 남은 시간·성장 정보, 종료·다시 시작 UI | MVP | 전투 화면 프리팹(남은 시간·이 판의 Gold·일시정지·끝내기), 결산 화면 프리팹, 화면 흐름(ScreenFlow: 업그레이드 → 전투 → 결산 → 업그레이드). 성장 정보 표시는 S07과 함께 |
+| S10 | HUD·전투 화면 흐름 | 남은 시간·성장 정보, 종료·다시 시작 UI | MVP | 전투 화면 프리팹(남은 시간·이 판의 Gold·블랙홀 Lv·%·일시정지·끝내기), 결산 화면 프리팹(도달 Level 포함), 화면 흐름(ScreenFlow: 업그레이드 → 전투 → 결산 → 업그레이드). 성장 정보 표시는 S07과 함께 |
 | S11 | 콘텐츠 정의·검증 | 수치·종류 데이터, 참조 검사, 실행 구성 제공 | 지원 | Content, Sample 구현 있음 |
 | S12 | 디버깅·성능 검증 | 기준 상황 재현, 측정, 변경 전후 비교 | 지원 | CoreSmoke, CoreBench 출발점 있음 |
 | F01 | 노드 트리 | 그래프(노드·선·시작 노드·드러남·도달성)와 구매(가격·Gold·산 노드), 산 노드의 업그레이드를 F07에 넘기기 | 후속 | Core/Nodes 구현 있음(그래프 NodeGraph, 구매 NodePurchase), 개발용 노드 콘솔 |
@@ -146,26 +146,26 @@
   파괴 요청처럼 피해 출처가 없는 사망은 효과를 내지 않는다([제안], SKILL_SYSTEM_PLAN D5).
 - **구현 참고**: `Core/DeathEffects/DeathEffectDefinition.cs`, `DeathEffects.cs`(대기열·처리·기록 `LightningHit`·`ExplosionBlast`), `Core/World/World.cs`(DealDamage가 대기열에 넣고 Step 4에서 처리), `Unity/Enemies/DeathEffectView.cs`.
 
-### S07. HQ 성장·Growth Milestone
+### S07. HQ 성장·Growth Effect
 
-- **소유**: HQ EXP·Level, 이미 처리한 성장 구간.
-- **입력 → 출력**: 사망 EXP / 성장 정의 → Level 변화 / Milestone 시간 연장 / 공급 요청.
+- **소유**: 판의 블랙홀(HQ) EXP·Level, Level업마다 늘어나는 시간(판 조립 때 정해진 값).
+- **입력 → 출력**: 사망 EXP / Level 표 / 성장 노드 → Level 변화 / 오른 Level마다 시간 연장·성장 공급 요청.
 - **책임 경계**: HQ Level을 Player 공격력에 자동 연결하지 않는다. 실제 적 생성은 S08, 성장 연출은 S09가 담당한다.
 - **인수 기준**:
-  - 한 번에 여러 Threshold를 넘어도 필요한 Level 상승을 모두 처리한다.
-  - **일반 Level과 Milestone을 구분**한다. 일반 Level에는 시간·공급 효과가 없다.
-  - 건너뛴 Milestone도 각각 한 번만 처리한다.
-  - 시간 연장은 해당 Step의 종료 판정보다 먼저 반영한다.
-- **남은 결정**: Threshold 표, Milestone Level, 연장 시간, 공급 수량. 값은 S11에서 관리한다.
-- **구현 참고**: `Core/Hq/`, `Core/Progression/GrowthProgression.cs`.
+  - 한 번에 여러 Threshold를 넘어도 필요한 Level 상승을 모두 처리하고, 성장 효과는 오른 Level마다 한 번씩이다.
+  - 성장 효과(시간·공급)는 산 성장 노드가 정하는 한 벌의 값이며 기본은 0이다. 노드를 사기 전에는 Level만 오른다.
+  - 시간 연장은 해당 Step의 종료 판정보다 먼저 반영하고, 그 판에만 있다. 새 판은 Level 1과 기본 제한 시간에서 시작한다.
+- **정한 것 (2026-09-27, [BLACKHOLE_GROWTH_PLAN](BLACKHOLE_GROWTH_PLAN.md))**: 색 등급 EXP(질량·황금과 무관), Level 표(누적 EXP), `hq.growth-time`·`enemy.<종류>.growth-supply`, 기본 제한 시간 14초. 원작 이정표(판 목표·완료 보상)는 아직 없다.
+- **남은 결정**: Level 표·EXP·성장 공급 수의 값([임시]), 원작 이정표.
+- **구현 참고**: `Core/Hq/`(Hq, HqGrowthDefinition), `World.Step`, `GameSession.Advance`, Unity `HqGrowthSetup` 에셋·`HqView`.
 
 ### S08. Enemy 공급·배치
 
 - **소유**: 공급 요청과 처리 상태, 생성 순번. 생성된 개체 상태는 S03이 소유한다.
-- **입력 → 출력**: Battle Start 또는 Milestone의 종류·수량 요청 → HQ 주변 Enemy 생성.
+- **입력 → 출력**: Battle Start 또는 HQ Level Up(성장 노드를 산 뒤)의 종류·수량 요청 → HQ 주변 Enemy 생성.
 - **책임 경계**: 공급은 무엇을 몇 개 만들지, 배치는 어디에 어떻게 만들지다. 하나의 담당 묶음으로 인수하되 두 책임을 구별한다.
 - **인수 기준**:
-  - 시작 공급은 Battle당 한 번, Milestone 공급은 도달한 구간당 한 번 발생한다.
+  - 시작 공급은 Battle당 한 번, 성장 공급은 오른 Level마다 한 번 발생한다.
   - 시간 경과만으로 공급하지 않는다. 요청 수량은 유한하다.
   - 새 적은 공급 이전의 공격 대상으로 소급하여 들어가지 않는다.
   - 이전 Battle의 요청이 다음 Battle에 남지 않는다.
@@ -202,7 +202,7 @@
 - **입력 → 출력**: 저작 데이터 → 유효한 정의 / 원인을 찾을 수 있는 오류.
 - **책임 경계**: 기획 수치의 원본을 한 곳에 둔다. 파일 형식이나 ScriptableObject 채택은 팀이 정하며, 전용 편집기는 별도 범위다.
 - **인수 기준**: 누락된 참조·잘못된 수치로 전투를 부분 조립하지 않는다. 오류 위치를 찾을 수 있다. 실행 상태 변경이 원본 정의를 변경하지 않는다.
-- **남은 결정**: 최소 샘플 콘텐츠, 데이터 담당·형식, 일반 Level과 Milestone 구분 표현, 허용 상한.
+- **남은 결정**: 최소 샘플 콘텐츠, 데이터 담당·형식, 허용 상한.
 - **구현 참고**: `Core/Content/`, `Sample/SampleContent.cs`.
 
 ### S12. 디버깅·성능 검증
@@ -228,7 +228,7 @@
 | S05 → S07 | HQ EXP | 사망 순간 확정, Cleanup 제외 |
 | S05 → S06·S09 | 사망 위치·종류·효과 정보 | Gameplay 객체를 연출 종료까지 유지하지 않음 |
 | S06 → S09 | 번개 적중 기록 | 피해는 이미 확정, 표현은 읽기만 함 |
-| S07 → S01·S08 | 시간 연장·공급 요청 | Milestone당 한 번, 종료 판정보다 먼저 |
+| S07 → S01·S08 | 시간 연장·공급 요청 | 오른 Level마다 한 번, 종료 판정보다 먼저 |
 | S08 → S03 | 생성된 실행 상태 | HQ 원점 기준, 공급 전 공격에 소급 참여하지 않음 |
 | S01 → S09·S10 | 종료와 전투 교체 | 잔여 표현 정리, 새 전투 상태 사용 |
 | S11 → 각 실행 시스템 | 검증된 정의 | 샘플 수치와 확정 규칙 구분 |
@@ -240,11 +240,11 @@
 3. Damage / Death
 4. Death Effect
 5. HQ EXP / Level 반영
-6. Growth Milestone
+6. Growth Effect
 7. Enemy Supply
 8. Battle End 판정
 
-S05의 사망 결과는 즉시 확정한다. 위 순서는 사망 결과를 연출 이후로 미루라는 뜻이 아니며, **Death Effect까지 포함한 결과가 Milestone 판정에 들어간다**는 기준이다.
+S05의 사망 결과는 즉시 확정한다. 위 순서는 사망 결과를 연출 이후로 미루라는 뜻이 아니며, **Death Effect까지 포함한 결과가 Level 판정에 들어간다**는 기준이다.
 
 ## 5. 기존 구현을 인수할 때 확인할 차이
 
@@ -253,7 +253,7 @@ S05의 사망 결과는 즉시 확정한다. 위 순서는 사망 결과를 연�
 | 항목 | 현재 구현 | 최신 기준에 맞춘 인수 작업 | 담당 후보 |
 |---|---|---|---|
 | HQ 좌표 | HqDefinition은 임의 Position을 허용하고 샘플만 0,0 사용 | 원점 규칙이 데이터·입력·표현에서 유지되는지 확정 | S02·S11 |
-| 일반 Level / Milestone | HqLevelDefinition은 효과 없는 Level을 표현할 수 있으나 SampleContent는 Lv2~10 모두 시간·공급 부여 | 일반 Level과 Milestone이 함께 있는 샘플로 구분 검증 | S07·S11 |
+| 일반 Level / Milestone | (옛 구현 기준) HqLevelDefinition은 효과 없는 Level을 표현할 수 있으나 SampleContent는 Lv2~10 모두 시간·공급 부여 | 2026-09-27 대체: 성장 효과는 Level마다가 아니라 성장 노드가 정한다(BLACKHOLE_GROWTH_PLAN) | S07·S11 |
 | EXP 반영 시점 | World.DealDamage가 사망 즉시 EXP·Level 반영, 효과 대기열 처리 후 성장 효과 실행 | 규칙의 결과 확정과 Step 순서 설명을 일치시키고 효과 처치 포함 확인 | S05·S07 |
 | 종료 후 흐름 | SessionLauncher가 구매 화면을 열고 Gold·구매를 다음 전투에 유지 | MVP 인수는 종료→새 Battle을 기준으로 하고 경제는 별도 판정 | S01·S10 |
 | 공급 상한 | 사건별 수량과 유한 성장표가 있음 | 팀 콘텐츠의 최악 동시 개체 수와 상한 처리 정책 산정 | S08·S11·S12 |
@@ -329,7 +329,7 @@ F03은 플레이어 화면이 아니다. F02의 노드 좌표 편집과 F01의 �
 
 | 티켓 | 목표 | 연결 시스템 | 완료 증거 |
 |---|---|---|---|
-| T-001 | 일반 Level과 Milestone의 구분을 샘플로 검증 | S07·S11 | 일반 Level은 연장·공급 없음, Milestone은 각각 1회 |
+| T-001 | (2026-09-27 대체) 일반 Level과 Milestone의 구분을 샘플로 검증 → 성장 노드를 산 뒤 Level업마다 성장 효과(Growth 계약) | S07·S11 | 성장 노드 전에는 Level만 오르고, 산 뒤에는 오른 Level마다 한 번 |
 | T-002 | HQ 원점과 입력·표시 좌표 정합성 인수 | S02·S09·S11 | 배치·공전·흡수·조준이 동일 공간에서 일치 |
 | T-003 | 전투 종료→새 전투의 MVP 흐름 인수 | S01·S10 | 이전 실행 상태·연출 잔여 없는 반복 플레이 |
 | T-004 | 종료 직전 번개 처치→성장→연장을 통합 확인 | S01·S05·S06·S07 | 같은 Step의 연장 반영 후 종료 판정 |

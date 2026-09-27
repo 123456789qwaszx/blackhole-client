@@ -258,19 +258,21 @@ Death Effect로 죽은 Enemy도 일반적인 Death 규칙을 따른다.
 
 ---
 
-## 11. Growth Milestone
+## 11. Growth Effect
 
-모든 HQ Level Up이 Battle을 변화시키는 것은 아니다.
+HQ Level Up은 **Growth Effect**를 통해 현재 Battle을 확장한다.
 
-일반 Level과 **Growth Milestone**을 구분한다.
-
-MVP에서 Growth Milestone에 도달하면:
+Growth Effect는 Level마다 다른 것이 아니라, 전투 사이에 산 **성장 노드**가 정하는 한 벌의 값이다.
+성장 노드를 사기 전에는 Level만 오르고 Battle은 바뀌지 않는다.
+성장 노드를 산 뒤에는 **Level Up마다** 같은 Growth Effect가 온다.
 
 ```text
-Growth Milestone
-    ├─ Battle Time 증가
+HQ Level Up (성장 노드를 산 뒤)
+    ├─ 현재 Battle의 Time 증가
     └─ Enemy 추가 공급
 ```
+
+늘어난 Time은 그 Battle에만 있다. 다음 Battle은 언제나 기본 제한 시간에서 시작한다.
 
 이 규칙으로 플레이어의 성공이 현재 전투를 확장한다.
 
@@ -286,7 +288,9 @@ Time + Enemy 증가
 더 큰 Battle
 ```
 
-구체적인 Threshold, 연장 시간, 공급량은 Balance 영역이므로 이 문서에서 정하지 않는다.
+구체적인 Threshold, 연장 시간, 공급량은 Balance 영역이므로 이 문서에서 정하지 않는다([BLACKHOLE_GROWTH_PLAN](BLACKHOLE_GROWTH_PLAN.md)).
+
+원작의 "이정표(Milestone)"는 한 판에서 정해진 Level에 닿는 판의 목표이며 이 절의 Growth Effect와 다르다. 이정표는 이 문서의 범위 밖이다.
 
 ---
 
@@ -298,7 +302,7 @@ MVP의 Supply Trigger는 두 가지다.
 
 ```text
 1. Battle Start
-2. Growth Milestone
+2. HQ Level Up (Growth Effect)
 ```
 
 따라서:
@@ -308,7 +312,7 @@ X  N초마다 자동 Spawn
 X  시간이 길어질수록 무제한 Spawn
 
 O  Battle Start Supply
-O  Growth Milestone Supply
+O  Growth Effect Supply (Level Up마다)
 ```
 
 모든 Supply에는 명확한 Trigger가 존재한다.
@@ -327,7 +331,7 @@ O  Growth Milestone Supply
 3. Damage / Death
 4. Death Effect
 5. HQ EXP / Level 반영
-6. Growth Milestone
+6. Growth Effect
 7. Enemy Supply
 8. Battle End 판정
 ```
@@ -337,7 +341,7 @@ O  Growth Milestone Supply
 - 해당 Step에서 발생한 Death는 같은 Step의 성장에 반영된다.
 - Death Effect가 만든 추가 Death도 같은 성장 판정에 반영된다.
 - 해당 Step의 성장으로 시간이 연장되면 그 결과를 반영한 뒤 Battle End를 판정한다.
-- Growth Milestone으로 공급된 Enemy는 공급된 이후의 Gameplay에 참가한다.
+- Growth Effect로 공급된 Enemy는 공급된 이후의 Gameplay에 참가한다.
 
 ---
 
@@ -347,7 +351,7 @@ Battle에는 제한 시간이 있다.
 
 Battle 진행에 따라 시간이 감소한다.
 
-Growth Milestone은 현재 Battle의 시간을 연장할 수 있다.
+Growth Effect는 현재 Battle의 시간을 연장할 수 있다. 늘어난 시간은 그 Battle에만 있다.
 
 Gameplay Step의 결과를 모두 처리한 뒤 종료 여부를 판정한다.
 
@@ -435,9 +439,9 @@ Battle Start
 
 → HQ Level이 오른다.
 
-→ Growth Milestone에서 시간이 늘어난다.
+→ 성장 노드를 산 뒤에는 Level Up마다 시간이 늘어난다.
 
-→ Growth Milestone에서 Enemy가 추가된다.
+→ 성장 노드를 산 뒤에는 Level Up마다 Enemy가 추가된다.
 
 → 플레이가 잘 될수록 Battle 규모가 커지는 것을 체감한다.
 
@@ -460,8 +464,8 @@ Battle Start
 4. **HP가 0 이하가 되는 순간 Death와 그 결과가 확정된다.**
 5. **Gameplay Death와 Presentation Lifetime은 분리된다.**
 6. **Enemy Death는 HQ EXP를 만든다.**
-7. **HQ는 Level이 오르며 특정 Level은 Growth Milestone이 된다.**
-8. **Growth Milestone은 현재 Battle의 시간과 Enemy 공급을 확장한다.**
+7. **HQ는 EXP로 Level이 오른다. 성장 노드를 산 뒤에는 Level Up마다 Growth Effect가 온다.**
+8. **Growth Effect는 현재 Battle의 시간과 Enemy 공급을 확장한다.**
 9. **Enemy는 시간 경과만으로 무한히 Spawn되지 않는다.**
 10. **Death Effect에는 반드시 끝나는 규칙이 있다.**
 11. **한 Step의 결과와 Growth를 반영한 뒤 Battle End를 판정한다.**
