@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BlackHole.Core;
 using BlackHole.Sample;
@@ -135,7 +136,7 @@ namespace BlackHole.Unity
                 OrEmpty(battlePresentation, "Battle"),
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
-                _battle, _orchestrator, _nodeTree, _layout, _viewer);
+                _battle, _orchestrator, _nodeTree, BuildNodeItems(_nodeTree, _layout), _viewer);
         }
 
         private void BootstrapDevelopmentConsoles()
@@ -259,6 +260,27 @@ namespace BlackHole.Unity
                 Debug.LogError("[노드 트리 × 콘텐츠] " + diagnostic, this);
 
             return diagnostics.Count == 0;
+        }
+
+        // 업그레이드 화면에 그릴 노드. 격자 칸은 화면 배치용이라 규칙 트리가 아니라 같은 저작 데이터에서 읽는다.
+        // 로더가 같은 데이터로 트리를 만들었으니 트리의 모든 노드에 칸이 있다.
+        private static IReadOnlyList<NodeTreeView.NodeItem> BuildNodeItems(NodeTree tree, NodeTreeData layout)
+        {
+            var cells = new Dictionary<string, (int X, int Y)>(StringComparer.Ordinal);
+            foreach (NodeData node in layout.Nodes)
+            {
+                if (node?.Id != null && !cells.ContainsKey(node.Id))
+                    cells.Add(node.Id, (node.X, node.Y));
+            }
+
+            var nodes = new List<NodeTreeView.NodeItem>(tree.Nodes.Count);
+            foreach (NodeDefinition node in tree.Nodes)
+            {
+                (int x, int y) = cells.TryGetValue(node.Id, out (int X, int Y) cell) ? cell : (0, 0);
+                nodes.Add(new NodeTreeView.NodeItem(node.Id, x, y, node.Price));
+            }
+
+            return nodes;
         }
 
         private UIPresentationSpec OrEmpty(UIPresentationSpec presentation, string id)

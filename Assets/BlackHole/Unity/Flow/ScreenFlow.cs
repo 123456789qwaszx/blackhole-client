@@ -14,13 +14,15 @@ namespace BlackHole.Unity
         private readonly BattleSystem _battle;
         private readonly BattleOrchestrator _orchestrator;
         private readonly NodeTree _tree;
+        // 업그레이드 화면에 그릴 노드(칸·가격). 조립 때 저작 데이터의 격자 칸으로 만들어 받는다.
+        private readonly IReadOnlyList<NodeTreeView.NodeItem> _nodes;
         private readonly PlayerState _player;
         private readonly Dictionary<UIBase, List<Action>> _cleanupByScreen = new Dictionary<UIBase, List<Action>>();
 
         public ScreenFlow(UIManager ui, UIPresentationSpec battlePresentation,
             UIPresentationSpec upgradePresentation, UIPresentationSpec settlementPresentation,
             BattleSystem battle, BattleOrchestrator orchestrator, NodeTree tree,
-            NodeTreeData layout, PlayerState player)
+            IReadOnlyList<NodeTreeView.NodeItem> nodes, PlayerState player)
         {
             _ui = ui;
             _battlePresentation = battlePresentation;
@@ -29,8 +31,8 @@ namespace BlackHole.Unity
             _battle = battle;
             _orchestrator = orchestrator;
             _tree = tree;
+            _nodes = nodes;
             _player = player;
-            _nodes = BuildNodeItems(tree, layout);
         }
 
         private void BindView<T>(T screen, Action<T> apply) where T : UIBase
