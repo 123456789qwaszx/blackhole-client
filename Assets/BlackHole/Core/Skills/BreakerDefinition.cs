@@ -32,5 +32,44 @@ namespace BlackHole.Core
             CritChance = critChance;
             CritMultiplier = critMultiplier;
         }
+
+        // 업그레이드 표로 이 판의 Breaker 수치를 계산한다. 판 조립이 참가자마다 한 번 부르고, 판 동안 바뀌지 않는다.
+        // 수치 이름은 BreakerUpgradeStats다. 각 수치의 기본값은 이 정의의 값이고, 공격 속도의 기본값은 1이다.
+        // 표의 합성 규칙을 적용한 뒤 Breaker의 한계를 건다:
+        // - 주기 = 기본 주기 ÷ 공격 속도 [임시]. 공격 속도 +25%(비율 0.25)면 주기가 1/1.25배다.
+        // - 치명타 확률은 1을 넘지 않는다.
+        // 한계 밖(0 이하의 피해·공격 속도·반지름, 음수 치명타 확률)은 예외다 — 노드 저작 오류이며 UpgradeContentCheck가 로드 때 찾는다.
+        // 치명타 배율을 바꾸는 노드는 아직 없다(수치 이름도 두지 않는다).
+        public BreakerDefinition Upgraded(UpgradeTable upgrades)
+        {
+            if (upgrades == null)
+                throw new ArgumentNullException(nameof(upgrades));
+
+            float speed = upgrades.Apply(BreakerUpgradeStats.Speed, 1);
+
+            if (float.IsNaN(speed) || float.IsInfinity(speed) || speed <= 0)
+                throw new ArgumentOutOfRangeException(nameof(upgrades), $"Breaker 공격 속도는 0보다 커야 한다. 업그레이드 합: {speed}.");
+
+            return new BreakerDefinition(
+                upgrades.Apply(BreakerUpgradeStats.Damage, Damage),
+                Interval / speed,
+                upgrades.Apply(BreakerUpgradeStats.Radius, Radius),
+                Math.Min(1, upgrades.Apply(BreakerUpgradeStats.CritChance, CritChance)),
+                CritMultiplier);
+        }
+    }
+
+    // Breaker가 공개하는 업그레이드 수치 이름. 노드의 업그레이드(Upgrade.Stat)가 이 이름으로 판의 Breaker 수치를 보정한다.
+    // 업그레이드 시스템은 이 이름을 해석하지 않는다.
+    public static class BreakerUpgradeStats
+    {
+        // 피해. 노드 예: 더하기 1.
+        public const string Damage = "breaker.damage";
+        // 공격 속도(기본 1). 주기는 기본 주기 ÷ 공격 속도다. 노드 예: 비율 0.25.
+        public const string Speed = "breaker.speed";
+        // 공격 원의 반지름. 노드 예: 비율 0.1.
+        public const string Radius = "breaker.radius";
+        // 한 Tick이 치명타일 확률(1을 넘지 않는다). 노드 예: 더하기 0.05.
+        public const string CritChance = "breaker.crit-chance";
     }
 }

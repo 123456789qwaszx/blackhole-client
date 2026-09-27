@@ -67,7 +67,7 @@ namespace BlackHole.Core
         }
 
         // 이 판에서 그 참가자가 받는 업그레이드 표. 판 조립 때 그 참가자의 산 노드로 한 번 만들어졌고, 판이 끝날 때까지 같다.
-        // 표를 읽어 수치를 정하는 것은 각 시스템의 일이다(아직 읽는 시스템은 없다).
+        // 판 조립이 이 표로 Breaker 수치와 적 종류의 판 구성을 이미 계산했다. 판 중에 표를 다시 읽는 시스템은 없다(콘솔 표시뿐).
         public UpgradeTable UpgradesOf(PlayerId player)
         {
             if (!_upgrades.TryGetValue(player, out UpgradeTable table))

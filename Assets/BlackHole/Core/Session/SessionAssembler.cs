@@ -13,6 +13,7 @@ namespace BlackHole.Core
     //
     // 업그레이드: 노드 트리를 받으면 참가자마다 산 노드로 업그레이드 표(UpgradeTable)를 한 번 만들어 판에 둔다(GameSession.UpgradesOf).
     // 표는 판이 끝날 때까지 같다(전투 중에는 살 수 없다). 노드 트리가 없으면 빈 표다. 이 판의 값은 모두 여기서 한 번 계산한다:
+    // - 참가자의 Breaker 수치(피해·주기·반지름·치명타 확률)는 그 참가자의 표에서 계산한다(BreakerDefinition.Upgraded).
     // - 적 종류의 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수)은 표에서 계산한다(EnemyComposition.From).
     //   적 종류는 모든 참가자가 함께 쓰므로 참가자가 1명일 때 그 표를 쓴다. 둘 이상이면 보정 없이 기본값이다
     //   (여러 Player의 구매를 공유 대상에 합치는 정책은 미정, F06 — 결산의 보상 귀속과 같은 전제).
@@ -46,9 +47,10 @@ namespace BlackHole.Core
 
             foreach (PlayerState state in players)
             {
-                upgrades.Add(state.Id, nodes == null ? new UpgradeTable(Array.Empty<Upgrade>()) : NodePurchase.UpgradesFor(state, nodes));
-                // 판 안의 참가자: 콘텐츠의 스킬을 모두 받는다.
-                battlePlayers.Add(new BattlePlayer(state.Id, content.Breaker, content.Laser, seed));
+                UpgradeTable table = nodes == null ? new UpgradeTable(Array.Empty<Upgrade>()) : NodePurchase.UpgradesFor(state, nodes);
+                upgrades.Add(state.Id, table);
+                // 판 안의 참가자: 콘텐츠의 스킬을 모두 받는다. Breaker 수치는 그 참가자의 표로 계산한다(레이저를 보정하는 노드는 아직 없다).
+                battlePlayers.Add(new BattlePlayer(state.Id, content.Breaker?.Upgraded(table), content.Laser, seed));
             }
 
             // 적의 수치(Gold 포함)와 색·황금 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.

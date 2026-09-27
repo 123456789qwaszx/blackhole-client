@@ -12,7 +12,8 @@ namespace BlackHole.Unity
     // 스킬 콘솔(개발용, 왼쪽 가운데). 콘텐츠의 스킬마다 한 줄: 켜기·끄기 버튼과 이름 버튼.
     // - 켜기·끄기: 고른 상태를 진행 중인 판의 로컬 참가자 스킬에 맞춘다. 고른 상태는 판 사이에 이어져, 새 판이 시작되면 그 판에도 맞춘다.
     //   끄면 돌던 주기와 예고 중인 발사를 버리고, 다시 켜면 처음부터 돈다(BreakerSkill·LaserSkill.SetEnabled).
-    // - 이름: 그 스킬의 수치가 아래 설명창에 나온다. 같은 이름을 다시 누르면 닫힌다. 수치는 콘텐츠의 기본 수치다(업그레이드는 아직 잇지 않았다).
+    // - 이름: 그 스킬의 수치가 아래 설명창에 나온다. 같은 이름을 다시 누르면 닫힌다. 진행 중인 판이 있으면 그 판의 로컬 참가자 수치
+    //   (판 조립 때 업그레이드 표로 계산한 값), 없으면 콘텐츠의 기본 수치다.
     // - 버프: 진행 중인 판에서 로컬 참가자의 Breaker에 붙은 처치 버프(공격 주기 감소·확정 치명타)의 남은 시간.
     // 새 판의 첫 Step 전에 맞추도록 GameHost가 이 콘솔을 전투 시스템보다 먼저 부른다(끈 스킬이 판 시작에 한 번 공격하지 않게).
     //
@@ -33,6 +34,8 @@ namespace BlackHole.Unity
         private readonly TMP_Text _detailText;
         private readonly TMP_Text _buffText;
         private Row _selected;
+        // 설명창이 마지막으로 그린 판. 판이 바뀌면(시작·정리) 수치를 다시 쓴다.
+        private GameSession _shownSession;
         // 버프 표시가 마지막으로 그린 값(0.1초 단위). 바뀔 때만 다시 쓴다.
         private int _shownHaste = -1;
         private int _shownCritical = -1;
@@ -41,7 +44,8 @@ namespace BlackHole.Unity
         private sealed class Row
         {
             public string Name;
-            public string Stats;
+            // 진행 중인 판의 참가자(없으면 null)를 받아 수치 글을 만든다.
+            public Func<BattlePlayer, string> Stats;
             public bool On = true;
             public Button Toggle;
             public Func<BattlePlayer, bool?> IsEnabled;
@@ -63,12 +67,10 @@ namespace BlackHole.Unity
 
             if (content.Breaker != null)
             {
-                BreakerDefinition breaker = content.Breaker;
                 AddRow(panel, new Row
                 {
                     Name = "Breaker",
-                    Stats = $"Damage {Number(breaker.Damage)}\nInterval {Number(breaker.Interval)} s\nRadius {Number(breaker.Radius)}\n" +
-                        $"Crit {Number(breaker.CritChance * 100)}% x{Number(breaker.CritMultiplier)}",
+                    Stats = p => DescribeBreaker(p?.Breaker?.Definition ?? content.Breaker),
                     IsEnabled = p => p.Breaker?.Enabled,
                     SetEnabled = (p, on) => p.Breaker?.SetEnabled(on),
                 });
@@ -76,12 +78,10 @@ namespace BlackHole.Unity
 
             if (content.Laser != null)
             {
-                LaserDefinition laser = content.Laser;
                 AddRow(panel, new Row
                 {
                     Name = "Laser",
-                    Stats = $"Damage {Number(laser.Damage)}\nInterval {Number(laser.Interval)} s\nWidth {Number(laser.Width)}\n" +
-                        $"Telegraph {Number(laser.TelegraphDuration)} s\nBoundary {Number(laser.BoundaryRadius)}",
+                    Stats = p => DescribeLaser(p?.Laser?.Definition ?? content.Laser),
                     IsEnabled = p => p.Laser?.Enabled,
                     SetEnabled = (p, on) => p.Laser?.SetEnabled(on),
                 });
@@ -108,6 +108,9 @@ namespace BlackHole.Unity
 
             BreakerSkill breaker = _battle.IsRunning ? _battle.Session.World.PlayerOf(_player).Breaker : null;
             ShowBuffs(breaker?.HasteRemaining ?? 0, breaker?.GuaranteedCriticalRemaining ?? 0);
+
+            if (_selected != null && _battle.Session != _shownSession)
+                ShowDetail();
         }
 
         public void Dispose() => Object.Destroy(_canvas);
@@ -150,8 +153,24 @@ namespace BlackHole.Unity
             _detailPanel.SetActive(_selected != null);
 
             if (_selected != null)
-                _detailText.text = $"{_selected.Name}\n{_selected.Stats}";
+                ShowDetail();
         }
+
+        private void ShowDetail()
+        {
+            _shownSession = _battle.Session;
+            BattlePlayer player = _battle.IsRunning ? _shownSession.World.PlayerOf(_player) : null;
+            string source = player != null ? "this battle" : "base";
+            _detailText.text = $"{_selected.Name} ({source})\n{_selected.Stats(player)}";
+        }
+
+        private static string DescribeBreaker(BreakerDefinition breaker) =>
+            $"Damage {Number(breaker.Damage)}\nInterval {Number(breaker.Interval)} s\nRadius {Number(breaker.Radius)}\n" +
+            $"Crit {Number(breaker.CritChance * 100)}% x{Number(breaker.CritMultiplier)}";
+
+        private static string DescribeLaser(LaserDefinition laser) =>
+            $"Damage {Number(laser.Damage)}\nInterval {Number(laser.Interval)} s\nWidth {Number(laser.Width)}\n" +
+            $"Telegraph {Number(laser.TelegraphDuration)} s\nBoundary {Number(laser.BoundaryRadius)}";
 
         private void ShowBuffs(float haste, float critical)
         {

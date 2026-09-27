@@ -22,6 +22,112 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Skill.LaserStartIsReproducibleAndSeparateFromSpawns", LaserStartIsReproducibleAndSeparateFromSpawns);
             yield return new Contract("Skill.DisabledSkillDropsItsTimerAndPendingShots", DisabledSkillDropsItsTimerAndPendingShots);
             yield return new Contract("Skill.BreakerCriticalIsOneRollPerTickOnItsOwnStream", BreakerCriticalIsOneRollPerTickOnItsOwnStream);
+            yield return new Contract("Skill.BreakerTakesItsOwnerUpgradesAtAssembly", BreakerTakesItsOwnerUpgradesAtAssembly);
+            yield return new Contract("Skill.LoadCheckFindsNodesTheBreakerCannotTake", LoadCheckFindsNodesTheBreakerCannotTake);
+        }
+
+        // 판 조립 때 참가자마다 자기 업그레이드 표로 Breaker 수치를 받는다: 피해 더하기, 공격 속도 비율(주기 = 기본 주기 ÷ 공격 속도),
+        // 반지름 비율, 치명타 확률 더하기(1을 넘지 않는다). 산 노드가 없는 참가자와 콘텐츠의 정의는 기본 수치 그대로다.
+        // 받은 수치로 실제로 친다(피해·원·주기). 끝난 판의 수치는 산 노드가 바뀌어도 그대로고, 다음 판이 그때의 산 노드로 새로 계산한다.
+        private static void BreakerTakesItsOwnerUpgradesAtAssembly()
+        {
+            GameContent content = TestContent.Load(Arena(radius: 3, count: 12, health: 10, damage: 3));
+            var data = new NodeTreeData();
+            data.Nodes.Add(new NodeData
+            {
+                Id = "s",
+                Price = 1,
+                Start = true,
+                Links = { "crit" },
+                Upgrades =
+                {
+                    new UpgradeData { Stat = BreakerUpgradeStats.Damage, Operation = UpgradeOperation.Add, Value = 1 },
+                    new UpgradeData { Stat = BreakerUpgradeStats.Speed, Operation = UpgradeOperation.Percent, Value = 0.25f },
+                    new UpgradeData { Stat = BreakerUpgradeStats.Radius, Operation = UpgradeOperation.Percent, Value = 0.1f },
+                    new UpgradeData { Stat = BreakerUpgradeStats.CritChance, Operation = UpgradeOperation.Add, Value = 0.6f },
+                },
+            });
+            data.Nodes.Add(new NodeData
+            {
+                Id = "crit",
+                Price = 1,
+                Upgrades = { new UpgradeData { Stat = BreakerUpgradeStats.CritChance, Operation = UpgradeOperation.Add, Value = 0.6f } },
+            });
+            NodeTree tree = NodeTreeLoader.Load(data).Tree;
+            var buyer = new PlayerState(TestContent.First);
+            buyer.EarnGold(2);
+            NodePurchase.TryPurchase(buyer, tree, "s");
+            NodePurchase.TryPurchase(buyer, tree, "crit");
+            var other = new PlayerState(TestContent.Second);
+
+            GameSession battle = TestContent.Begun(SessionAssembler.CreateBattle(
+                content, new[] { buyer, other }, SessionAssembler.FirstStage, 0, tree));
+            BreakerSkill upgraded = battle.World.PlayerOf(buyer.Id).Breaker;
+            BreakerSkill plain = battle.World.PlayerOf(other.Id).Breaker;
+            Expect.Near(4, upgraded.Definition.Damage);
+            Expect.Near(0.8f, upgraded.Definition.Interval);
+            Expect.Near(3.3f, upgraded.Definition.Radius);
+            Expect.Near(1, upgraded.Definition.CritChance);
+            Expect.Near(1, upgraded.Definition.CritMultiplier);
+            Expect.Near(3, plain.Definition.Damage);
+            Expect.Near(1, plain.Definition.Interval);
+            Expect.Near(3, plain.Definition.Radius);
+            Expect.Near(0, plain.Definition.CritChance);
+            Expect.Near(3, content.Breaker.Damage);
+
+            // 산 참가자만 조준한다. 첫 Tick에 반지름 3.3 안의 적이 피해 4(치명타 배율 1)를 받는다.
+            battle.SetAimPoint(buyer.Id, BattleSpace.Origin);
+            battle.Advance(0.1f);
+            Expect.Near(3.3f, upgraded.Ticks[0].Radius);
+
+            foreach (Enemy enemy in battle.World.Enemies)
+                Expect.Near(TestContent.DistanceToHq(enemy.Position) <= 3.3f ? 6 : 10, enemy.Health);
+
+            // 주기 0.8초: 판 시간 0.8초에 두 번째 Tick. 기본 주기(1초)인 참가자는 아직 한 번이다.
+            battle.Advance(0.6f);
+            Expect.Equal(1, upgraded.TickCount);
+            battle.Advance(0.1f);
+            Expect.Equal(2, upgraded.TickCount);
+            Expect.Equal(1, plain.TickCount);
+
+            battle.RequestEnd(SessionEndReason.TimeExpired);
+            ProgressCheats.LockAllNodes(buyer);
+            Expect.Near(4, upgraded.Definition.Damage);
+
+            GameSession next = SessionAssembler.CreateBattle(content, new[] { buyer }, SessionAssembler.FirstStage, 0, tree);
+            Expect.Near(3, next.World.PlayerOf(buyer.Id).Breaker.Definition.Damage);
+            Expect.Near(1, next.World.PlayerOf(buyer.Id).Breaker.Definition.Interval);
+        }
+
+        // 노드를 모두 산 경우의 Breaker 수치가 한계 밖이면 로드 검사가 찾는다(언젠가 전투 시작을 막는 노드).
+        // 피해·공격 속도·반지름은 0보다 커야 하고, 치명타 확률은 음수가 아니어야 한다. 1을 넘는 치명타 확률은 1로 읽으므로 오류가 아니다.
+        private static void LoadCheckFindsNodesTheBreakerCannotTake()
+        {
+            GameContent content = TestContent.Load(Arena(radius: 3, count: 1, health: 10, damage: 3));
+
+            foreach (UpgradeData broken in new[]
+            {
+                new UpgradeData { Stat = BreakerUpgradeStats.Damage, Operation = UpgradeOperation.Add, Value = -3 },
+                new UpgradeData { Stat = BreakerUpgradeStats.Speed, Operation = UpgradeOperation.Multiply, Value = 0 },
+                new UpgradeData { Stat = BreakerUpgradeStats.Radius, Operation = UpgradeOperation.Percent, Value = -1 },
+                new UpgradeData { Stat = BreakerUpgradeStats.CritChance, Operation = UpgradeOperation.Add, Value = -0.5f },
+            })
+            {
+                IReadOnlyList<ContentDiagnostic> diagnostics = UpgradeContentCheck.Check(content, OneNode(broken));
+                Expect.True(diagnostics.Count == 1 && diagnostics[0].Path.Contains("Breaker"),
+                    $"{broken.Stat} {broken.Operation} {broken.Value}: Breaker 진단 하나가 필요하다. 받은 진단: {string.Join(" | ", diagnostics)}");
+            }
+
+            var capped = new UpgradeData { Stat = BreakerUpgradeStats.CritChance, Operation = UpgradeOperation.Add, Value = 5 };
+            Expect.Equal(0, UpgradeContentCheck.Check(content, OneNode(capped)).Count);
+        }
+
+        // 업그레이드 하나를 가진 시작 노드 하나의 트리.
+        private static NodeTree OneNode(UpgradeData upgrade)
+        {
+            var data = new NodeTreeData();
+            data.Nodes.Add(new NodeData { Id = "s", Price = 1, Start = true, Upgrades = { upgrade } });
+            return NodeTreeLoader.Load(data).Tree;
         }
 
         // Breaker의 치명타는 Tick마다 한 번 정해지고, 그 Tick에 맞은 적 모두가 같은 결과를 받는다.
