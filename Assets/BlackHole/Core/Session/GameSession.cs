@@ -27,8 +27,8 @@ namespace BlackHole.Core
     // 진행 상태(Gold)를 바꾸는 것은 결산뿐이다. 전투 중에는 진행 상태가 바뀌지 않으므로 저장은 전투 밖에서만 하면 된다.
     public sealed class GameSession
     {
-        private readonly IReadOnlyList<PlayerState> _players;
-        private readonly IReadOnlyDictionary<PlayerId, UpgradeTable> _upgrades;
+        // 이 판에 묶인 진행 상태(방장의 것). 결산이 번 Gold를 여기에 더한다.
+        private readonly PlayerState _progress;
         private readonly IReadOnlyList<SupplyRequest> _startSupply;
         private bool _settled;
 
@@ -42,33 +42,26 @@ namespace BlackHole.Core
         public float Remaining => TimeLimit.Remaining(Elapsed);
         // 판이 끝나기 전에는 null이다.
         public SessionResult Result { get; private set; }
+        // 이 판의 업그레이드 표. 판 조립 때 방장의 산 노드로 한 번 만들어졌고, 판이 끝날 때까지 같다.
+        // 판 조립이 이 표로 모든 참가자의 Breaker 수치와 적 종류의 판 구성을 이미 계산했다. 판 중에 표를 다시 읽는 시스템은 없다(콘솔 표시뿐).
+        public UpgradeTable Upgrades { get; }
 
         internal GameSession(
             World world,
             TimeLimitRule timeLimit,
             int stage,
             int seed,
-            IReadOnlyList<PlayerState> players,
-            IReadOnlyDictionary<PlayerId, UpgradeTable> upgrades,
+            PlayerState progress,
+            UpgradeTable upgrades,
             IReadOnlyList<SupplyRequest> startSupply)
         {
             World = world;
             TimeLimit = timeLimit;
             Stage = stage;
             Seed = seed;
-            _players = players;
-            _upgrades = upgrades;
+            _progress = progress;
+            Upgrades = upgrades;
             _startSupply = startSupply;
-        }
-
-        // 이 판에서 그 참가자가 받는 업그레이드 표. 판 조립 때 그 참가자의 산 노드로 한 번 만들어졌고, 판이 끝날 때까지 같다.
-        // 판 조립이 이 표로 Breaker 수치와 적 종류의 판 구성을 이미 계산했다. 판 중에 표를 다시 읽는 시스템은 없다(콘솔 표시뿐).
-        public UpgradeTable UpgradesOf(PlayerId player)
-        {
-            if (!_upgrades.TryGetValue(player, out UpgradeTable table))
-                throw new ArgumentException($"이 판의 참가자가 아니다: {player}.", nameof(player));
-
-            return table;
         }
 
         // 그 참가자의 조준점을 바꾼다. 없으면 null. 호스트가 입력(지금은 마우스)을 읽어 프레임마다 넣는다.
@@ -138,10 +131,8 @@ namespace BlackHole.Core
         // 결산을 마쳤는가.
         public bool IsSettled => _settled;
 
-        // 결산: 끝난 판이 번 Gold를 참가자의 진행 상태에 더한다. 한 판에 한 번만 더하고, 다시 불러도 아무 일도 없다.
+        // 결산: 끝난 판이 번 Gold를 진행 상태(방장의 것)에 더한다. 한 판에 한 번만 더하고, 다시 불러도 아무 일도 없다.
         // Gold를 더한 뒤에야 결산을 마친 것으로 기록한다. 더하기가 실패하면(Gold 넘침) 예외가 나가고 결산하지 않은 상태로 남는다.
-        // 지금 실제 구성은 로컬 Player 1명이다. 다인 플레이의 보상 귀속은 미정이라 참가자가 둘 이상이면 아무도 받지 않는다
-        // (d71c0f4의 전제와 같다).
         public void Settle()
         {
             RequireEnded();
@@ -149,9 +140,7 @@ namespace BlackHole.Core
             if (_settled)
                 return;
 
-            if (_players.Count == 1)
-                _players[0].EarnGold(World.EarnedGold);
-
+            _progress.EarnGold(World.EarnedGold);
             _settled = true;
         }
 
@@ -164,10 +153,7 @@ namespace BlackHole.Core
             Result = new SessionResult(Elapsed);
             Phase = SessionPhase.Ended;
 
-            foreach (PlayerState player in _players)
-            {
-                player.LeaveBattle();
-            }
+            _progress.LeaveBattle();
         }
 
         private void RequireEnded()

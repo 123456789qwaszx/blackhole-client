@@ -17,12 +17,12 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Session.RemembersStageAndSeed", RemembersStageAndSeed);
             yield return new Contract("Session.RejectsStageOutsideContent", RejectsStageOutsideContent);
             yield return new Contract("Session.RawDataRecordsTheEndedBattle", RawDataRecordsTheEndedBattle);
-            yield return new Contract("Session.UpgradesAreFixedPerParticipantAtAssembly", UpgradesAreFixedPerParticipantAtAssembly);
+            yield return new Contract("Session.UpgradesAreFixedAtAssembly", UpgradesAreFixedAtAssembly);
         }
 
-        // 판 조립 때 참가자마다 자기 산 노드로 업그레이드 표가 만들어진다. 표는 그 판의 것이라, 판이 끝난 뒤 산 노드가 바뀌어도 그대로다.
+        // 판 조립 때 방장의 산 노드로 업그레이드 표가 만들어진다. 표는 그 판의 것이라, 판이 끝난 뒤 산 노드가 바뀌어도 그대로다.
         // 다음 판은 그때의 산 노드로 새 표를 받는다. 노드 트리 없이 조립하면 빈 표다.
-        private static void UpgradesAreFixedPerParticipantAtAssembly()
+        private static void UpgradesAreFixedAtAssembly()
         {
             GameContent content = TestContent.Load(TestContent.Data());
             var data = new NodeTreeData();
@@ -37,25 +37,22 @@ namespace BlackHole.Core.Tests
             var buyer = new PlayerState(TestContent.First);
             buyer.EarnGold(1);
             NodePurchase.TryPurchase(buyer, tree, "s");
-            var other = new PlayerState(TestContent.Second);
 
-            GameSession battle = SessionAssembler.CreateBattle(content, new[] { buyer, other }, SessionAssembler.FirstStage, 0, tree);
-            Expect.Equal(12f, battle.UpgradesOf(buyer.Id).Apply("damage", 10));
-            Expect.Equal(10f, battle.UpgradesOf(other.Id).Apply("damage", 10));
-            Expect.Throws<ArgumentException>(() => battle.UpgradesOf(new PlayerId(99)));
+            GameSession battle = SessionAssembler.CreateBattle(content, buyer, SessionAssembler.FirstStage, 0, tree);
+            Expect.Equal(12f, battle.Upgrades.Apply("damage", 10));
 
             battle.RequestEnd();
             ProgressCheats.LockAllNodes(buyer);
-            Expect.Equal(12f, battle.UpgradesOf(buyer.Id).Apply("damage", 10));
+            Expect.Equal(12f, battle.Upgrades.Apply("damage", 10));
 
-            GameSession next = SessionAssembler.CreateBattle(content, new[] { buyer }, SessionAssembler.FirstStage, 0, tree);
-            Expect.Equal(10f, next.UpgradesOf(buyer.Id).Apply("damage", 10));
+            GameSession next = SessionAssembler.CreateBattle(content, buyer, SessionAssembler.FirstStage, 0, tree);
+            Expect.Equal(10f, next.Upgrades.Apply("damage", 10));
             next.RequestEnd();
 
             buyer.EarnGold(1);
             NodePurchase.TryPurchase(buyer, tree, "s");
-            GameSession withoutTree = SessionAssembler.CreateBattle(content, new[] { buyer });
-            Expect.Equal(10f, withoutTree.UpgradesOf(buyer.Id).Apply("damage", 10));
+            GameSession withoutTree = SessionAssembler.CreateBattle(content, buyer);
+            Expect.Equal(10f, withoutTree.Upgrades.Apply("damage", 10));
         }
 
         // 조립한 판은 준비 단계다: 적이 없고 시간이 흐르지 않는다. 시작하면 전투 시작 공급이 나오고 시간이 흐른다.
@@ -67,7 +64,7 @@ namespace BlackHole.Core.Tests
             TestContent.Allow(data, TestContent.EnemyId);
             GameContent content = TestContent.Load(data);
 
-            GameSession game = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) });
+            GameSession game = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First));
             Expect.Equal(SessionPhase.Preparing, game.Phase);
             Expect.Equal(0, game.World.Enemies.Count);
             game.Advance(1);
@@ -83,7 +80,7 @@ namespace BlackHole.Core.Tests
             Expect.Throws<InvalidOperationException>(() => game.Begin());
 
             var state = new PlayerState(TestContent.First);
-            GameSession unused = SessionAssembler.CreateBattle(content, new[] { state });
+            GameSession unused = SessionAssembler.CreateBattle(content, state);
             unused.RequestEnd();
             Expect.Equal(SessionPhase.Ended, unused.Phase);
             Expect.True(!state.InBattle, "준비 단계에서 끝나도 진행 상태를 풀어 줘야 한다.");
@@ -143,12 +140,12 @@ namespace BlackHole.Core.Tests
         {
             GameContent content = TestContent.Load(TestContent.Data());
             var state = new PlayerState(TestContent.First);
-            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }));
+            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
             first.Advance(10);
             first.RequestEnd();
             SessionResult result = first.Result;
 
-            GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }));
+            GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
             Expect.Equal(SessionPhase.Running, next.Phase);
             Expect.Near(0, next.Elapsed);
             Expect.True(next.Result == null, "새 판에는 결과가 없어야 한다.");
@@ -169,11 +166,11 @@ namespace BlackHole.Core.Tests
         private static void RemembersStageAndSeed()
         {
             GameContent content = TestContent.Load(TestContent.Data());
-            GameSession game = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 7, 42);
+            GameSession game = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 7, 42);
             Expect.Equal(7, game.Stage);
             Expect.Equal(42, game.Seed);
 
-            GameSession plain = SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) });
+            GameSession plain = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First));
             Expect.Equal(SessionAssembler.FirstStage, plain.Stage);
             Expect.Equal(SessionAssembler.DefaultSeed, plain.Seed);
         }
@@ -184,12 +181,12 @@ namespace BlackHole.Core.Tests
             GameContent content = TestContent.Load(TestContent.Data());
             var state = new PlayerState(TestContent.First);
 
-            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, new[] { state }, 0, 1));
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, state, 0, 1));
             Expect.Throws<ArgumentOutOfRangeException>(() =>
-                SessionAssembler.CreateBattle(content, new[] { state }, TestContent.StageCount + 1, 1));
+                SessionAssembler.CreateBattle(content, state, TestContent.StageCount + 1, 1));
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
 
-            GameSession last = SessionAssembler.CreateBattle(content, new[] { state }, TestContent.StageCount, 1);
+            GameSession last = SessionAssembler.CreateBattle(content, state, TestContent.StageCount, 1);
             Expect.Equal(TestContent.StageCount, last.Stage);
         }
 
@@ -198,7 +195,7 @@ namespace BlackHole.Core.Tests
         {
             GameContent content = TestContent.Load(TestContent.Data());
             GameSession game = TestContent.Begun(
-                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 3, 99));
+                SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 3, 99));
             game.Advance(2);
             Expect.Throws<InvalidOperationException>(() => game.CreateRawData());
 

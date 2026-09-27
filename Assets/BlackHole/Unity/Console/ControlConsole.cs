@@ -250,10 +250,7 @@ namespace BlackHole.Unity
         // 판의 수치는 판 동안 바뀌지 않으므로 매 프레임 다시 쓸 필요가 없다.
         private void RefreshDetail(GameSession battle)
         {
-            int owned = 0;
-
-            foreach (PlayerState player in _orchestrator.Progress)
-                owned += player.OwnedNodes.Count;
+            int owned = _orchestrator.Progress.OwnedNodes.Count;
 
             if (!_detailDirty && battle == _shownDetailBattle && owned == _shownOwnedNodes)
                 return;

@@ -15,7 +15,7 @@
   │  Start battle → ScreenFlow → BattleOrchestrator.StartBattleAsync
   ▼
 판 조립 (SessionAssembler.CreateBattle, 한 번)
-  │  산 노드 → UpgradeTable (참가자마다)
+  │  방장의 산 노드 → UpgradeTable (판에 하나)
   │  UpgradeTable → Breaker 수치 (BreakerDefinition.Upgraded)
   │  UpgradeTable → 적 종류의 판 구성 (EnemyComposition.From) → 적 수치 표 (EnemyStatTable)
   │  판 구성의 공급 수 → 전투 시작 공급
@@ -44,7 +44,7 @@
 | 단계 | 하는 일 | 규칙 | 코드 |
 |---|---|---|---|
 | 휴식 | 노드 구매 | 드러남(시작 노드이거나 산 이웃이 있음), 한 번만, Gold ≥ 가격, 전투 중 불가 | `Core/Nodes/NodePurchase.cs`, `NodeGraph.cs`, `Unity/Flow/ScreenFlow.Upgrade.cs` |
-| 판 조립 | 참가자별 업그레이드 표 | 산 노드의 업그레이드 합성: (기본 + Σ더하기) × (1 + Σ비율) × Π곱하기 | `NodePurchase.UpgradesFor`, `Core/Upgrades/UpgradeTable.cs` |
+| 판 조립 | 판의 업그레이드 표(방장의 산 노드) | 산 노드의 업그레이드 합성: (기본 + Σ더하기) × (1 + Σ비율) × Π곱하기 | `NodePurchase.UpgradesFor`, `Core/Upgrades/UpgradeTable.cs` |
 | 판 조립 | Breaker 수치 | 수치 이름 `breaker.*`, 한계는 Breaker가 건다 | `Core/Skills/BreakerDefinition.cs` (`Upgraded`, `BreakerUpgradeStats`) |
 | 판 조립 | 적 판 구성 | 수치 이름 `enemy.<종류>.*`, 한계는 적 시스템이 건다. 참가자가 1명일 때만 보정 | `Core/Enemies/EnemyComposition.cs` (`From`, `EnemyUpgradeStats`), `EnemyStatTable.cs` |
 | 판 조립 | 전투 시작 공급 | 콘텐츠 공급 + 판 구성의 더할 공급 수 | `SessionAssembler.StartSupplyOf` |
@@ -60,7 +60,7 @@
 
 | 고정(판 조립 때 한 번) | 판 동안 바뀜 | 판 동안 바뀌지 않는 진행 상태 |
 |---|---|---|
-| 참가자별 업그레이드 표 | 적(위치·HP·생존) | `PlayerState.Gold` |
+| 판의 업그레이드 표 | 적(위치·HP·생존) | `PlayerState.Gold` |
 | Breaker 수치(피해·주기·반지름·치명타 확률) | Breaker의 처치 버프(공격 주기 감소, 확정 치명타) | `PlayerState.OwnedNodes` |
 | 적 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수) | `World.EarnedGold`, 처치 수 | |
 | 적 수치 표((종류, 색, 황금) → HP·크기·Gold) | 생성·파괴 요청, 사망 효과 대기열 | |
@@ -111,7 +111,7 @@
 - 공격 속도 → 주기 변환(주기 = 기본 주기 ÷ 공격 속도)은 [임시]다. 원작의 공격 속도 표기와 맞는지 미확인.
 - 황금 배율 노드: 옛 구조의 "정하기 4200"을 범용 표에서 "더하기 4150"(기본 50 + 4150)으로 옮겼다. 노드 모양(곱하기인지, 몇 단계인지)은 BATTLE_COMPOSITION_PLAN의 미정 그대로다.
 - 적 종류 노드 35개의 격자 칸은 Breaker 노드 왼쪽에 계열별로 둔 [임시] 배치다. `asteroid-mass-1`은 선행 노드가 없던 노드라 두 번째 시작 노드가 됐다.
-- 참가자가 둘 이상이면 적 판 구성은 보정 없이 기본값이고 결산은 아무도 받지 않는다(보상·공유 대상 귀속은 F06 미정).
+- 진행 상태는 방장의 것 하나다(사용자, 2026-09-27). 방장이 노드를 사고 진행도를 정하며, 스탯(업그레이드 표)과 처치 버프는 판 안의 모든 참가자가 함께 받는다. 결산 Gold는 그 진행 상태로 간다. 지금 판 안의 참가자는 방장 한 명이다.
 - 제한 시간이 끝나거나 End battle 버튼을 누르면 같은 종료 절차를 실행한다(결산 화면에는 "Battle over"로 표시한다).
 - HQ EXP·성장 이정표(Step 5·6), 저장, 노드 표시 이름·아이콘, 한글 글꼴은 없다(화면 글자는 영문).
 

@@ -17,7 +17,7 @@ namespace BlackHole.Unity
     // 일시정지 버튼은 판이 없거나 끝났으면 누를 수 없다.
     // 버튼 아래에는 진행 중인 판의 업그레이드 표, Gold와 마지막 판의 원자료가 나온다.
     // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
-    // 진행 중인 판의 업그레이드 표(보는 참가자의 것) 중 산 노드가 바꾼 수치만 나온다:
+    // 진행 중인 판의 업그레이드 표(방장의 산 노드) 중 산 노드가 바꾼 수치만 나온다:
     // 수치마다 기본값 0과 1일 때의 값이다(실제 기본값은 가져가는 시스템이 가진다).
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
@@ -39,12 +39,11 @@ namespace BlackHole.Unity
         private readonly TMP_Text _goldText;
         private readonly TMP_Text _rawDataText;
         private readonly TMP_Text _upgradesText;
-        private readonly PlayerId _viewer;
         private readonly SortedSet<string> _stats = new SortedSet<string>(StringComparer.Ordinal);
         private readonly StringBuilder _builder = new StringBuilder();
 
         private bool? _shownPaused;
-        private long[] _shownGold;
+        private long _shownGold = -1;
         private long _shownEarned = -1;
         private BattleRawData _shownRawData;
         private bool _rawDataShown;
@@ -52,14 +51,13 @@ namespace BlackHole.Unity
         private bool _upgradesShown;
 
         public BattleLifecycleConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle,
-            NodeTree nodes, PlayerId viewer, Action startClicked, Action pauseClicked, Action endClicked)
+            NodeTree nodes, Action startClicked, Action pauseClicked, Action endClicked)
         {
             _orchestrator = orchestrator;
             _battle = battle;
             _startClicked = startClicked;
             _pauseClicked = pauseClicked;
             _endClicked = endClicked;
-            _viewer = viewer;
 
             foreach (NodeDefinition node in nodes.Nodes)
             {
@@ -129,30 +127,20 @@ namespace BlackHole.Unity
             }
         }
 
-        // 참가자마다 진행 상태의 Gold 한 줄, 판이 있으면 그 판이 번 Gold 한 줄. 값이 바뀐 프레임에만 다시 쓴다.
+        // 진행 상태(방장의 것)의 Gold 한 줄, 판이 있으면 그 판이 번 Gold 한 줄. 값이 바뀐 프레임에만 다시 쓴다.
         private void RefreshGold()
         {
-            IReadOnlyList<PlayerState> progress = _orchestrator.Progress;
-            int count = progress?.Count ?? 0;
+            PlayerState progress = _orchestrator.Progress;
             long earned = _battle.Session != null ? _battle.Session.World.EarnedGold : -1;
-            bool changed = _shownGold == null || _shownGold.Length != count || earned != _shownEarned;
 
-            for (int i = 0; !changed && i < count; i++)
-                changed = _shownGold[i] != progress[i].Gold;
-
-            if (!changed)
+            if (progress.Gold == _shownGold && earned == _shownEarned)
                 return;
 
-            _shownGold = new long[count];
+            _shownGold = progress.Gold;
             _shownEarned = earned;
             _builder.Clear();
-            _builder.Append(count == 0 ? "Gold  -" : "Gold");
-
-            for (int i = 0; i < count; i++)
-            {
-                _shownGold[i] = progress[i].Gold;
-                _builder.Append("\n  ").Append(progress[i].Id).Append("<pos=7em>").Append(_shownGold[i]);
-            }
+            _builder.Append("Gold");
+            _builder.Append("\n  ").Append(progress.Id).Append("<pos=7em>").Append(_shownGold);
 
             if (earned >= 0)
                 _builder.Append("\n  This battle<pos=7em>+").Append(earned);
@@ -160,15 +148,15 @@ namespace BlackHole.Unity
             _goldText.text = _builder.ToString();
         }
 
-        // 진행 중인 판이 보는 참가자에게 준 업그레이드 표. 산 노드가 바꾼 수치마다 "기본값 0일 때 / 1일 때"다.
+        // 진행 중인 판의 업그레이드 표(방장의 산 노드). 산 노드가 바꾼 수치마다 "기본값 0일 때 / 1일 때"다.
         private string DescribeUpgrades(GameSession session)
         {
             if (session == null)
                 return "Upgrades  -";
 
             _builder.Clear();
-            _builder.Append("Upgrades (").Append(_viewer).Append(")  base 0 / base 1");
-            UpgradeTable table = session.UpgradesOf(_viewer);
+            _builder.Append("Upgrades  base 0 / base 1");
+            UpgradeTable table = session.Upgrades;
             bool any = false;
 
             foreach (string stat in _stats)

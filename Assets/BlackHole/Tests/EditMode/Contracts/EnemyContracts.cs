@@ -182,7 +182,7 @@ namespace BlackHole.Core.Tests
             GameContent content = TestContent.Load(data);
             content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
 
-            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First)));
             Expect.Equal(0, plain.World.Stats.CompositionOf(kind).MassLevel);
 
             foreach (Enemy enemy in plain.World.Enemies)
@@ -206,7 +206,7 @@ namespace BlackHole.Core.Tests
 
             var state = new PlayerState(TestContent.First);
             NodeTree tooHeavy = TestContent.Owned(state, Mass(kind, 2));
-            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, new[] { state }, 1, 0, tooHeavy));
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, state, 1, 0, tooHeavy));
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
         }
 
@@ -279,7 +279,7 @@ namespace BlackHole.Core.Tests
         {
             var state = new PlayerState(TestContent.First);
             NodeTree tree = TestContent.Owned(state, upgrades);
-            return TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }, SessionAssembler.FirstStage, seed, tree));
+            return TestContent.Begun(SessionAssembler.CreateBattle(content, state, SessionAssembler.FirstStage, seed, tree));
         }
 
         // 색 비율은 몫 방식으로 지킨다: 색이 둘이면 몇 마리를 공급한 시점이든 색마다 (비율 × 공급 수)에서 1마리 넘게 벗어나지 않는다.
@@ -364,7 +364,7 @@ namespace BlackHole.Core.Tests
 
             var state = new PlayerState(TestContent.First);
             NodeTree goldenPlain = TestContent.Owned(state, Golden(plain, 0.1f));
-            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, new[] { state }, 1, 0, goldenPlain));
+            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, state, 1, 0, goldenPlain));
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
 
             Expect.Near(1, Upgraded(content, 3, Golden(kind, 1.5f)).World.Stats.CompositionOf(kind).GoldenRatio);
@@ -458,9 +458,9 @@ namespace BlackHole.Core.Tests
             GameContent content = TestContent.Load(data);
 
             GameSession early = TestContent.Begun(
-                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 1, 0));
+                SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 1, 0));
             GameSession late = TestContent.Begun(
-                SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }, 2, 0));
+                SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 2, 0));
 
             Expect.Equal(TestContent.PoolId, early.World.Pool.Id);
             Expect.Equal("late", late.World.Pool.Id);
@@ -581,7 +581,7 @@ namespace BlackHole.Core.Tests
             TestContent.Allow(data, TestContent.EnemyId);
             var state = new PlayerState(TestContent.First);
             state.EarnGold(20);
-            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), new[] { state }));
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), state));
             World world = game.World;
             Enemy hit = world.Enemies[0];
             Enemy destroyed = world.Enemies[1];
@@ -686,8 +686,8 @@ namespace BlackHole.Core.Tests
         private static void EachBattleHasItsOwnEnemies()
         {
             GameContent content = TestContent.Load(OneEnemy(health: 10));
-            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
-            GameSession second = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First)));
+            GameSession second = TestContent.Begun(SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First)));
 
             Expect.True(!ReferenceEquals(first.World, second.World), "World를 재사용하면 안 된다.");
             first.World.DealDamage(first.World.Enemies[0], Hit);
@@ -703,8 +703,8 @@ namespace BlackHole.Core.Tests
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1, gold: 7));
             TestContent.Allow(data, TestContent.EnemyId);
             GameContent content = TestContent.Load(data);
-            GameSession mine = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
-            GameSession other = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { new PlayerState(TestContent.First) }));
+            GameSession mine = TestContent.Begun(SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First)));
+            GameSession other = TestContent.Begun(SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First)));
             Enemy foreign = other.World.Enemies[0];
 
             Expect.True(!mine.World.DealDamage(foreign, Hit), "다른 판의 적은 죽지 않는다.");

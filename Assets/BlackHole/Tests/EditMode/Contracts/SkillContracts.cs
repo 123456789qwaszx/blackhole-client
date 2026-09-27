@@ -22,14 +22,14 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Skill.LaserStartIsReproducibleAndSeparateFromSpawns", LaserStartIsReproducibleAndSeparateFromSpawns);
             yield return new Contract("Skill.DisabledSkillDropsItsTimerAndPendingShots", DisabledSkillDropsItsTimerAndPendingShots);
             yield return new Contract("Skill.BreakerCriticalIsOneRollPerTickOnItsOwnStream", BreakerCriticalIsOneRollPerTickOnItsOwnStream);
-            yield return new Contract("Skill.BreakerTakesItsOwnerUpgradesAtAssembly", BreakerTakesItsOwnerUpgradesAtAssembly);
+            yield return new Contract("Skill.BreakerTakesTheHostUpgradesAtAssembly", BreakerTakesTheHostUpgradesAtAssembly);
             yield return new Contract("Skill.LoadCheckFindsNodesTheBreakerCannotTake", LoadCheckFindsNodesTheBreakerCannotTake);
         }
 
-        // 판 조립 때 참가자마다 자기 업그레이드 표로 Breaker 수치를 받는다: 피해 더하기, 공격 속도 비율(주기 = 기본 주기 ÷ 공격 속도),
-        // 반지름 비율, 치명타 확률 더하기(1을 넘지 않는다). 산 노드가 없는 참가자와 콘텐츠의 정의는 기본 수치 그대로다.
+        // 판 조립 때 방장의 업그레이드 표로 Breaker 수치를 받는다: 피해 더하기, 공격 속도 비율(주기 = 기본 주기 ÷ 공격 속도),
+        // 반지름 비율, 치명타 확률 더하기(1을 넘지 않는다). 콘텐츠의 정의는 기본 수치 그대로다.
         // 받은 수치로 실제로 친다(피해·원·주기). 끝난 판의 수치는 산 노드가 바뀌어도 그대로고, 다음 판이 그때의 산 노드로 새로 계산한다.
-        private static void BreakerTakesItsOwnerUpgradesAtAssembly()
+        private static void BreakerTakesTheHostUpgradesAtAssembly()
         {
             GameContent content = TestContent.Load(Arena(radius: 3, count: 12, health: 10, damage: 3));
             var data = new NodeTreeData();
@@ -58,24 +58,18 @@ namespace BlackHole.Core.Tests
             buyer.EarnGold(2);
             NodePurchase.TryPurchase(buyer, tree, "s");
             NodePurchase.TryPurchase(buyer, tree, "crit");
-            var other = new PlayerState(TestContent.Second);
 
             GameSession battle = TestContent.Begun(SessionAssembler.CreateBattle(
-                content, new[] { buyer, other }, SessionAssembler.FirstStage, 0, tree));
+                content, buyer, SessionAssembler.FirstStage, 0, tree));
             BreakerSkill upgraded = battle.World.PlayerOf(buyer.Id).Breaker;
-            BreakerSkill plain = battle.World.PlayerOf(other.Id).Breaker;
             Expect.Near(4, upgraded.Definition.Damage);
             Expect.Near(0.8f, upgraded.Definition.Interval);
             Expect.Near(3.3f, upgraded.Definition.Radius);
             Expect.Near(1, upgraded.Definition.CritChance);
             Expect.Near(1, upgraded.Definition.CritMultiplier);
-            Expect.Near(3, plain.Definition.Damage);
-            Expect.Near(1, plain.Definition.Interval);
-            Expect.Near(3, plain.Definition.Radius);
-            Expect.Near(0, plain.Definition.CritChance);
             Expect.Near(3, content.Breaker.Damage);
 
-            // 산 참가자만 조준한다. 첫 Tick에 반지름 3.3 안의 적이 피해 4(치명타 배율 1)를 받는다.
+            // 첫 Tick에 반지름 3.3 안의 적이 피해 4(치명타 배율 1)를 받는다.
             battle.SetAimPoint(buyer.Id, BattleSpace.Origin);
             battle.Advance(0.1f);
             Expect.Near(3.3f, upgraded.Ticks[0].Radius);
@@ -83,18 +77,17 @@ namespace BlackHole.Core.Tests
             foreach (Enemy enemy in battle.World.Enemies)
                 Expect.Near(TestContent.DistanceToHq(enemy.Position) <= 3.3f ? 6 : 10, enemy.Health);
 
-            // 주기 0.8초: 판 시간 0.8초에 두 번째 Tick. 기본 주기(1초)인 참가자는 아직 한 번이다.
+            // 주기 0.8초: 판 시간 0.8초에 두 번째 Tick.
             battle.Advance(0.6f);
             Expect.Equal(1, upgraded.TickCount);
             battle.Advance(0.1f);
             Expect.Equal(2, upgraded.TickCount);
-            Expect.Equal(1, plain.TickCount);
 
             battle.RequestEnd();
             ProgressCheats.LockAllNodes(buyer);
             Expect.Near(4, upgraded.Definition.Damage);
 
-            GameSession next = SessionAssembler.CreateBattle(content, new[] { buyer }, SessionAssembler.FirstStage, 0, tree);
+            GameSession next = SessionAssembler.CreateBattle(content, buyer, SessionAssembler.FirstStage, 0, tree);
             Expect.Near(3, next.World.PlayerOf(buyer.Id).Breaker.Definition.Damage);
             Expect.Near(1, next.World.PlayerOf(buyer.Id).Breaker.Definition.Interval);
         }
@@ -274,23 +267,25 @@ namespace BlackHole.Core.Tests
         }
 
         // 스킬의 피해는 World.DealDamage로 들어간다. 죽은 적은 그 순간 판에서 빠지고, 사망 기록과 처치 수는 적마다 한 번이다.
-        // 두 참가자의 Breaker가 같은 Step에 같은 적을 겨누면, 먼저 공격한 참가자(판 조립 순서)의 Tick만 맞힌다.
+        // 이미 죽은 적에게 다시 피해를 주어도 새 사망이 생기지 않는다.
         private static void DamageGoesThroughWorldOnce()
         {
             GameContent content = TestContent.Load(Arena(radius: 5, count: 6, health: 3, damage: 3));
             GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(
-                content, new[] { new PlayerState(TestContent.First), new PlayerState(TestContent.Second) }));
+                content, new PlayerState(TestContent.First)));
             game.SetAimPoint(TestContent.First, BattleSpace.Origin);
-            game.SetAimPoint(TestContent.Second, BattleSpace.Origin);
+            World world = game.World;
+            Enemy target = world.Enemies[0];
 
             game.Advance(0.1f);
-            World world = game.World;
             Expect.Equal(0, world.Enemies.Count);
             Expect.Equal(6, world.Deaths.Count);
             Expect.Equal(6, world.TotalKills);
             Expect.Equal(6, world.PlayerOf(TestContent.First).Breaker.LastTickHitCount);
-            Expect.Equal(1, world.PlayerOf(TestContent.Second).Breaker.TickCount);
-            Expect.Equal(0, world.PlayerOf(TestContent.Second).Breaker.LastTickHitCount);
+
+            Expect.True(!world.DealDamage(target, new Damage(3, TestContent.First)), "죽은 적은 다시 죽지 않는다.");
+            Expect.Equal(6, world.Deaths.Count);
+            Expect.Equal(6, world.TotalKills);
         }
 
         // 끝난 판은 공격하지 않는다. 새 판은 새 참가자로 시작한다: 조준점이 없고 Tick은 처음부터다.
@@ -299,7 +294,7 @@ namespace BlackHole.Core.Tests
             GameContent content = TestContent.Load(Arena(radius: 5, count: 3, health: 10, damage: 1));
             var state = new PlayerState(TestContent.First);
 
-            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }));
+            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
             first.SetAimPoint(TestContent.First, BattleSpace.Origin);
             first.Advance(0.1f);
             BreakerSkill ended = first.World.Players[0].Breaker;
@@ -309,7 +304,7 @@ namespace BlackHole.Core.Tests
             first.Advance(2);
             Expect.Equal(1, ended.TickCount);
 
-            GameSession second = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }));
+            GameSession second = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
             BattlePlayer player = second.World.PlayerOf(TestContent.First);
             Expect.True(!player.AimPoint.HasValue, "새 판의 참가자는 조준점이 없다.");
             Expect.True(player.Breaker != ended, "새 판은 Breaker 실행 상태를 새로 만든다.");
@@ -456,7 +451,7 @@ namespace BlackHole.Core.Tests
         private static GameSession Laser(GameContent content, int seed)
         {
             GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(
-                content, new[] { new PlayerState(TestContent.First) }, SessionAssembler.FirstStage, seed));
+                content, new PlayerState(TestContent.First), SessionAssembler.FirstStage, seed));
             game.SetAimPoint(TestContent.First, BattleSpace.Origin);
             return game;
         }

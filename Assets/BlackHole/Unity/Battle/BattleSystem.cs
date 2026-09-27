@@ -34,7 +34,8 @@ namespace BlackHole.Unity
         private readonly SkillView _skillView;
         private readonly DeathEffectView _deathEffectView;
         private State _state = State.Idle;
-        private IReadOnlyList<PlayerState> _players;
+        // 진행 중인 판에 묶인 진행 상태(방장의 것). 시작 전과 완전 초기화 뒤에는 null이다.
+        private PlayerState _progress;
 
         // 진행 중인(또는 정리 중인) 판. 시작 전과 완전 초기화 뒤에는 null이다.
         public GameSession Session { get; private set; }
@@ -55,24 +56,24 @@ namespace BlackHole.Unity
         }
 
         // 전투 진입을 위한 초기화. 오케스트레이터만 부른다.
-        public Task StartAsync(IReadOnlyList<PlayerState> players, int stage, int seed)
+        public Task StartAsync(PlayerState progress, int stage, int seed)
         {
             if (_state != State.Idle)
                 throw new InvalidOperationException($"준비된 상태에서만 시작할 수 있다. 지금: {_state}.");
 
             _state = State.Starting;
-            _players = players;
+            _progress = progress;
 
-            // 1. 업그레이드에서 바뀐 수치 받기: 조립이 참가자마다 산 노드로 업그레이드 표를 만들고,
+            // 1. 업그레이드에서 바뀐 수치 받기: 조립이 방장의 산 노드로 업그레이드 표를 만들고,
             //    그 표로 이 판의 Breaker 수치, 판 구성과 적 수치 표를 확정한다. 판이 끝날 때까지 바뀌지 않는다.
             //    조립이 실패하면(산 노드 조합이 한계 밖 등) 판도, 전투에 묶인 진행 상태도 없으므로 준비된 상태로 돌아간다.
             try
             {
-                Session = SessionAssembler.CreateBattle(_content, players, stage, seed, _nodes);
+                Session = SessionAssembler.CreateBattle(_content, progress, stage, seed, _nodes);
             }
             catch
             {
-                _players = null;
+                _progress = null;
                 _state = State.Idle;
                 throw;
             }
@@ -149,9 +150,9 @@ namespace BlackHole.Unity
                 Verify(_enemyView.IsClear && _skillView.IsClear && _deathEffectView.IsClear, "Presentation cleared");
 
                 // 7. 완전 초기화: 판을 버리고, 진행 상태가 전투에서 풀렸는지 확인한다.
-                Verify(PlayersReleased(), "Fully reset");
+                Verify(!_progress.InBattle, "Fully reset");
                 Session = null;
-                _players = null;
+                _progress = null;
                 _state = State.Idle;
                 return LastRawData;
             }
@@ -166,17 +167,6 @@ namespace BlackHole.Unity
         {
             if (!passed)
                 throw new InvalidOperationException($"전투 정리 단계 실패: {stepName}.");
-        }
-
-        private bool PlayersReleased()
-        {
-            foreach (PlayerState player in _players)
-            {
-                if (player.InBattle)
-                    return false;
-            }
-
-            return true;
         }
     }
 }

@@ -12,7 +12,7 @@ namespace BlackHole.Unity
 
             var console = new ControlConsole(transform, _orchestrator, _battle, _content, _nodeTree, _enemyLooks);
             var lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, _nodeTree,
-                _viewer.Id, _screens.HandleLifecycleStartBattleClicked,
+                _screens.HandleLifecycleStartBattleClicked,
                 _screens.HandleLifecyclePauseClicked, _screens.HandleLifecycleEndBattleClicked);
             var commandConsole = new EnemyCommandConsole(transform, _battle, _content.Enemies);
             var upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _screens.HandleUpgradeConsoleProgressChanged);

@@ -35,7 +35,7 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
 
             // 첫 판: 원이 판 전체를 덮는 Breaker가 첫 Tick에 HP 1인 적 셋을 모두 처치한다(색 0, Gold 5씩).
-            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }, SessionAssembler.FirstStage, 0, tree));
+            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, state, SessionAssembler.FirstStage, 0, tree));
             first.SetAimPoint(state.Id, BattleSpace.Origin);
             first.Advance(0.1f);
             Expect.Equal(3, first.World.TotalKills);
@@ -57,7 +57,7 @@ namespace BlackHole.Core.Tests
             Expect.Near(1, first.World.PlayerOf(state.Id).Breaker.Definition.Damage);
 
             // 다음 판: 산 노드가 Breaker 피해(1 → 2)와 적의 질량 단계(0 → 1: 모두 색 1, Gold 5 × 2)를 바꾼다.
-            GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }, SessionAssembler.FirstStage, 0, tree));
+            GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, state, SessionAssembler.FirstStage, 0, tree));
             Expect.Near(2, next.World.PlayerOf(state.Id).Breaker.Definition.Damage);
             Expect.Equal(1, next.World.Stats.CompositionOf(kind).MassLevel);
 

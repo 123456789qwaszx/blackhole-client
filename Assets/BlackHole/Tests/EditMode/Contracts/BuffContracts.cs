@@ -15,7 +15,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Buff.StartsNextStepAndExpires", StartsNextStepAndExpires);
             yield return new Contract("Buff.HasteKeepsTimerProgress", HasteKeepsTimerProgress);
             yield return new Contract("Buff.KillBuffsApplyOnlyToBreaker", KillBuffsApplyOnlyToBreaker);
-            yield return new Contract("Buff.GoesToTheSingleParticipantOnly", GoesToTheSingleParticipantOnly);
+            yield return new Contract("Buff.IsSharedRegardlessOfWhoKilled", IsSharedRegardlessOfWhoKilled);
         }
 
         // 버프는 그 처치가 난 Step의 공격에는 들지 않고(사망 효과는 공격 뒤 4 자리), 다음 Step부터 적용된다.
@@ -103,22 +103,22 @@ namespace BlackHole.Core.Tests
             Expect.Equal(2, player.Laser.PendingShots[0].Number);
         }
 
-        // 버프는 참가자가 한 명일 때만 그 참가자가 받는다. 둘 이상이면 귀속이 미정이라 아무도 받지 않는다.
-        private static void GoesToTheSingleParticipantOnly()
+        // 버프는 스탯과 같이 판 안의 모든 참가자가 함께 받는다. 누가 죽였는지는 보지 않는다 — 판 밖의 출처가 죽여도 받는다.
+        private static void IsSharedRegardlessOfWhoKilled()
         {
             GameContent content = TestContent.Load(Arena(haste: true, critical: true, hasteDuration: 5, buffHealth: 100));
             GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(
-                content, new[] { new PlayerState(TestContent.First), new PlayerState(TestContent.Second) }));
+                content, new PlayerState(TestContent.First)));
             World world = game.World;
 
-            world.DealDamage(Of(world, Haste)[0], new Damage(1000, TestContent.First));
-            world.DealDamage(Of(world, Critical)[0], new Damage(1000, TestContent.First));
+            world.DealDamage(Of(world, Haste)[0], new Damage(1000, TestContent.Second));
+            world.DealDamage(Of(world, Critical)[0], new Damage(1000, TestContent.Second));
             game.Advance(0.1f);
 
             foreach (BattlePlayer player in world.Players)
             {
-                Expect.Near(0, player.Breaker.HasteRemaining);
-                Expect.Near(0, player.Breaker.GuaranteedCriticalRemaining);
+                Expect.True(player.Breaker.HasteRemaining > 0, "공격 주기 감소를 받아야 한다.");
+                Expect.True(player.Breaker.GuaranteedCriticalRemaining > 0, "확정 치명타를 받아야 한다.");
             }
         }
 

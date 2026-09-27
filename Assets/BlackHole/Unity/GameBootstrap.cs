@@ -20,8 +20,8 @@ namespace BlackHole.Unity
     // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed partial class GameBootstrap : MonoBehaviour
     {
-        // 판에 참가하는 로컬 Player. 지금은 1명이다(Players.Count == 1일 뿐 전역 Player가 아니다).
-        private static readonly PlayerId[] LocalPlayers = { new PlayerId(1) };
+        // 방장(로컬 Player). 진행 상태의 주인이고, 지금 판 안의 참가자도 방장 한 명이다.
+        private static readonly PlayerId Host = new PlayerId(1);
 
         [Header("Content")]
         [SerializeField] private EnemyCatalog enemyCatalog;
@@ -98,10 +98,10 @@ namespace BlackHole.Unity
         private void BootstrapBattle()
         {
             _battle = new BattleSystem(_content, _nodeTree, _enemyView, _skillView, _deathEffectView);
-            _orchestrator = new BattleOrchestrator(_content, _battle, LocalPlayers);
-            // 업그레이드 화면과 콘솔이 보는 진행 상태: 지금 실제 구성인 로컬 Player 1명.
-            _viewer = _orchestrator.Progress[0];
-            // 마우스가 조준하는 참가자: 같은 로컬 Player.
+            _orchestrator = new BattleOrchestrator(_content, _battle, Host);
+            // 업그레이드 화면과 콘솔이 보는 진행 상태: 방장의 것.
+            _viewer = _orchestrator.Progress;
+            // 마우스가 조준하는 참가자: 방장.
             _aim = new AimInput(_battle, _viewer.Id);
         }
 

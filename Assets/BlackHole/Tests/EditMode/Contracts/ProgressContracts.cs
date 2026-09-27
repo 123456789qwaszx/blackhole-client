@@ -11,7 +11,7 @@ namespace BlackHole.Core.Tests
         {
             yield return new Contract("Progress.CannotEnterTwoBattlesAtOnce", CannotEnterTwoBattlesAtOnce);
             yield return new Contract("Progress.NextBattleKeepsProgress", NextBattleKeepsProgress);
-            yield return new Contract("Progress.PlayerStatesAreIndependent", PlayerStatesAreIndependent);
+            yield return new Contract("Progress.FailedAssemblyLeavesProgressFree", FailedAssemblyLeavesProgressFree);
             yield return new Contract("Progress.GoldCannotBeTakenByEarning", GoldCannotBeTakenByEarning);
             yield return new Contract("Progress.CheatsBypassPurchaseButGoldStaysNonNegative", CheatsBypassPurchaseButGoldStaysNonNegative);
             yield return new Contract("Progress.CheatsAreRefusedDuringBattle", CheatsAreRefusedDuringBattle);
@@ -28,7 +28,7 @@ namespace BlackHole.Core.Tests
             TestContent.Allow(data, TestContent.EnemyId);
             var state = new PlayerState(TestContent.First);
             state.EarnGold(long.MaxValue - 3);
-            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), new[] { state }));
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), state));
 
             game.World.DealDamage(game.World.Enemies[0], new Damage(1, TestContent.First));
             game.RequestEnd();
@@ -54,7 +54,7 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
             state.EarnGold(50);
 
-            GameSession battle = SessionAssembler.CreateBattle(content, new[] { state });
+            GameSession battle = SessionAssembler.CreateBattle(content, state);
             Expect.Throws<InvalidOperationException>(() => ProgressCheats.TakeGold(state, 10));
             Expect.Throws<InvalidOperationException>(() => ProgressCheats.UnlockAllNodes(state, tree));
             Expect.Throws<InvalidOperationException>(() => ProgressCheats.LockAllNodes(state));
@@ -103,7 +103,7 @@ namespace BlackHole.Core.Tests
             TestContent.Allow(data, TestContent.EnemyId);
             var state = new PlayerState(TestContent.First);
             state.EarnGold(20);
-            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), new[] { state }));
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), state));
 
             game.World.DealDamage(game.World.Enemies[0], new Damage(1, TestContent.First));
             Expect.Equal(20L, state.Gold);
@@ -123,13 +123,13 @@ namespace BlackHole.Core.Tests
             GameContent content = TestContent.Load(TestContent.Data());
             var state = new PlayerState(TestContent.First);
 
-            GameSession battle = SessionAssembler.CreateBattle(content, new[] { state });
+            GameSession battle = SessionAssembler.CreateBattle(content, state);
             Expect.True(state.InBattle, "전투에 들어가 있어야 한다.");
-            Expect.Throws<InvalidOperationException>(() => SessionAssembler.CreateBattle(content, new[] { state }));
+            Expect.Throws<InvalidOperationException>(() => SessionAssembler.CreateBattle(content, state));
 
             battle.RequestEnd();
             Expect.True(!state.InBattle, "전투가 끝나면 풀려야 한다.");
-            SessionAssembler.CreateBattle(content, new[] { state });
+            SessionAssembler.CreateBattle(content, state);
         }
 
         // 다음 전투는 같은 진행 상태를 이어받는다. 시간이 끝나 끝난 전투도 진행 상태를 풀어 준다.
@@ -139,29 +139,25 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
             state.EarnGold(20);
 
-            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }));
+            GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
             first.Advance(2);
             Expect.True(!state.InBattle, "시간이 끝나도 풀려야 한다.");
 
-            SessionAssembler.CreateBattle(content, new[] { state });
+            SessionAssembler.CreateBattle(content, state);
             Expect.Equal(20, state.Gold);
         }
 
-        // 두 Player의 진행 상태는 서로 영향을 주지 않는다. 조립이 실패하면 어느 쪽도 전투에 묶이지 않는다.
-        private static void PlayerStatesAreIndependent()
+        // 조립이 실패하면(범위 밖의 단계 등) 진행 상태는 전투에 묶이지 않고, 그대로 다음 조립에 쓸 수 있다.
+        private static void FailedAssemblyLeavesProgressFree()
         {
             GameContent content = TestContent.Load(TestContent.Data());
-            var first = new PlayerState(TestContent.First);
-            var second = new PlayerState(TestContent.Second);
-            first.EarnGold(20);
-            Expect.Equal(0, second.Gold);
+            var state = new PlayerState(TestContent.First);
 
-            var duplicate = new PlayerState(TestContent.First);
-            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, new[] { first, duplicate }));
-            Expect.True(!first.InBattle && !duplicate.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, state, 0, 1));
+            Expect.True(!state.InBattle, "실패한 조립이 진행 상태를 묶으면 안 된다.");
 
-            SessionAssembler.CreateBattle(content, new[] { first, second });
-            Expect.True(first.InBattle && second.InBattle, "두 Player 모두 전투에 들어가야 한다.");
+            SessionAssembler.CreateBattle(content, state);
+            Expect.True(state.InBattle, "다음 조립은 진행 상태를 전투에 들여야 한다.");
         }
 
         // Gold를 더하는 입구로 Gold를 뺄 수 없다.

@@ -136,7 +136,7 @@ namespace BlackHole.Core.Tests
 
         // 새 진행 상태의 Player 1명으로 첫 단계의 전투를 조립하고 시작한다(전투 시작 공급까지).
         public static GameSession Session(ContentData data, int seed = SessionAssembler.DefaultSeed) =>
-            Begun(SessionAssembler.CreateBattle(Load(data), new[] { new PlayerState(First) }, SessionAssembler.FirstStage, seed));
+            Begun(SessionAssembler.CreateBattle(Load(data), new PlayerState(First), SessionAssembler.FirstStage, seed));
 
         public static GameSession Begun(GameSession session)
         {

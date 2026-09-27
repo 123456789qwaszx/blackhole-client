@@ -101,7 +101,7 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
             state.EarnGold(5);
 
-            GameSession battle = SessionAssembler.CreateBattle(content, new[] { state });
+            GameSession battle = SessionAssembler.CreateBattle(content, state);
             Expect.Equal(PurchaseResult.InBattle, NodePurchase.TryPurchase(state, tree, "s"));
             Expect.Equal(NodeState.Revealed, NodePurchase.StateOf(state, tree, "s"));
             Expect.Equal(5L, state.Gold);
