@@ -15,13 +15,12 @@ namespace BlackHole.Unity
         private readonly BattleOrchestrator _orchestrator;
         private readonly NodeTree _tree;
         private readonly PlayerState _player;
-        private readonly UpgradePresenter _upgradePresenter;
         private readonly Dictionary<UIBase, List<Action>> _cleanupByScreen = new Dictionary<UIBase, List<Action>>();
 
         public ScreenFlow(UIManager ui, UIPresentationSpec battlePresentation,
             UIPresentationSpec upgradePresentation, UIPresentationSpec settlementPresentation,
             BattleSystem battle, BattleOrchestrator orchestrator, NodeTree tree,
-            NodeTreeData layout, PlayerState player, UpgradePresenter upgradePresenter)
+            NodeTreeData layout, PlayerState player)
         {
             _ui = ui;
             _battlePresentation = battlePresentation;
@@ -31,7 +30,6 @@ namespace BlackHole.Unity
             _orchestrator = orchestrator;
             _tree = tree;
             _player = player;
-            _upgradePresenter = upgradePresenter;
             _nodes = BuildNodeItems(tree, layout);
         }
 

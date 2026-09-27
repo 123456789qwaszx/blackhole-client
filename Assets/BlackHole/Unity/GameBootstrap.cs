@@ -60,7 +60,6 @@ namespace BlackHole.Unity
         private PlayerState _viewer;
         private AimInput _aim;
         private UIManager _ui;
-        private UpgradePresenter _upgradePresenter;
         private ScreenFlow _screens;
         private ControlConsole _console;
         private BattleLifecycleConsole _lifecycleConsole;
@@ -131,13 +130,12 @@ namespace BlackHole.Unity
 
         private void BootstrapScreenFlow()
         {
-            _upgradePresenter = new UpgradePresenter(_ui, _viewer, _nodeTree);
             _screens = new ScreenFlow(
                 _ui,
                 OrEmpty(battlePresentation, "Battle"),
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
-                _battle, _orchestrator, _nodeTree, _layout, _viewer, _upgradePresenter);
+                _battle, _orchestrator, _nodeTree, _layout, _viewer);
         }
 
         private void BootstrapDevelopmentConsoles()
@@ -150,7 +148,7 @@ namespace BlackHole.Unity
             _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, _nodeTree,
                 _viewer.Id, _screens.RequestStart, _screens.RequestEnd);
             _commandConsole = new EnemyCommandConsole(transform, _battle, _content.Enemies);
-            _upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _upgradePresenter.PresentCurrent);
+            _upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _screens.RefreshUpgrade);
             _skillConsole = new SkillConsole(transform, _content, _battle, _viewer.Id);
         }
 
