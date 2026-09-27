@@ -26,7 +26,7 @@
 | [UPGRADE_LINK_PLAN](UPGRADE_LINK_PLAN.md) | 업그레이드 화면과 전투를 한 루프로 잇고, 판이 참가자별 업그레이드 표를 받게 하기 (UL-001~004) |
 | [SKILL_SYSTEM_PLAN](SKILL_SYSTEM_PLAN.md) | 스킬 샌드박스(별도 레포)와의 비교, 규칙 출처 가르기, 스킬·사망 효과·처치 버프를 전투에 들이는 방법 (SK-001~007) |
 | [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) | 판 조립 때 정하는 판 구성(생성)과 처치 보상(Gold)의 계획과 티켓 (BC-001~006) |
-| [ENEMY_UNLOCK_PLAN](ENEMY_UNLOCK_PLAN.md) | 단계·풀을 지우고 나오는 적 종류를 노드(해금 수치)가 정하게 하기 (EU-001~004) |
+| [ENEMY_UNLOCK_PLAN](ENEMY_UNLOCK_PLAN.md) | 단계·풀을 지우고 나오는 적 종류를 노드(해금 수치)가 정하게 하기 (EU-001~004 완료) |
 | [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
 | [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
 | [AUTHORING_PAIN](AUTHORING_PAIN.md) | 현재 형식의 저작 시험 결과와 Authoring Pain 목록 (CA-002~, CA-006의 입력) |
@@ -62,7 +62,7 @@
 | F04 | Gold·장기 진행·저장 | 경제, 전투 간 유지, 영구 저장 | 후속 | 판의 Gold(사망 순간) → 결산 한 번(GameSession.Settle) → 진행 상태 Gold(long). 전투 사이 유지, 영구 저장 없음 |
 | F05 | 추가 전투 콘텐츠 | 추가 Enemy·Skill·Death Effect | 후속 | 관통 레이저, 폭발, 처치 버프 둘(달: Breaker 공격 주기 감소, 혜성: Breaker 확정 치명타)과 Breaker 치명타 구현 있음. 원작 근거와 [임시] 수치 (SKILL_SYSTEM_PLAN). 세 번째·네 번째 스킬은 명세 필요 |
 | F06 | Character·HQ HP·다인·Network | 새 플레이 규칙과 통신 | 후속 | MVP 제외, 정책과 범위 미정 |
-| F07 | 업그레이드 | 업그레이드(수치 이름·연산·값)를 수치별로 합성해 다른 시스템이 가져가게 한다 | 후속 | Core/Upgrades 구현 있음. 판 조립이 참가자마다 산 노드로 표를 만들어 판이 내준다(GameSession.UpgradesOf). 판 조립이 이 표로 Breaker 수치와 적 종류의 판 구성을 계산한다(INTEGRATED_GAMEPLAY_FLOW 4절) |
+| F07 | 업그레이드 | 업그레이드(수치 이름·연산·값)를 수치별로 합성해 다른 시스템이 가져가게 한다 | 후속 | Core/Upgrades 구현 있음. 판 조립이 방장의 산 노드로 표 하나를 만들어 판이 내준다(GameSession.Upgrades). 판 조립이 이 표로 Breaker 수치와 적 종류의 판 구성(해금 포함)을 계산한다(INTEGRATED_GAMEPLAY_FLOW 4절) |
 
 ## 3. MVP 시스템 명세
 
@@ -170,6 +170,7 @@
   - 이전 Battle의 요청이 다음 Battle에 남지 않는다.
 - **남은 결정**: 위치 분포, 겹침. 사건 기반 공급만으로 전체 개체 수 상한이 증명되지는 않는다.
 - **정한 것 (2026-09-26, [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) 4.8)**: 전체 개체 수 상한은 적 공급 설정 에셋의 `MaxAliveEnemies`(값 200은 [임시], T-005 측정으로 확정). 상한에 닿은 뒤의 생성 요청은 버린다. 공급 수 노드를 모두 산 전투 시작 공급이 상한을 넘으면 노드 × 콘텐츠 로드 검사(UpgradeContentCheck)가 실패해 게임이 시작하지 않는다.
+- **정한 것 (2026-09-27, [ENEMY_UNLOCK_PLAN](ENEMY_UNLOCK_PLAN.md))**: 진행도 단계와 적 풀은 없다. 어떤 종류가 나오는가는 판 조립 때 산 해금 노드가 정한다(`enemy.<종류>.unlock`, 기본값은 종류의 `StartsLocked`). 잠긴 종류는 시작 공급에서 빠지고, 판 안의 생성 요청은 생성 여과(`SpawnFilter`: 해금·전체 상한)가 버린다. 종류마다의 동시 최대 수는 없다.
 - **구현 참고**: `Core/Supply/`, `Core/Spawn/`.
 
 ### S09. 전투 표현

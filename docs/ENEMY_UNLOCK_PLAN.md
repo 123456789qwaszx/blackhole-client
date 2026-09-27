@@ -108,7 +108,7 @@ seed는 남는다(같은 콘텐츠·산 노드·seed·진행 시간이면 같은
 | EU-001 | 이 PLAN | — | 완료 (사용자 검토) |
 | EU-002 | Core·Unity·데이터: 해금 수치와 판 구성의 해금 칸, 잠긴 종류 거르기, 단계·풀·단계 표를 Core·Unity·데이터·콘솔에서 지우기, 종류 에셋의 해금 기본값, 계약 | EU-001 | 완료 |
 | EU-003 | 데이터: 샘플 해금 노드와 트리 재배선(4.4절) | EU-002 | 완료 |
-| EU-004 | 문서: INTEGRATED_GAMEPLAY_FLOW, BATTLE_COMPOSITION_PLAN 3절(단계 → 풀 대신 노드 → 해금), SYSTEM_CATALOG | EU-003 | — |
+| EU-004 | 문서: INTEGRATED_GAMEPLAY_FLOW, BATTLE_COMPOSITION_PLAN 3절(단계 → 풀 대신 노드 → 해금), SYSTEM_CATALOG | EU-003 | 완료 |
 
 ## 8. 남은 결정
 
