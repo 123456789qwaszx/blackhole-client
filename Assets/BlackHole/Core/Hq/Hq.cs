@@ -46,7 +46,7 @@ namespace BlackHole.Core
 
             GrowthTime = growthTime;
             Exp = DefinitionGuard.NotNegative(exp, nameof(exp));
-            RaiseLevels();
+            Level = growth.LevelAt(Exp);
             StartLevel = Level;
         }
 

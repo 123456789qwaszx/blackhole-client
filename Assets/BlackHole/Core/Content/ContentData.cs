@@ -67,7 +67,9 @@ namespace BlackHole.Core
         public float MoveSpeed;
         // 색 등급 표. 색이 없는 종류는 한 줄이다.
         public List<EnemyTierData> Tiers = new List<EnemyTierData>();
-        // 질량 단계 표. MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음). 하나 이상.
+        // 블랙홀 Level별 색 비율. FromLevel이 커지는 순서, 하나 이상.
+        public List<LevelColorData> LevelColors = new List<LevelColorData>();
+        // 질량 단계 표(HP·Gold 계수). MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음). 하나 이상.
         public List<MassLevelData> MassLevels = new List<MassLevelData>();
         // 황금일 때 Gold에 곱하는 값. 0이면 황금이 되지 않는다.
         public float GoldenMultiplier;
@@ -91,13 +93,20 @@ namespace BlackHole.Core
         public long Exp;
     }
 
-    // 질량 단계 한 줄: 색마다 나오는 비율(색 등급 표와 같은 순서·길이)과 HP·Gold 계수.
+    // 질량 단계 한 줄: 색 등급 표에 곱하는 HP·Gold 계수.
     [Serializable]
     public sealed class MassLevelData
     {
-        public List<float> TierRatios = new List<float>();
         public float HealthMultiplier;
         public float GoldMultiplier;
+    }
+
+    // 블랙홀 Level별 색 비율 한 줄: FromLevel부터 색마다 나오는 비율(색 등급 표와 같은 순서·길이).
+    [Serializable]
+    public sealed class LevelColorData
+    {
+        public int FromLevel;
+        public List<float> TierRatios = new List<float>();
     }
 
     // 사망 효과 종류마다 쓰는 칸이 다르다. 종류가 쓰지 않는 칸은 읽지 않는다.

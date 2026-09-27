@@ -19,7 +19,7 @@ namespace BlackHole.Core
     // - 적 종류의 판 구성(해금·질량 단계·황금 비율·황금 배율·더할 공급 수·성장 공급 수)은 이 표에서 계산한다(EnemyComposition.From).
     // - 블랙홀의 Level업마다 늘어나는 시간은 이 표에서 계산한다(HqUpgradeStats.GrowthTimeFrom). 블랙홀은 진행 상태의 누적 EXP에서 시작한다(Level은 판을 넘어 이어진다).
     //   어떤 종류가 나오는가도 여기서 정해진다: 잠긴 종류는 이 판에 나오지 않는다(ENEMY_UNLOCK_PLAN).
-    // - 적 수치(Gold 포함)와 색·황금 비율은 판 구성으로 적 수치 표(EnemyStatTable)에 옮겨 적는다.
+    // - 적 수치(Gold 포함)와 황금 비율은 판 구성으로, 색 비율은 판을 시작할 때의 블랙홀 Level로 적 수치 표(EnemyStatTable)에 옮겨 적는다.
     //
     // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·산 노드·seed·진행 시간이면 같은 결과가 나온다.
     public static class SessionAssembler
@@ -43,13 +43,15 @@ namespace BlackHole.Core
                     seed),
             };
 
-            // 적의 수치(Gold 포함)와 색·황금 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
-            var stats = new EnemyStatTable(
-                content.Enemies,
-                CompositionsOf(content, table));
-
             // 이 판의 블랙홀: 방장의 누적 EXP에서 시작한다. Level업마다 늘어나는 시간은 방장의 표로 정한다(성장 노드를 사기 전에는 0).
             var hq = new Hq(content.Growth, HqUpgradeStats.GrowthTimeFrom(table), progress.HqExp);
+
+            // 적의 수치(Gold 포함)와 색·황금 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
+            // 색 비율은 판을 시작할 때의 블랙홀 Level로 고른다(BLACKHOLE_LEVEL_PLAN 4.2).
+            var stats = new EnemyStatTable(
+                content.Enemies,
+                CompositionsOf(content, table),
+                hq.StartLevel);
 
             var world = new World(
                 seed,

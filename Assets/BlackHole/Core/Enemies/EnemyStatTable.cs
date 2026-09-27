@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // 한 판의 판 구성 중 적 종류의 몫: 종류마다 이 판의 판 구성(질량 단계·황금 비율·황금 배율)과 색 비율,
+    // 한 판의 판 구성 중 적 종류의 몫: 종류마다 이 판의 판 구성(질량 단계·황금 비율·황금 배율)과 색 비율(판을 시작할 때의 블랙홀 Level),
     // (종류, 색 등급, 황금)마다 실행 수치.
     // 판 조립 때 — 전투 Session이 시작되기 전 — 한 번 정해지고, 판이 끝날 때까지 바뀌지 않는다(BATTLE_COMPOSITION_PLAN 4.2).
     // 적의 수치를 바꾸는 것은 전투 밖(업그레이드)뿐이며, 그 결과는 판 구성(EnemyComposition)으로 여기에 들어온다.
@@ -16,14 +16,18 @@ namespace BlackHole.Core
     {
         private readonly Dictionary<EnemyDefinition, Row> _rows = new Dictionary<EnemyDefinition, Row>();
 
+        // 이 판의 색 비율을 고른 블랙홀 Level(판을 시작할 때의 Level). 판 중에 Level이 올라도 그대로다.
+        public int Level { get; }
         // 이 판의 종류(콘텐츠 순서).
         public IReadOnlyList<EnemyDefinition> Kinds { get; }
 
         // 콘텐츠에 없는 종류, 표 밖의 질량 단계, 황금이 되지 않는 종류의 황금 비율(0 초과)은 예외다.
         internal EnemyStatTable(
             IReadOnlyList<EnemyDefinition> enemies,
-            IReadOnlyDictionary<EnemyDefinition, EnemyComposition> compositions)
+            IReadOnlyDictionary<EnemyDefinition, EnemyComposition> compositions,
+            int level = HqGrowthDefinition.StartLevel)
         {
+            Level = level;
             var kinds = new EnemyDefinition[enemies.Count];
 
             for (int i = 0; i < kinds.Length; i++)
@@ -66,9 +70,12 @@ namespace BlackHole.Core
         // 이 판에서 이 종류의 판 구성(질량 단계·황금 비율·황금 배율).
         public EnemyComposition CompositionOf(EnemyDefinition kind) => RowOf(kind).Composition;
 
-        // 이 판에서 이 종류의 색 비율(색 등급 표 순서).
-        public IReadOnlyList<float> TierRatiosOf(EnemyDefinition kind) =>
-            kind.MassLevels[RowOf(kind).Composition.MassLevel].TierRatios;
+        // 이 판에서 이 종류의 색 비율(색 등급 표 순서). 판을 시작할 때의 블랙홀 Level로 고른 줄이다.
+        public IReadOnlyList<float> TierRatiosOf(EnemyDefinition kind)
+        {
+            Require(kind);
+            return kind.TierRatiosAt(Level);
+        }
 
         // 이 판에서 이 종류·색 등급(황금이면 황금)이 받는 수치.
         public EnemyStats Of(EnemyDefinition kind, int tier, bool golden = false)

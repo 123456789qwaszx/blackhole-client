@@ -39,6 +39,17 @@ namespace BlackHole.Core
             LevelExp = Array.AsReadOnly(copy);
         }
 
+        // 이 누적 EXP가 닿는 Level. 판 밖(진행 상태의 EXP)에서 Level을 볼 때와 판을 시작할 때 쓴다.
+        public int LevelAt(long exp)
+        {
+            int level = StartLevel;
+
+            while (ExpToReach(level + 1) is long next && exp >= next)
+                level++;
+
+            return level;
+        }
+
         // 이 Level에 닿는 누적 EXP. 시작 Level은 0이다. 표 밖이면 null이다.
         public long? ExpToReach(int level)
         {

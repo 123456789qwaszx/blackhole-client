@@ -10,7 +10,7 @@ namespace BlackHole.Core
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
-    // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·질량 단계·사망 효과), 출현 배치, 블랙홀 성장의 Level 표.
+    // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·Level별 색 비율·질량 단계·사망 효과), 출현 배치, 블랙홀 성장의 Level 표.
     // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 전체 개체 수 상한.
     // 3. 전체: 전투 시작 공급이 상한 안인가.
     // 업그레이드 노드는 여기서 읽지 않는다(NodeTreeLoader). 노드와 콘텐츠를 함께 보는 검사는 UpgradeContentCheck가 한다.
@@ -111,13 +111,14 @@ namespace BlackHole.Core
                 EnemyBehaviorDefinition behavior = LoadBehavior(item.Behavior, at + ".Behavior", into);
                 DeathEffectDefinition deathEffect = LoadDeathEffect(item.DeathEffect, at + ".DeathEffect", into);
                 List<EnemyTier> tiers = LoadTiers(item.Tiers, at + ".Tiers", into);
+                List<LevelColorDefinition> levelColors = LoadLevelColors(item.LevelColors, at + ".LevelColors", into);
                 List<MassLevelDefinition> massLevels = LoadMassLevels(item.MassLevels, at + ".MassLevels", into);
 
                 if (into.Count > errors)
                     continue;
 
                 EnemyDefinition enemy = Guard(at, into, () =>
-                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.StartsLocked));
+                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, levelColors, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.StartsLocked));
 
                 if (enemy != null)
                     enemies.Add(enemy);
@@ -126,7 +127,7 @@ namespace BlackHole.Core
             return enemies;
         }
 
-        // 줄마다 수치를 검사한다. 줄 수(하나 이상)와 질량 단계와의 길이 맞춤은 EnemyDefinition이 검사한다.
+        // 줄마다 수치를 검사한다. 줄 수(하나 이상)와 Level별 색 비율과의 길이 맞춤은 EnemyDefinition이 검사한다.
         private static List<EnemyTier> LoadTiers(List<EnemyTierData> items, string at, List<ContentDiagnostic> into)
         {
             var tiers = new List<EnemyTier>();
@@ -165,13 +166,37 @@ namespace BlackHole.Core
                 }
 
                 MassLevelDefinition level = Guard($"{at}[{i}]", into,
-                    () => new MassLevelDefinition(item.TierRatios, item.HealthMultiplier, item.GoldMultiplier));
+                    () => new MassLevelDefinition(item.HealthMultiplier, item.GoldMultiplier));
 
                 if (level != null)
                     levels.Add(level);
             }
 
             return levels;
+        }
+
+        // 줄마다 시작 Level과 색 비율을 검사한다. 줄 수·순서·색 등급과의 길이 맞춤은 EnemyDefinition이 검사한다.
+        private static List<LevelColorDefinition> LoadLevelColors(List<LevelColorData> items, string at, List<ContentDiagnostic> into)
+        {
+            var rows = new List<LevelColorDefinition>();
+
+            for (int i = 0; items != null && i < items.Count; i++)
+            {
+                LevelColorData item = items[i];
+
+                if (item == null)
+                {
+                    into.Add(new ContentDiagnostic($"{at}[{i}]", "데이터가 없다."));
+                    continue;
+                }
+
+                LevelColorDefinition row = Guard($"{at}[{i}]", into, () => new LevelColorDefinition(item.FromLevel, item.TierRatios));
+
+                if (row != null)
+                    rows.Add(row);
+            }
+
+            return rows;
         }
 
         // 종류 이름을 하위 정의로 바꾼다. 가능한 값을 진단에 그대로 싣는다.

@@ -21,10 +21,12 @@ MonoBehaviour:
     size: 0.25
     gold: 3
     exp: 3
-  massLevels:
-  - tierRatios:
+  levelColors:
+  - fromLevel: 1
+    tierRatios:
     - 1
-    healthMultiplier: 1
+  massLevels:
+  - healthMultiplier: 1
     goldMultiplier: 1
   goldenMultiplier: 0
   clockwise: 0

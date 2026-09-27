@@ -18,6 +18,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.SupplyNeedsPlacement", SupplyNeedsPlacement);
             yield return new Contract("Content.UnlockDefaultsComeFromTheKind", UnlockDefaultsComeFromTheKind);
             yield return new Contract("Content.ReportsGrowthErrorsWithPath", ReportsGrowthErrorsWithPath);
+            yield return new Contract("Content.ReportsLevelErrorsWithPath", ReportsLevelErrorsWithPath);
         }
 
         // 적 종류와 출현 배치의 오류. 행동 종류 이름은 로더가, 수치는 정의 생성자가 경로와 함께 보고한다.
@@ -30,7 +31,8 @@ namespace BlackHole.Core.Tests
             still.Behavior = null;
             // 색 등급은 둘인데 질량 단계의 색 비율은 하나다.
             EnemyData lopsided = TestContent.Tiered("lopsided", 1, false, TestContent.Tier(10, 0.2f, 1), TestContent.Tier(20, 0.3f, 2));
-            lopsided.MassLevels.Add(TestContent.MassLevel(1, 1, 1));
+            lopsided.LevelColors.Add(TestContent.LevelColor(1, 1));
+            lopsided.MassLevels.Add(TestContent.MassLevel(1, 1));
             data.Enemies.Add(TestContent.Enemy("fragile", health: 0));
             data.Enemies.Add(chaser);
             data.Enemies.Add(still);
@@ -157,6 +159,29 @@ namespace BlackHole.Core.Tests
 
             data.Growth = null;
             Expect.Equal(HqGrowthDefinition.StartLevel, TestContent.Load(data).Growth.MaxLevel);
+        }
+
+        // Level별 색 비율의 오류: 시작 Level은 1 이상이고 앞 줄보다 커야 하며, 줄이 하나 이상 있어야 한다.
+        // 색 등급과의 길이 맞춤은 ReportsEnemyErrorsWithPath가 본다.
+        private static void ReportsLevelErrorsWithPath()
+        {
+            ContentData data = TestContent.Data();
+            EnemyData zero = TestContent.Enemy("zero");
+            zero.LevelColors[0].FromLevel = 0;
+            EnemyData backward = TestContent.Enemy("backward");
+            backward.LevelColors[0].FromLevel = 5;
+            backward.LevelColors.Add(TestContent.LevelColor(3, 1));
+            EnemyData colorless = TestContent.Enemy("colorless");
+            colorless.LevelColors.Clear();
+            data.Enemies.Add(zero);
+            data.Enemies.Add(backward);
+            data.Enemies.Add(colorless);
+
+            ContentLoadResult result = ContentLoader.Load(data);
+            Expect.Equal(3, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Enemies[zero].LevelColors[0]", "fromLevel");
+            TestContent.HasDiagnostic(result, "Enemies[backward]", "앞 줄");
+            TestContent.HasDiagnostic(result, "Enemies[colorless]", "하나 이상");
         }
 
         private static void ReportsEveryErrorWithPath()
