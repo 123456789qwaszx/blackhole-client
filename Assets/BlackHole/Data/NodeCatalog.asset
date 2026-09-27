@@ -232,13 +232,38 @@ MonoBehaviour:
       - Stat: enemy.asteroid.golden-ratio
         Operation: 0
         Value: 0.0005
+    - Id: electric-asteroid-unlock
+      Price: 500
+      Start: 0
+      X: -5
+      Y: -1
+      Links:
+      - asteroid-mass-4
+      Upgrades:
+      - Stat: enemy.electric-asteroid.unlock
+        Operation: 0
+        Value: 1
+    - Id: planet-unlock
+      Price: 30000
+      Start: 0
+      X: -9
+      Y: -1
+      Links:
+      - asteroid-mass-8
+      Upgrades:
+      - Stat: enemy.planet.unlock
+        Operation: 0
+        Value: 1
+      - Stat: enemy.moon.unlock
+        Operation: 0
+        Value: 1
     - Id: planet-mass-1
       Price: 50000
       Start: 0
       X: -9
       Y: -2
       Links:
-      - asteroid-mass-8
+      - planet-unlock
       Upgrades:
       - Stat: enemy.planet.mass-level
         Operation: 0
@@ -274,6 +299,17 @@ MonoBehaviour:
       - planet-mass-3
       Upgrades:
       - Stat: enemy.planet.mass-level
+        Operation: 0
+        Value: 1
+    - Id: comet-unlock
+      Price: 2000000
+      Start: 0
+      X: -6
+      Y: -1
+      Links:
+      - planet-mass-4
+      Upgrades:
+      - Stat: enemy.comet.unlock
         Operation: 0
         Value: 1
     - Id: planet-mass-5
@@ -386,13 +422,24 @@ MonoBehaviour:
       - Stat: enemy.asteroid.golden-multiplier
         Operation: 0
         Value: 4150
+    - Id: star-unlock
+      Price: 200000000
+      Start: 0
+      X: -2
+      Y: -5
+      Links:
+      - planet-mass-8
+      Upgrades:
+      - Stat: enemy.star.unlock
+        Operation: 0
+        Value: 1
     - Id: star-mass-1
       Price: 500000000
       Start: 0
       X: -2
       Y: -6
       Links:
-      - planet-mass-8
+      - star-unlock
       Upgrades:
       - Stat: enemy.star.mass-level
         Operation: 0
@@ -428,6 +475,17 @@ MonoBehaviour:
       - star-mass-3
       Upgrades:
       - Stat: enemy.star.mass-level
+        Operation: 0
+        Value: 1
+    - Id: supernova-unlock
+      Price: 20000000000
+      Start: 0
+      X: -5
+      Y: -7
+      Links:
+      - star-mass-4
+      Upgrades:
+      - Stat: enemy.supernova.unlock
         Operation: 0
         Value: 1
     - Id: star-mass-5
