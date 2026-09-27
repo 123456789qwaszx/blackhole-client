@@ -33,7 +33,6 @@ namespace BlackHole.Unity
             _player = player;
             _upgradePresenter = upgradePresenter;
             _nodes = BuildNodeItems(tree, layout);
-            _orchestrator.BattleCompleted += HandleBattleCompleted;
         }
 
         private void BindView<T>(T screen, Action<T> apply) where T : UIBase
@@ -76,8 +75,6 @@ namespace BlackHole.Unity
 
         public void Dispose()
         {
-            _orchestrator.BattleCompleted -= HandleBattleCompleted;
-
             foreach (List<Action> cleanups in _cleanupByScreen.Values)
                 RunCleanups(cleanups);
 

@@ -29,7 +29,7 @@
 종료·결산 (BattleSystem.ShutdownAsync, 오케스트레이터가 부름)
   │  종료 요청 → 남은 적 정리(처치 아님) → 사망 처리 끝 확인 → 원자료(BattleRawData)
   │  → 결산(GameSession.Settle: PlayerState.Gold += EarnedGold, 한 번) → 연출 정리 → 완전 초기화
-  │  성공하면 BattleOrchestrator.BattleCompleted(원자료)
+  │  성공하면 BattleOrchestrator가 GoToSettlement(결과 값) 호출
   ▼
 결산 화면 (보여 주기만)
   │  Continue → 결산 대기 비움
@@ -52,7 +52,7 @@
 | 전투 | 피해·사망 | 이 판에 살아 있는 적만 받는다. 사망은 한 번, 즉시 판에서 빠진다 | `Core/Enemies/EnemyRoster.cs` (`Holds`, `RecordDeath`), `World.DealDamage` |
 | 보상 | 판의 Gold | 사망 확정 순간 그 적의 Gold(생성 때 색·황금으로 정해짐)를 더한다. 정리된 적은 없다 | `EnemyRoster.RecordDeath`, `World.EarnedGold` |
 | 종료 | 정리·원자료·결산 | 결산은 Gold를 더한 뒤에야 마친 것으로 기록. 다시 불러도 한 번 | `Unity/Battle/BattleSystem.cs` (`ShutdownAsync`), `Core/Session/GameSession.cs` (`Settle`) |
-| 화면 | 전환 | 시작 성공 → 오케스트레이터가 `GoToBattle` 직접 호출, 정리·결산 완료 → `BattleCompleted`에서 결산 화면, Continue → 업그레이드 화면. 개발용 콘솔도 같은 경로를 쓴다 | `Unity/Flow/ScreenFlow*.cs`, `Unity/Battle/BattleOrchestrator.cs` |
+| 화면 | 전환 | 시작 성공 → 오케스트레이터가 `GoToBattle` 직접 호출, 정리·결산 완료 → `GoToSettlement` 직접 호출, Continue → 업그레이드 화면. 개발용 콘솔도 같은 경로를 쓴다 | `Unity/Flow/ScreenFlow*.cs`, `Unity/Battle/BattleOrchestrator.cs` |
 
 ---
 

@@ -5,10 +5,6 @@ namespace BlackHole.Unity
 {
     internal sealed partial class ScreenFlow
     {
-        private void HandleBattleCompleted(BattleRawData raw) =>
-            GoToSettlement(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
-                raw.Kills, raw.EarnedGold, _player.Gold);
-
         public void GoToSettlement(SessionEndReason reason, float seconds, int totalKills,
             IReadOnlyList<EnemyKillCount> kills, long earnedGold, long totalGold)
         {

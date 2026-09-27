@@ -17,8 +17,8 @@ namespace BlackHole.Unity
     // 진행 상태는 전투 밖에서만 바뀐다: 노드 구매(업그레이드 화면, 전투 중에는 살 수 없다)와
     // 판의 결산(GameSession.Settle — 적·전투 시스템의 정리 순서 안에서 한 번). 그래서 저장은 전투 밖(휴식 공간)에서만 하면 된다.
     // 콘솔·전투 화면의 버튼과 판의 시간 종료는 모두 여기로 요청한다. 시작 성공 시 화면 흐름을 직접 연다.
-    // 종료 순서가 끝까지 성공하면(정리·결산·연출 정리·완전 초기화) 그 판의 원자료로 BattleCompleted를 한 번 알린다.
-    // 정리가 실패하면 알리지 않는다 — 결산 화면은 결산을 마친 판만 보여 준다.
+    // 종료 순서가 끝까지 성공하면(정리·결산·연출 정리·완전 초기화) 결산 화면을 연다.
+    // 정리가 실패하면 화면을 바꾸지 않는다 — 결산 화면은 결산을 마친 판만 보여 준다.
     internal sealed class BattleOrchestrator : IDisposable
     {
         private readonly GameContent _content;
@@ -41,10 +41,6 @@ namespace BlackHole.Unity
         public bool Busy { get; private set; }
         public bool CanStart => !Busy && _battle.IsIdle;
         public bool CanEnd => !Busy && _battle.CanShutdown;
-
-        // 판의 종료 순서가 끝까지 성공했다(결산 포함). 원자료는 결산 전 판 결과의 스냅샷이다.
-        // 종료 순서의 마지막에 같은 호출 안에서 알리므로, 알리기 전까지 Busy가 풀리지 않는다.
-        public event Action<BattleRawData> BattleCompleted;
 
         public BattleOrchestrator(GameContent content, BattleSystem battle, PlayerId[] participants)
         {
@@ -91,7 +87,8 @@ namespace BlackHole.Unity
             try
             {
                 BattleRawData raw = await _battle.ShutdownAsync(reason);
-                BattleCompleted?.Invoke(raw);
+                _screens.GoToSettlement(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
+                    raw.Kills, raw.EarnedGold, _progress[0].Gold);
             }
             finally
             {
