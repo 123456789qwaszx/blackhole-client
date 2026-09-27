@@ -11,7 +11,7 @@ namespace BlackHole.Unity
     // 외형 칸(스프라이트, 색 등급의 색)은 Core로 가지 않고 화면(EnemyView)만 읽는다. 규칙과 외형이 한 에셋에 있어 외형 연결이 빠지지 않는다.
     //
     // 종류는 계열(소행성·행성·별·달·혜성)이고 색은 종류 안에 둔다(BATTLE_COMPOSITION_PLAN 4.1).
-    // - 색 등급: 같은 윤곽(스프라이트)에 색마다 색·크기·HP·Gold가 다르다. 색이 없는 종류는 한 줄이다.
+    // - 색 등급: 같은 윤곽(스프라이트)에 색마다 색·크기·HP·Gold·EXP가 다르다. 색이 없는 종류는 한 줄이다.
     // - 질량 단계: 질량 증가를 산 수마다 한 줄. 색마다 나오는 비율과 HP·Gold 계수. 판 조립 때 한 줄이 골라진다.
     // - 황금 배율: 황금은 종류가 아니라 생성 때 정해지는 특성이다. 황금이면 Gold에 이 값을 곱한다. 0이면 황금이 되지 않는다.
     // 특수 효과(전기·폭발·처치 버프)는 종류가 아니라 종류에 붙는 특성이다: 사망 효과 칸. 효과를 가진 적은 사망 효과의 피해를 받지 않는다.
@@ -31,6 +31,8 @@ namespace BlackHole.Unity
             public float size;
             [Tooltip("사망 때 판의 합계에 드는 Gold의 기본값. 0 이상.")]
             public long gold;
+            [Tooltip("사망 때 블랙홀에 드는 EXP. 0 이상. 질량 단계와 황금은 곱하지 않는다.")]
+            public long exp;
         }
 
         [Serializable]
@@ -110,7 +112,7 @@ namespace BlackHole.Unity
             };
 
             foreach (Tier tier in tiers)
-                data.Tiers.Add(new EnemyTierData { MaxHealth = tier.maxHealth, Size = tier.size, Gold = tier.gold });
+                data.Tiers.Add(new EnemyTierData { MaxHealth = tier.maxHealth, Size = tier.size, Gold = tier.gold, Exp = tier.exp });
 
             foreach (MassLevel level in massLevels)
             {

@@ -15,10 +15,11 @@ namespace BlackHole.Unity
         private readonly EnemyView _enemyView;
         private readonly SkillView _skillView;
         private readonly DeathEffectView _deathEffectView;
+        private readonly HqView _hqView;
 
         public GameHost(UIManager ui, BattleSystem battle, AimInput aim, ScreenFlow screens,
             EnemyLooks enemyLooks, EnemyView enemyView,
-            SkillView skillView, DeathEffectView deathEffectView)
+            SkillView skillView, DeathEffectView deathEffectView, HqView hqView)
         {
             _ui = ui;
             _battle = battle;
@@ -28,6 +29,7 @@ namespace BlackHole.Unity
             _enemyView = enemyView;
             _skillView = skillView;
             _deathEffectView = deathEffectView;
+            _hqView = hqView;
         }
 
         public void Start() => _screens.GoToUpgrade();
@@ -51,7 +53,8 @@ namespace BlackHole.Unity
             if (session == null)
                 screen.ShowIdle();
             else
-                screen.Show(session.Remaining, session.World.EarnedGold, session.Phase == SessionPhase.Paused);
+                screen.Show(session.Remaining, session.World.EarnedGold, session.Phase == SessionPhase.Paused,
+                    session.World.Hq.Level, session.World.Hq.Progress);
         }
 
         public void Dispose()
@@ -59,6 +62,7 @@ namespace BlackHole.Unity
             DisposeConsoles();
             _screens.Dispose();
             _deathEffectView.Dispose();
+            _hqView.Dispose();
             _skillView.Dispose();
             _enemyView.Dispose();
             _enemyLooks.Dispose();

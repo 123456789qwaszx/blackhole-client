@@ -20,6 +20,7 @@ MonoBehaviour:
     maxHealth: 20
     size: 0.35
     gold: 2
+    exp: 2
   massLevels:
   - tierRatios:
     - 1

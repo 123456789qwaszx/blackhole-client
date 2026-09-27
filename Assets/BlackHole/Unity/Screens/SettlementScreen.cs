@@ -8,7 +8,7 @@ using UnityEngine.EventSystems;
 
 namespace BlackHole.Unity
 {
-    // 결산 화면: 끝난 판의 결과(진행 시간, 처치 수, 번 Gold)와 결산 뒤의 진행 상태 Gold를 보여 주고, 계속하기를 알린다.
+    // 결산 화면: 끝난 판의 결과(진행 시간, 블랙홀의 도달 Level, 처치 수, 번 Gold)와 결산 뒤의 진행 상태 Gold를 보여 주고, 계속하기를 알린다.
     // 보여 주기만 한다 — Gold는 이 화면이 열리기 전에 결산(GameSession.Settle)이 이미 더했다. ScreenFlow가 완료 사건에서 표시 값을 넘긴다.
     public sealed class SettlementScreen : UIRoot<SettlementScreen.Refs>
     {
@@ -46,13 +46,14 @@ namespace BlackHole.Unity
 
         private void HandleContinueClicked(PointerEventData _) => ContinueClicked?.Invoke();
 
-        public void ShowResult(float playedSeconds)
+        public void ShowResult(float playedSeconds, int reachedLevel)
         {
             if (_result != null)
                 _result.text = "Battle over";
 
             if (_time != null)
-                _time.text = "Time  " + playedSeconds.ToString("F1", CultureInfo.InvariantCulture) + " s";
+                _time.text = "Time  " + playedSeconds.ToString("F1", CultureInfo.InvariantCulture) + " s    Black hole  Lv "
+                    + reachedLevel.ToString(CultureInfo.InvariantCulture);
         }
 
         // 처치 수 합계와 종류별 처치 수(처음 처치한 순서).

@@ -11,8 +11,8 @@ namespace BlackHole.Sample
         // 호출마다 새 데이터를 만든다. 호출자가 고쳐도 다른 호출에 영향이 없다.
         public static ContentData Create() => new ContentData
         {
-            // [임시] 한 판의 시간(시간제는 현재 후보).
-            Session = new SessionData { TimeLimit = 30 },
+            // 한 판의 기본 시간 14초 [사용자]. 블랙홀 성장(성장 노드)이 그 판에서만 늘린다.
+            Session = new SessionData { TimeLimit = 14 },
         };
     }
 }

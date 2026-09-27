@@ -7,12 +7,13 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // 씬의 직렬화 설정으로 게임을 조립하는 Unity 진입점.
-    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면, 적·전투 시스템, 오케스트레이터, 조준 입력,
+    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면·블랙홀 화면, 적·전투 시스템, 오케스트레이터, 조준 입력,
     //   UI(UIManager와 업그레이드·전투·결산 화면), 화면 흐름, GameHost 조립. 개발용 콘솔 조립은 GameBootstrap.Editor에 있다.
     // - Start/Update: 조립한 GameHost에 Unity 수명을 전달한다.
     //
     // 콘텐츠: 판 설정은 SampleContent(C#), 스킬은 스킬 설정 에셋, 적 종류는 적 종류 목록 에셋,
-    // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋이 채운다. 어떤 종류가 나오는가는 산 노드의 해금이 정한다.
+    // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 블랙홀 성장의 Level 표는 블랙홀 성장 설정 에셋이 채운다.
+    // 어떤 종류가 나오는가와 Level업마다의 시간·공급은 산 노드가 정한다.
     // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다. 업그레이드 화면은 같은 에셋의 격자 칸으로 노드를 놓는다.
     // 화면은 씬의 UI Canvas에 놓인 화면 프리팹(UpgradeScreen·BattleScreen·SettlementScreen)을 Root Layer와 Registered Views로 받는다.
     // 업그레이드 화면 안의 트리 보기 페이지(NodeTreeView)도 Registered Views에 넣는다.
@@ -26,6 +27,7 @@ namespace BlackHole.Unity
         [Header("Content")]
         [SerializeField] private EnemyCatalog enemyCatalog;
         [SerializeField] private EnemySupplySetup enemySupply;
+        [SerializeField] private HqGrowthSetup hqGrowth;
         [SerializeField] private NodeCatalog nodeCatalog;
         [SerializeField] private SkillSetup skillSetup;
 
@@ -57,6 +59,7 @@ namespace BlackHole.Unity
         private EnemyView _enemyView;
         private SkillView _skillView;
         private DeathEffectView _deathEffectView;
+        private HqView _hqView;
         private BattleSystem _battle;
         private BattleOrchestrator _orchestrator;
         private PlayerState _viewer;
@@ -92,11 +95,12 @@ namespace BlackHole.Unity
             _enemyView = new EnemyView(transform, _enemyLooks);
             _skillView = new SkillView(transform);
             _deathEffectView = new DeathEffectView(transform);
+            _hqView = new HqView(transform);
         }
 
         private void BootstrapBattle()
         {
-            _battle = new BattleSystem(_content, _nodeTree, _enemyView, _skillView, _deathEffectView);
+            _battle = new BattleSystem(_content, _nodeTree, _enemyView, _skillView, _deathEffectView, _hqView);
             _orchestrator = new BattleOrchestrator(_battle, Host);
             // 업그레이드 화면과 콘솔이 보는 진행 상태: 방장의 것.
             _viewer = _orchestrator.Progress;
@@ -139,7 +143,7 @@ namespace BlackHole.Unity
         private void BootstrapHost()
         {
             _host = new GameHost(_ui, _battle, _aim, _screens,
-                _enemyLooks, _enemyView, _skillView, _deathEffectView);
+                _enemyLooks, _enemyView, _skillView, _deathEffectView, _hqView);
         }
 
         private void Start() => _host?.Start();
@@ -191,10 +195,10 @@ namespace BlackHole.Unity
         {
             content = null;
 
-            if (enemyCatalog == null || enemySupply == null || skillSetup == null)
+            if (enemyCatalog == null || enemySupply == null || hqGrowth == null || skillSetup == null)
             {
                 Debug.LogError(
-                    "[콘텐츠] GameBootstrap에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 스킬 설정(SkillSetup)을 연결해야 한다.",
+                    "[콘텐츠] GameBootstrap에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 블랙홀 성장 설정(HqGrowthSetup), 스킬 설정(SkillSetup)을 연결해야 한다.",
                     this);
                 return false;
             }
@@ -203,6 +207,7 @@ namespace BlackHole.Unity
             skillSetup.WriteTo(data);
             enemyCatalog.WriteTo(data);
             enemySupply.WriteTo(data);
+            hqGrowth.WriteTo(data);
             ContentLoadResult result = ContentLoader.Load(data);
 
             foreach (ContentDiagnostic diagnostic in result.Diagnostics)

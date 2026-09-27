@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace BlackHole.Unity
 {
-    // 적·전투 시스템: 한 판(GameSession)과 그 표현(적 화면 EnemyView, 스킬 화면 SkillView, 사망 효과 화면 DeathEffectView)의 수명을 가진다.
+    // 적·전투 시스템: 한 판(GameSession)과 그 표현(적 화면 EnemyView, 스킬 화면 SkillView, 사망 효과 화면 DeathEffectView, 블랙홀 화면 HqView)의 수명을 가진다.
     // 스킬은 판의 일부다 — 판 조립 때 참가자마다 생기고 판과 함께 버려진다. 그래서 스킬 화면도 적 화면과 같이 정리한다.
     //
     // 스스로 시작하거나 끝내지 않는다. 상위 오케스트레이터(BattleOrchestrator)가 정해진 순서 안에서 부를 때만
@@ -15,7 +15,7 @@ namespace BlackHole.Unity
     //
     // 시작 단계:
     //   1. 업그레이드에서 바뀐 수치 받기 — 판을 조립한다: 진행 상태를 묶고, 산 노드의 업그레이드 표로
-    //      이 판의 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수)과 적 수치·색 비율을 확정한다.
+    //      이 판의 판 구성(해금·질량 단계·황금 비율·황금 배율·더할 공급 수·성장 공급 수), 적 수치·색 비율, 블랙홀의 Level업마다 늘어나는 시간을 확정한다.
     //   2. 적 소환 단계 진입 — 전투 시작 공급을 내보내고 판을 진행 단계로 넣는다.
     // 종료 단계:
     //   1. 종료 요청                   2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
@@ -33,6 +33,7 @@ namespace BlackHole.Unity
         private readonly EnemyView _enemyView;
         private readonly SkillView _skillView;
         private readonly DeathEffectView _deathEffectView;
+        private readonly HqView _hqView;
         private State _state = State.Idle;
         // 진행 중인 판에 묶인 진행 상태(방장의 것). 시작 전과 완전 초기화 뒤에는 null이다.
         private PlayerState _progress;
@@ -46,13 +47,15 @@ namespace BlackHole.Unity
         // 정리를 요청할 수 있는가: 진행 중이거나, 앞선 정리가 실패해 멈춘 상태.
         public bool CanShutdown => _state == State.Running || _state == State.Faulted;
 
-        public BattleSystem(GameContent content, NodeTree nodes, EnemyView enemyView, SkillView skillView, DeathEffectView deathEffectView)
+        public BattleSystem(GameContent content, NodeTree nodes, EnemyView enemyView, SkillView skillView, DeathEffectView deathEffectView,
+            HqView hqView)
         {
             _content = content;
             _nodes = nodes;
             _enemyView = enemyView;
             _skillView = skillView;
             _deathEffectView = deathEffectView;
+            _hqView = hqView;
         }
 
         // 전투 진입을 위한 초기화. 오케스트레이터만 부른다.
@@ -84,12 +87,13 @@ namespace BlackHole.Unity
             _enemyView.Synchronize(Session.World);
             _skillView.Reset();
             _deathEffectView.Reset();
+            _hqView.Reset();
 
             _state = State.Running;
             return Task.CompletedTask;
         }
 
-        // 전투 Step과 적·스킬·사망 효과 표현을 진행한다. 이번 Step에서 판이 끝났을 때만 true를 반환한다.
+        // 전투 Step과 적·스킬·사망 효과·블랙홀 표현을 진행한다. 이번 Step에서 판이 끝났을 때만 true를 반환한다.
         public bool Tick(float delta)
         {
             if (_state != State.Running)
@@ -100,6 +104,7 @@ namespace BlackHole.Unity
             _enemyView.Synchronize(Session.World);
             _skillView.Synchronize(Session.World, delta);
             _deathEffectView.Synchronize(Session.World, delta);
+            _hqView.Synchronize(Session.World, delta);
 
             return wasRunning && Session.Phase == SessionPhase.Ended;
         }
@@ -146,8 +151,9 @@ namespace BlackHole.Unity
                 _enemyView.Reset();
                 _skillView.Reset();
                 _deathEffectView.Reset();
+                _hqView.Reset();
                 await Awaitable.NextFrameAsync();
-                Verify(_enemyView.IsClear && _skillView.IsClear && _deathEffectView.IsClear, "Presentation cleared");
+                Verify(_enemyView.IsClear && _skillView.IsClear && _deathEffectView.IsClear && _hqView.IsClear, "Presentation cleared");
 
                 // 7. 완전 초기화: 판을 버리고, 진행 상태가 전투에서 풀렸는지 확인한다.
                 Verify(!_progress.InBattle, "Fully reset");

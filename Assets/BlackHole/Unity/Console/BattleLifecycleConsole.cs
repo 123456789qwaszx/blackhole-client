@@ -45,6 +45,8 @@ namespace BlackHole.Unity
         private bool? _shownPaused;
         private long _shownGold = -1;
         private long _shownEarned = -1;
+        private long _shownExp = -1;
+        private int _shownLevel = -1;
         private BattleRawData _shownRawData;
         private bool _rawDataShown;
         private GameSession _shownSession;
@@ -127,23 +129,36 @@ namespace BlackHole.Unity
             }
         }
 
-        // 진행 상태(방장의 것)의 Gold 한 줄, 판이 있으면 그 판이 번 Gold 한 줄. 값이 바뀐 프레임에만 다시 쓴다.
+        // 진행 상태(방장의 것)의 Gold 한 줄, 판이 있으면 그 판이 번 Gold 한 줄과 블랙홀 한 줄
+        // (Level, EXP / 다음 임계값, Level업마다 늘어나는 시간). 값이 바뀐 프레임에만 다시 쓴다.
         private void RefreshGold()
         {
             PlayerState progress = _orchestrator.Progress;
+            Hq hq = _battle.Session?.World.Hq;
             long earned = _battle.Session != null ? _battle.Session.World.EarnedGold : -1;
+            long exp = hq != null ? hq.Exp : -1;
+            int level = hq != null ? hq.Level : -1;
 
-            if (progress.Gold == _shownGold && earned == _shownEarned)
+            if (progress.Gold == _shownGold && earned == _shownEarned && exp == _shownExp && level == _shownLevel)
                 return;
 
             _shownGold = progress.Gold;
             _shownEarned = earned;
+            _shownExp = exp;
+            _shownLevel = level;
             _builder.Clear();
             _builder.Append("Gold");
             _builder.Append("\n  ").Append(progress.Id).Append("<pos=7em>").Append(_shownGold);
 
             if (earned >= 0)
                 _builder.Append("\n  This battle<pos=7em>+").Append(earned);
+
+            if (hq != null)
+            {
+                _builder.Append("\nHq  Lv ").Append(hq.Level).Append("  EXP ").Append(hq.Exp);
+                _builder.Append(hq.NextLevelExp.HasValue ? " / " + hq.NextLevelExp.Value : " (max)");
+                _builder.Append("  +").Append(Number(hq.GrowthTime)).Append("s per level");
+            }
 
             _goldText.text = _builder.ToString();
         }
@@ -189,6 +204,7 @@ namespace BlackHole.Unity
             _builder.Append("\n  Seed<pos=6em>").Append(raw.Seed);
             _builder.Append("\n  Time<pos=6em>").Append(Number(raw.PlayedSeconds)).Append('s');
             _builder.Append("\n  Gold<pos=6em>+").Append(raw.EarnedGold);
+            _builder.Append("\n  Hq<pos=6em>Lv ").Append(raw.ReachedLevel).Append("  EXP ").Append(raw.Exp);
             _builder.Append("\n  Kills<pos=6em>").Append(raw.TotalKills);
 
             foreach (EnemyKillCount kill in raw.Kills)

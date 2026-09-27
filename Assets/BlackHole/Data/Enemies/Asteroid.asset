@@ -20,26 +20,32 @@ MonoBehaviour:
     maxHealth: 10
     size: 0.22
     gold: 1
+    exp: 1
   - color: {r: 0.93, g: 0.55, b: 0.2, a: 1}
     maxHealth: 16
     size: 0.24
     gold: 2
+    exp: 2
   - color: {r: 0.95, g: 0.85, b: 0.3, a: 1}
     maxHealth: 26
     size: 0.26
     gold: 4
+    exp: 4
   - color: {r: 0.4, g: 0.75, b: 0.4, a: 1}
     maxHealth: 42
     size: 0.28
     gold: 9
+    exp: 9
   - color: {r: 0.3, g: 0.45, b: 0.9, a: 1}
     maxHealth: 68
     size: 0.3
     gold: 20
+    exp: 20
   - color: {r: 0.6, g: 0.35, b: 0.85, a: 1}
     maxHealth: 110
     size: 0.32
     gold: 45
+    exp: 45
   massLevels:
   - tierRatios:
     - 1

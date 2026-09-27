@@ -51,7 +51,7 @@ namespace BlackHole.Unity
             {
                 BattleRawData raw = await _orchestrator.EndBattleAsync();
                 if (raw != null)
-                    GoToSettlement(raw.PlayedSeconds, raw.TotalKills,
+                    GoToSettlement(raw.PlayedSeconds, raw.ReachedLevel, raw.TotalKills,
                         raw.Kills, raw.EarnedGold, _player.Gold);
             }
             catch (Exception error) { Debug.LogException(error); }
