@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 저작 형식. 검증 전 값이며 실행에 쓰지 않는다 — ContentLoader만 읽는다.
-    // 적 종류·공급·배치·전체 개체 수 상한과 단계 표는 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup, StageTable)이,
+    // 적 종류·공급·배치·전체 개체 수 상한은 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup)이,
     // 스킬은 스킬 설정 에셋(SkillSetup)이 채운다. 판 설정은 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
     // 업그레이드 노드는 판 조립 콘텐츠가 아니다 — 노드 목록 에셋(NodeCatalog → NodeTreeData)이 따로 가진다.
     [Serializable]
@@ -15,10 +15,6 @@ namespace BlackHole.Core
         public BreakerData Breaker;
         public LaserData Laser;
         public List<EnemyData> Enemies = new List<EnemyData>();
-        // 적 풀. 단계 표가 ID로 가리킨다.
-        public List<EnemyPoolData> EnemyPools = new List<EnemyPoolData>();
-        // 진행도(적의 강도 단계) 표. Stages[i]가 (i + 1)단계다. 줄 수가 단계의 수다. HQ 성장 단계와 다르다.
-        public List<StageData> Stages = new List<StageData>();
         // 출현 위치. 공급이 하나라도 있으면 필요하다.
         public EnemyPlacementData EnemyPlacement;
         // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수(성능 예산). 출현 배치가 있으면 1 이상이어야 한다.
@@ -76,6 +72,8 @@ namespace BlackHole.Core
         public EnemyBehaviorData Behavior;
         // 없거나 종류 이름이 비어 있으면 사망 효과가 없다.
         public DeathEffectData DeathEffect;
+        // 잠긴 채 시작하는가. 그러면 해금 노드(enemy.<종류>.unlock)를 사야 판에 나온다. 기본은 처음부터 나온다.
+        public bool StartsLocked;
     }
 
     // 색 등급 한 줄.
@@ -124,31 +122,6 @@ namespace BlackHole.Core
         public string Kind;
         // Orbit
         public bool Clockwise;
-    }
-
-    // 적 풀 하나: 이 풀의 항목(적 종류와 동시 최대 수).
-    [Serializable]
-    public sealed class EnemyPoolData
-    {
-        public string Id;
-        public List<EnemyPoolEntryData> Entries = new List<EnemyPoolEntryData>();
-    }
-
-    [Serializable]
-    public sealed class EnemyPoolEntryData
-    {
-        // 적 종류의 ID.
-        public string Enemy;
-        // 이 종류가 판에 동시에 살아 있을 수 있는 최대 수(출현 제한).
-        public int MaxAlive;
-    }
-
-    // 진행도 한 단계. 체력·크기 계수는 단계 표에 더해질 때 이 줄에 붙는다.
-    [Serializable]
-    public sealed class StageData
-    {
-        // 이 단계에서 쓰는 적 풀의 ID.
-        public string Pool;
     }
 
     // HQ(원점)를 둘러싼 출현 띠.

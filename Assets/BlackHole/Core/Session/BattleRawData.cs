@@ -16,11 +16,10 @@ namespace BlackHole.Core
         }
     }
 
-    // 끝난 전투 한 판의 원자료: 어떤 조건(단계·seed)으로 조립됐고, 얼마나 진행했으며, 무엇을 얼마나 처치하고 얼마를 벌었는가.
+    // 끝난 전투 한 판의 원자료: 어떤 조건(seed)으로 조립됐고, 얼마나 진행했으며, 무엇을 얼마나 처치하고 얼마를 벌었는가.
     // 판을 정리한 뒤에도 남는 유일한 기록이다. 결산·업그레이드 같은 다음 단계가 이것을 읽는다.
     public sealed class BattleRawData
     {
-        public int Stage { get; }
         public int Seed { get; }
         public float PlayedSeconds { get; }
         // 종류별 처치 수(처음 처치한 순서). 기록일 뿐이며 Gold 계산의 입력이 아니다.
@@ -31,13 +30,11 @@ namespace BlackHole.Core
         public long EarnedGold { get; }
 
         internal BattleRawData(
-            int stage,
             int seed,
             float playedSeconds,
             IReadOnlyList<EnemyKillCount> kills,
             long earnedGold)
         {
-            Stage = stage;
             Seed = seed;
             PlayedSeconds = playedSeconds;
             Kills = kills;

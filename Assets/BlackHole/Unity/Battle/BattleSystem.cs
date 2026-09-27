@@ -56,7 +56,7 @@ namespace BlackHole.Unity
         }
 
         // 전투 진입을 위한 초기화. 오케스트레이터만 부른다.
-        public Task StartAsync(PlayerState progress, int stage, int seed)
+        public Task StartAsync(PlayerState progress, int seed)
         {
             if (_state != State.Idle)
                 throw new InvalidOperationException($"준비된 상태에서만 시작할 수 있다. 지금: {_state}.");
@@ -69,7 +69,7 @@ namespace BlackHole.Unity
             //    조립이 실패하면(산 노드 조합이 한계 밖 등) 판도, 전투에 묶인 진행 상태도 없으므로 준비된 상태로 돌아간다.
             try
             {
-                Session = SessionAssembler.CreateBattle(_content, progress, stage, seed, _nodes);
+                Session = SessionAssembler.CreateBattle(_content, progress, seed, _nodes);
             }
             catch
             {

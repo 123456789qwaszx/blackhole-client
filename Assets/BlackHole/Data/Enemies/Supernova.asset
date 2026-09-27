@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: supernova
   moveSpeed: 0.5
+  startsLocked: 1
   tiers:
   - color: {r: 1, g: 0.55, b: 0.2, a: 1}
     maxHealth: 20

@@ -153,9 +153,6 @@ namespace BlackHole.Core.Tests
             data.Enemies.Add(WithEffect(Electric, 1,
                 new DeathEffectData { Kind = "ChainLightning", Damage = 5, Radius = 100, MaxTargets = chainTargets }));
             data.Enemies.Add(WithEffect(Explosive, 1, new DeathEffectData { Kind = "Explosion", Damage = 7, Radius = 100 }));
-            TestContent.Allow(data, Normal);
-            TestContent.Allow(data, Electric);
-            TestContent.Allow(data, Explosive);
             return data;
         }
 

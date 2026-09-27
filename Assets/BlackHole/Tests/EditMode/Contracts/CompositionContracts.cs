@@ -69,7 +69,7 @@ namespace BlackHole.Core.Tests
             NodePurchase.TryPurchase(forward, tree, "digits-2");
             Expect.Near(1, CompositionOf(content, tree, kind, forward).GoldenRatio);
 
-            GameSession game = SessionAssembler.CreateBattle(content, backward, SessionAssembler.FirstStage, 0, tree);
+            GameSession game = SessionAssembler.CreateBattle(content, backward, 0, tree);
             Expect.Equal(2, game.World.Stats.CompositionOf(kind).MassLevel);
             Expect.Equal(4200L, game.World.Stats.Of(kind, 0, golden: true).Gold);
         }
@@ -80,8 +80,6 @@ namespace BlackHole.Core.Tests
             ContentData data = TestContent.Arena(1, 3, TestContent.Supply(Rock, 2));
             data.Enemies.Add(TestContent.Enemy(Rock));
             data.Enemies.Add(TestContent.Enemy(Pebble));
-            TestContent.Allow(data, Rock);
-            TestContent.Allow(data, Pebble);
             GameContent content = TestContent.Load(data);
             content.TryGetEnemy(Rock, out EnemyDefinition rock);
             content.TryGetEnemy(Pebble, out EnemyDefinition pebble);
@@ -90,7 +88,7 @@ namespace BlackHole.Core.Tests
                 Node("pebbles", true, EnemyUpgradeStats.StartSupply(Pebble), UpgradeOperation.Add, 2));
             var state = new PlayerState(TestContent.First);
 
-            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, state, SessionAssembler.FirstStage, 0, tree));
+            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
             Expect.Equal(2, plain.World.CountAlive(rock));
             Expect.Equal(0, plain.World.CountAlive(pebble));
             plain.RequestEnd();
@@ -99,7 +97,7 @@ namespace BlackHole.Core.Tests
             NodePurchase.TryPurchase(state, tree, "more-rocks");
             NodePurchase.TryPurchase(state, tree, "pebbles");
 
-            GameSession supplied = TestContent.Begun(SessionAssembler.CreateBattle(content, state, SessionAssembler.FirstStage, 0, tree));
+            GameSession supplied = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
             Expect.Equal(5, supplied.World.CountAlive(rock));
             Expect.Equal(2, supplied.World.CountAlive(pebble));
         }
@@ -112,7 +110,6 @@ namespace BlackHole.Core.Tests
             data.MaxAliveEnemies = 4;
             data.Enemies.Add(TestContent.Enemy(Rock));
             data.Enemies.Add(TestContent.Enemy(Pebble));
-            TestContent.Allow(data, Rock);
             GameContent content = TestContent.Load(data);
 
             NodeTree fine = Tree(Node("supply", true, EnemyUpgradeStats.StartSupply(Rock), UpgradeOperation.Add, 2));
@@ -135,7 +132,7 @@ namespace BlackHole.Core.Tests
         // 진행 상태로 판을 조립해 그 종류의 판 구성을 읽고, 판을 끝낸다.
         private static EnemyComposition CompositionOf(GameContent content, NodeTree tree, EnemyDefinition kind, PlayerState state)
         {
-            GameSession game = SessionAssembler.CreateBattle(content, state, SessionAssembler.FirstStage, 0, tree);
+            GameSession game = SessionAssembler.CreateBattle(content, state, 0, tree);
             EnemyComposition composition = game.World.Stats.CompositionOf(kind);
             game.RequestEnd();
             return composition;

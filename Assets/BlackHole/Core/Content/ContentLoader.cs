@@ -11,8 +11,8 @@ namespace BlackHole.Core
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
     // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·질량 단계·사망 효과), 출현 배치.
-    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 적 풀, 전체 개체 수 상한.
-    // 3. 적 풀을 가리키는 것: 풀 ID 유일, 단계 표, 전투 시작 공급이 상한 안인가.
+    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 전체 개체 수 상한.
+    // 3. 전체: 전투 시작 공급이 상한 안인가.
     // 업그레이드 노드는 여기서 읽지 않는다(NodeTreeLoader). 노드와 콘텐츠를 함께 보는 검사는 UpgradeContentCheck가 한다.
     public static class ContentLoader
     {
@@ -37,7 +37,6 @@ namespace BlackHole.Core
 
             ContentInvariants.CollectEnemies(enemies, diagnostics, out Dictionary<string, EnemyDefinition> enemiesById);
             List<SupplyRequest> startSupply = LoadSupplyList(data.StartSupply, "StartSupply", enemiesById, diagnostics);
-            List<EnemyPoolDefinition> pools = LoadPools(data.EnemyPools, enemiesById, diagnostics);
 
             if (startSupply.Count > 0 && placement == null)
                 diagnostics.Add(new ContentDiagnostic("EnemyPlacement", "공급이 있으면 출현 배치가 필요하다."));
@@ -47,15 +46,13 @@ namespace BlackHole.Core
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
-            ContentInvariants.CollectPools(pools, diagnostics, out Dictionary<string, EnemyPoolDefinition> poolsById);
-            List<StageDefinition> stages = LoadStages(data.Stages, poolsById, diagnostics);
             ContentInvariants.CheckStartSupplyFits(startSupply, 0, data.MaxAliveEnemies, diagnostics);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, breaker, laser, enemies, placement, data.MaxAliveEnemies, startSupply, pools, stages),
+                new GameContent(timeLimit, breaker, laser, enemies, placement, data.MaxAliveEnemies, startSupply),
                 diagnostics);
         }
 
@@ -119,7 +116,7 @@ namespace BlackHole.Core
                     continue;
 
                 EnemyDefinition enemy = Guard(at, into, () =>
-                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, massLevels, item.GoldenMultiplier, behavior, deathEffect));
+                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.StartsLocked));
 
                 if (enemy != null)
                     enemies.Add(enemy);
@@ -260,108 +257,6 @@ namespace BlackHole.Core
             }
 
             return requests;
-        }
-
-        // ── 적 풀과 단계 표 ─────────────────────────────────────────────────
-
-        // 없으면 적 풀이 없다. 적 ID는 2단계의 색인으로 정의에 잇는다.
-        private static List<EnemyPoolDefinition> LoadPools(
-            List<EnemyPoolData> items,
-            IReadOnlyDictionary<string, EnemyDefinition> enemies,
-            List<ContentDiagnostic> into)
-        {
-            var pools = new List<EnemyPoolDefinition>();
-
-            if (items == null)
-                return pools;
-
-            for (int i = 0; i < items.Count; i++)
-            {
-                EnemyPoolData item = items[i];
-                string at = At("EnemyPools", i, item?.Id);
-
-                if (item == null)
-                {
-                    into.Add(new ContentDiagnostic(at, "적 풀 데이터가 null이다."));
-                    continue;
-                }
-
-                int errors = into.Count;
-                var entries = new List<EnemyPoolEntry>();
-
-                if (item.Entries != null)
-                {
-                    for (int j = 0; j < item.Entries.Count; j++)
-                    {
-                        EnemyPoolEntryData entry = item.Entries[j];
-                        string entryAt = $"{at}.Entries[{j}]";
-
-                        if (entry == null)
-                        {
-                            into.Add(new ContentDiagnostic(entryAt, "풀 항목이 null이다."));
-                            continue;
-                        }
-
-                        if (entry.Enemy == null || !enemies.TryGetValue(entry.Enemy, out EnemyDefinition enemy))
-                        {
-                            into.Add(new ContentDiagnostic(entryAt + ".Enemy", $"정의되지 않은 적 ID '{entry.Enemy}'."));
-                            continue;
-                        }
-
-                        EnemyPoolEntry? loaded = GuardValue(entryAt, into, () => new EnemyPoolEntry(enemy, entry.MaxAlive));
-
-                        if (loaded.HasValue)
-                            entries.Add(loaded.Value);
-                    }
-                }
-
-                if (into.Count > errors)
-                    continue;
-
-                EnemyPoolDefinition pool = Guard(at, into, () => new EnemyPoolDefinition(item.Id, entries));
-
-                if (pool != null)
-                    pools.Add(pool);
-            }
-
-            return pools;
-        }
-
-        // Stages[i]가 (i + 1)단계다. 단계는 하나 이상 있어야 한다. 풀 ID는 3단계의 색인으로 정의에 잇는다.
-        private static List<StageDefinition> LoadStages(
-            List<StageData> items,
-            IReadOnlyDictionary<string, EnemyPoolDefinition> pools,
-            List<ContentDiagnostic> into)
-        {
-            var stages = new List<StageDefinition>();
-
-            if (items == null || items.Count == 0)
-            {
-                into.Add(new ContentDiagnostic("Stages", "단계가 하나 이상 필요하다."));
-                return stages;
-            }
-
-            for (int i = 0; i < items.Count; i++)
-            {
-                StageData item = items[i];
-                string at = $"Stages[{i}]";
-
-                if (item == null)
-                {
-                    into.Add(new ContentDiagnostic(at, "단계 데이터가 null이다."));
-                    continue;
-                }
-
-                if (item.Pool == null || !pools.TryGetValue(item.Pool, out EnemyPoolDefinition pool))
-                {
-                    into.Add(new ContentDiagnostic(at + ".Pool", $"정의되지 않은 적 풀 ID '{item.Pool}'."));
-                    continue;
-                }
-
-                stages.Add(new StageDefinition(i + 1, pool));
-            }
-
-            return stages;
         }
 
         // ── 공통 ────────────────────────────────────────────────────────────

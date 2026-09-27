@@ -41,7 +41,7 @@
 ### 4.1 해금은 업그레이드 수치다
 
 - 종류마다 수치 이름 `enemy.<종류>.unlock`을 둔다. 판 조립이 방장의 표로 `Apply(unlock, 기본값)`을 계산해 **1 이상이면 해금**이다.
-- 기본값은 종류 정의에 둔다: 처음부터 나오는 종류는 1, 나머지는 0. 샘플은 소행성만 1이다.
+- 기본값은 종류 정의에 둔다: 처음부터 나오는 종류는 1, 나머지는 0. 저작 칸은 "잠긴 채 시작"(`StartsLocked`, 기본 false)이고, 켜면 기본값이 0이다. 샘플은 소행성만 끈다.
 - 해금 노드는 이 수치에 더하기 1을 준다. 한 노드가 여러 종류를 함께 열 수 있다(업그레이드 여러 개).
 - 해금 여부는 판 구성(`EnemyComposition`)의 한 칸이다. 질량 단계·황금·시작 공급과 같이 판 조립 때 한 번 정해진다.
 - 조건("소행성 질량이 N 이상이면 행성") 대신 노드로 연다. 원작의 순서는 트리의 선(어느 노드 뒤에 해금 노드가 있는가)으로 표현한다.
@@ -93,21 +93,21 @@ seed는 남는다(같은 콘텐츠·산 노드·seed·진행 시간이면 같은
 - `Session.RejectsStageOutsideContent`
 
 고쳐 쓰는 계약:
-- `Session.RemembersStageAndSeed` → seed만
+- `Session.RemembersStageAndSeed` → seed만(`Session.RemembersSeed`)
 - `Enemy.FilteredSpawnsUseNoTierGoldenOrPlacement`, `Enemy.FilteredSpawnRequestsAreDropped` → 거르는 까닭을 "풀 밖"에서 "잠긴 종류·전체 상한"으로
 - `Progress.FailedAssemblyLeavesProgressFree` → 실패 원인을 범위 밖 단계 대신 한계 밖 노드로
 
 새 계약:
 - `Enemy.OnlyUnlockedKindsAppear` — 잠긴 종류는 시작 공급·생성 요청 모두 나오지 않는다. 해금 노드를 사면 다음 판부터 나온다. 판 동안 바뀌지 않는다
-- `Content.UnlockDefaultsComeFromTheKind` — 기본값이 1인 종류는 노드 없이 나온다
+- `Content.UnlockDefaultsComeFromTheKind` — 기본값이 1인 종류는 노드 없이 나온다. 잠긴 채 시작하는 종류는 해금 노드를 사야 나온다
 
 ## 7. 티켓
 
 | 티켓 | 내용 | 선행 | 상태 |
 |---|---|---|---|
 | EU-001 | 이 PLAN | — | 완료 (사용자 검토) |
-| EU-002 | Core: 해금 수치와 판 구성의 해금 칸, 잠긴 종류 거르기, 단계·풀 지우기, 계약 | EU-001 | — |
-| EU-003 | Unity·데이터: 단계 표·풀 에셋과 스크립트 지우기, 종류 에셋의 해금 기본값, 콘솔 정리, 샘플 해금 노드 | EU-002 | — |
+| EU-002 | Core·Unity·데이터: 해금 수치와 판 구성의 해금 칸, 잠긴 종류 거르기, 단계·풀·단계 표를 Core·Unity·데이터·콘솔에서 지우기, 종류 에셋의 해금 기본값, 계약 | EU-001 | 완료 |
+| EU-003 | 데이터: 샘플 해금 노드와 트리 재배선(4.4절) | EU-002 | — |
 | EU-004 | 문서: INTEGRATED_GAMEPLAY_FLOW, BATTLE_COMPOSITION_PLAN 3절(단계 → 풀 대신 노드 → 해금), SYSTEM_CATALOG | EU-003 | — |
 
 ## 8. 남은 결정

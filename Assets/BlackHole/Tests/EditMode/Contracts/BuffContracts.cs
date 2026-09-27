@@ -139,9 +139,6 @@ namespace BlackHole.Core.Tests
             data.Enemies.Add(WithEffect(Haste, buffHealth,
                 new DeathEffectData { Kind = "AttackHaste", Duration = hasteDuration, IntervalMultiplier = 0.5f }));
             data.Enemies.Add(WithEffect(Critical, buffHealth, new DeathEffectData { Kind = "GuaranteedCritical", Duration = 10 }));
-            TestContent.Allow(data, Normal);
-            TestContent.Allow(data, Haste);
-            TestContent.Allow(data, Critical);
             data.Breaker = new BreakerData { Damage = breakerDamage, Interval = 1, Radius = 100, CritMultiplier = critMultiplier };
             return data;
         }

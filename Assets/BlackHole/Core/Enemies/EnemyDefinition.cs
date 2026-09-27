@@ -96,6 +96,8 @@ namespace BlackHole.Core
         public EnemyBehaviorDefinition Behavior { get; }
         // 이 종류가 죽을 때의 효과. 없으면 null이다. 효과를 가진 적은 사망 효과의 피해를 받지 않는다.
         public DeathEffectDefinition DeathEffect { get; }
+        // 잠긴 채 시작하는가. 잠긴 종류는 해금 노드(EnemyUpgradeStats.Unlock)를 사야 판에 나온다(ENEMY_UNLOCK_PLAN 4.1).
+        public bool StartsLocked { get; }
 
         public EnemyDefinition(
             string id,
@@ -104,7 +106,8 @@ namespace BlackHole.Core
             IReadOnlyList<MassLevelDefinition> massLevels,
             float goldenMultiplier,
             EnemyBehaviorDefinition behavior,
-            DeathEffectDefinition deathEffect = null)
+            DeathEffectDefinition deathEffect = null,
+            bool startsLocked = false)
         {
             if (float.IsNaN(goldenMultiplier) || float.IsInfinity(goldenMultiplier) || goldenMultiplier < 0)
                 throw new ArgumentOutOfRangeException(nameof(goldenMultiplier), "0 이상의 유한한 값이 필요하다.");
@@ -136,6 +139,7 @@ namespace BlackHole.Core
             GoldenMultiplier = goldenMultiplier;
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
             DeathEffect = deathEffect;
+            StartsLocked = startsLocked;
         }
 
         // 판 구성 composition에서 색 등급 tier의 실행 수치.

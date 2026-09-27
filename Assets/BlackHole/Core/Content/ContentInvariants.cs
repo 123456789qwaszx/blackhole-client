@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // 콘텐츠 전체의 규칙: 적 종류와 적 풀의 ID는 유일하다. 전체 개체 수 상한이 있고, 전투 시작 공급이 그 안이다.
+    // 콘텐츠 전체의 규칙: 적 종류의 ID는 유일하다. 전체 개체 수 상한이 있고, 전투 시작 공급이 그 안이다.
     // GameContent 생성자(첫 오류로 생성 실패)와 ContentLoader(경로별 진단 수집)가 함께 쓴다.
     // 개별 정의의 수치 규칙은 각 정의 생성자에 있다 — 여기서 다시 보지 않는다.
     // 정의 객체로 해석되는 참조(공급·풀의 적, 단계의 풀)는 ContentLoader가 이 색인으로 해석하며 진단한다.
@@ -20,7 +20,6 @@ namespace BlackHole.Core
 
         // 전투 시작 공급의 합(과 업그레이드가 더할 수 있는 공급 수 extra)이 전체 개체 수 상한 안이다.
         // 전투 시작에는 살아 있는 적이 없으므로, 이 합이 상한을 넘으면 약속한 적이 매 판 시작부터 버려진다.
-        // 종류별 최대 수(단계의 적 풀)는 단계마다 달라 여기서 보지 않는다.
         // extra는 노드를 모두 산 경우의 더할 공급 수다(UpgradeContentCheck). 콘텐츠만 볼 때는 0이다.
         public static void CheckStartSupplyFits(
             IReadOnlyList<SupplyRequest> startSupply,
@@ -46,14 +45,6 @@ namespace BlackHole.Core
             out Dictionary<string, EnemyDefinition> enemiesById)
         {
             enemiesById = Index(enemies, "Enemies", "적", e => e.Id, into);
-        }
-
-        public static void CollectPools(
-            IReadOnlyList<EnemyPoolDefinition> pools,
-            ICollection<ContentDiagnostic> into,
-            out Dictionary<string, EnemyPoolDefinition> poolsById)
-        {
-            poolsById = Index(pools, "EnemyPools", "적 풀", p => p.Id, into);
         }
 
         private static Dictionary<string, T> Index<T>(

@@ -50,6 +50,9 @@ namespace BlackHole.Unity
         [Tooltip("초당 이동 거리. 모든 색 등급이 같다.")]
         [SerializeField] private float moveSpeed = 1;
 
+        [Tooltip("잠긴 채 시작한다. 잠긴 종류는 판에 나오지 않고, 해금 노드(enemy.<id>.unlock)를 사야 나온다.")]
+        [SerializeField] private bool startsLocked;
+
         [Header("색 등급 (번호가 적의 색 등급)")]
         [SerializeField] private List<Tier> tiers = new List<Tier>();
 
@@ -92,6 +95,7 @@ namespace BlackHole.Unity
             {
                 Id = id,
                 MoveSpeed = moveSpeed,
+                StartsLocked = startsLocked,
                 GoldenMultiplier = goldenMultiplier,
                 Behavior = new EnemyBehaviorData { Kind = "Orbit", Clockwise = clockwise },
                 DeathEffect = deathEffect == DeathEffectKind.None ? null : new DeathEffectData

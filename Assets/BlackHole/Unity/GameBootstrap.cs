@@ -12,7 +12,7 @@ namespace BlackHole.Unity
     // - Start/Update: 조립한 GameHost에 Unity 수명을 전달한다.
     //
     // 콘텐츠: 판 설정은 SampleContent(C#), 스킬은 스킬 설정 에셋, 적 종류는 적 종류 목록 에셋,
-    // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
+    // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋이 채운다. 어떤 종류가 나오는가는 산 노드의 해금이 정한다.
     // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다. 업그레이드 화면은 같은 에셋의 격자 칸으로 노드를 놓는다.
     // 화면은 씬의 UI Canvas에 놓인 화면 프리팹(UpgradeScreen·BattleScreen·SettlementScreen)을 Root Layer와 Registered Views로 받는다.
     // 업그레이드 화면 안의 트리 보기 페이지(NodeTreeView)도 Registered Views에 넣는다.
@@ -26,7 +26,6 @@ namespace BlackHole.Unity
         [Header("Content")]
         [SerializeField] private EnemyCatalog enemyCatalog;
         [SerializeField] private EnemySupplySetup enemySupply;
-        [SerializeField] private StageTable stageTable;
         [SerializeField] private NodeCatalog nodeCatalog;
         [SerializeField] private SkillSetup skillSetup;
 
@@ -98,7 +97,7 @@ namespace BlackHole.Unity
         private void BootstrapBattle()
         {
             _battle = new BattleSystem(_content, _nodeTree, _enemyView, _skillView, _deathEffectView);
-            _orchestrator = new BattleOrchestrator(_content, _battle, Host);
+            _orchestrator = new BattleOrchestrator(_battle, Host);
             // 업그레이드 화면과 콘솔이 보는 진행 상태: 방장의 것.
             _viewer = _orchestrator.Progress;
             // 마우스가 조준하는 참가자: 방장.
@@ -192,10 +191,10 @@ namespace BlackHole.Unity
         {
             content = null;
 
-            if (enemyCatalog == null || enemySupply == null || stageTable == null || skillSetup == null)
+            if (enemyCatalog == null || enemySupply == null || skillSetup == null)
             {
                 Debug.LogError(
-                    "[콘텐츠] GameBootstrap에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 단계 표(StageTable), 스킬 설정(SkillSetup)을 연결해야 한다.",
+                    "[콘텐츠] GameBootstrap에 적 종류 목록(EnemyCatalog), 적 공급 설정(EnemySupplySetup), 스킬 설정(SkillSetup)을 연결해야 한다.",
                     this);
                 return false;
             }
@@ -204,7 +203,6 @@ namespace BlackHole.Unity
             skillSetup.WriteTo(data);
             enemyCatalog.WriteTo(data);
             enemySupply.WriteTo(data);
-            stageTable.WriteTo(data);
             ContentLoadResult result = ContentLoader.Load(data);
 
             foreach (ContentDiagnostic diagnostic in result.Diagnostics)

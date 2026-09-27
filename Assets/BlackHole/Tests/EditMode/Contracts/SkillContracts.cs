@@ -60,7 +60,7 @@ namespace BlackHole.Core.Tests
             NodePurchase.TryPurchase(buyer, tree, "crit");
 
             GameSession battle = TestContent.Begun(SessionAssembler.CreateBattle(
-                content, buyer, SessionAssembler.FirstStage, 0, tree));
+                content, buyer, 0, tree));
             BreakerSkill upgraded = battle.World.PlayerOf(buyer.Id).Breaker;
             Expect.Near(4, upgraded.Definition.Damage);
             Expect.Near(0.8f, upgraded.Definition.Interval);
@@ -87,7 +87,7 @@ namespace BlackHole.Core.Tests
             ProgressCheats.LockAllNodes(buyer);
             Expect.Near(4, upgraded.Definition.Damage);
 
-            GameSession next = SessionAssembler.CreateBattle(content, buyer, SessionAssembler.FirstStage, 0, tree);
+            GameSession next = SessionAssembler.CreateBattle(content, buyer, 0, tree);
             Expect.Near(3, next.World.PlayerOf(buyer.Id).Breaker.Definition.Damage);
             Expect.Near(1, next.World.PlayerOf(buyer.Id).Breaker.Definition.Interval);
         }
@@ -419,7 +419,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, count));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health));
-            TestContent.Allow(data, TestContent.EnemyId);
             data.Breaker = new BreakerData { Damage = damage, Interval = 1, Radius = radius, CritMultiplier = 1 };
             return data;
         }
@@ -429,7 +428,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, count));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health));
-            TestContent.Allow(data, TestContent.EnemyId);
             data.Laser = new LaserData
             {
                 Damage = damage, Interval = 1, Width = width, TelegraphDuration = 0.4f, BoundaryRadius = Boundary,
@@ -451,7 +449,7 @@ namespace BlackHole.Core.Tests
         private static GameSession Laser(GameContent content, int seed)
         {
             GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(
-                content, new PlayerState(TestContent.First), SessionAssembler.FirstStage, seed));
+                content, new PlayerState(TestContent.First), seed));
             game.SetAimPoint(TestContent.First, BattleSpace.Origin);
             return game;
         }

@@ -14,8 +14,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Session.PauseFreezesTime", PauseFreezesTime);
             yield return new Contract("Session.RestartIsANewAssembly", RestartIsANewAssembly);
             yield return new Contract("Session.RejectsInvalidAdvance", RejectsInvalidAdvance);
-            yield return new Contract("Session.RemembersStageAndSeed", RemembersStageAndSeed);
-            yield return new Contract("Session.RejectsStageOutsideContent", RejectsStageOutsideContent);
+            yield return new Contract("Session.RemembersSeed", RemembersSeed);
             yield return new Contract("Session.RawDataRecordsTheEndedBattle", RawDataRecordsTheEndedBattle);
             yield return new Contract("Session.UpgradesAreFixedAtAssembly", UpgradesAreFixedAtAssembly);
         }
@@ -38,14 +37,14 @@ namespace BlackHole.Core.Tests
             buyer.EarnGold(1);
             NodePurchase.TryPurchase(buyer, tree, "s");
 
-            GameSession battle = SessionAssembler.CreateBattle(content, buyer, SessionAssembler.FirstStage, 0, tree);
+            GameSession battle = SessionAssembler.CreateBattle(content, buyer, 0, tree);
             Expect.Equal(12f, battle.Upgrades.Apply("damage", 10));
 
             battle.RequestEnd();
             ProgressCheats.LockAllNodes(buyer);
             Expect.Equal(12f, battle.Upgrades.Apply("damage", 10));
 
-            GameSession next = SessionAssembler.CreateBattle(content, buyer, SessionAssembler.FirstStage, 0, tree);
+            GameSession next = SessionAssembler.CreateBattle(content, buyer, 0, tree);
             Expect.Equal(10f, next.Upgrades.Apply("damage", 10));
             next.RequestEnd();
 
@@ -61,7 +60,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 2));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
-            TestContent.Allow(data, TestContent.EnemyId);
             GameContent content = TestContent.Load(data);
 
             GameSession game = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First));
@@ -162,46 +160,28 @@ namespace BlackHole.Core.Tests
             Expect.Throws<ArgumentOutOfRangeException>(() => game.Advance(-1));
         }
 
-        // 판은 자신을 조립한 진행도(적의 강도 단계)와 seed를 기억한다. 단계를 주지 않으면 첫 단계다.
-        private static void RemembersStageAndSeed()
+        // 판은 자신을 조립한 seed를 기억한다. seed를 주지 않으면 기본 seed다.
+        private static void RemembersSeed()
         {
             GameContent content = TestContent.Load(TestContent.Data());
-            GameSession game = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 7, 42);
-            Expect.Equal(7, game.Stage);
+            GameSession game = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 42);
             Expect.Equal(42, game.Seed);
 
             GameSession plain = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First));
-            Expect.Equal(SessionAssembler.FirstStage, plain.Stage);
             Expect.Equal(SessionAssembler.DefaultSeed, plain.Seed);
         }
 
-        // 단계는 1부터 콘텐츠의 단계 수까지다. 범위 밖이면 조립하지 않고, 진행 상태를 전투에 묶지 않는다.
-        private static void RejectsStageOutsideContent()
-        {
-            GameContent content = TestContent.Load(TestContent.Data());
-            var state = new PlayerState(TestContent.First);
-
-            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, state, 0, 1));
-            Expect.Throws<ArgumentOutOfRangeException>(() =>
-                SessionAssembler.CreateBattle(content, state, TestContent.StageCount + 1, 1));
-            Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
-
-            GameSession last = SessionAssembler.CreateBattle(content, state, TestContent.StageCount, 1);
-            Expect.Equal(TestContent.StageCount, last.Stage);
-        }
-
-        // 원자료는 끝난 판에서만 만든다: 조립 조건(단계·seed), 진행 시간, 종류별 처치 수.
+        // 원자료는 끝난 판에서만 만든다: 조립 조건(seed), 진행 시간, 종류별 처치 수.
         private static void RawDataRecordsTheEndedBattle()
         {
             GameContent content = TestContent.Load(TestContent.Data());
             GameSession game = TestContent.Begun(
-                SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 3, 99));
+                SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 99));
             game.Advance(2);
             Expect.Throws<InvalidOperationException>(() => game.CreateRawData());
 
             game.RequestEnd();
             BattleRawData raw = game.CreateRawData();
-            Expect.Equal(3, raw.Stage);
             Expect.Equal(99, raw.Seed);
             Expect.Near(2, raw.PlayedSeconds);
             Expect.Equal(0, raw.TotalKills);

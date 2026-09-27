@@ -10,13 +10,11 @@ using Object = UnityEngine.Object;
 
 namespace BlackHole.Unity
 {
-    // 조종 콘솔(개발용). 진행도(적의 강도 단계)와 전투의 seed를 보여 주고, 진행도를 바꾼다.
-    // 진행도를 바꾸면 다음에 조립하는 전투부터 쓰인다. 진행 중인 전투는 바뀌지 않는다.
-    // 전투 시작·종료는 다른 창(BattleLifecycleConsole)이다.
+    // 조종 콘솔(개발용). 전투의 seed를 보여 준다. 전투 시작·종료는 다른 창(BattleLifecycleConsole)이다.
     //
-    // 아래에는 적 풀과 풀의 종류마다 "지금 살아 있는 수 / 동시 최대 수"를 보여 준다.
-    // - 판이 있으면 그 판의 단계 풀과 지금 살아 있는 수(매 프레임).
-    // - 판이 없으면 선택한 진행도의 풀. 살아 있는 수는 '-'다.
+    // 아래에는 콘텐츠의 적 종류마다 "지금 살아 있는 수"와 해금 여부를 보여 준다. 해금은 산 노드가 정한다.
+    // - 판이 있으면 그 판의 해금과 지금 살아 있는 수(매 프레임).
+    // - 판이 없으면 지금 산 노드로 조립할 다음 판의 해금. 살아 있는 수는 '-'다.
     // 종류 줄을 누르면 그 종류의 수치·형태·특성이 아래의 설명창에 나온다. 같은 줄을 다시 누르면 닫힌다.
     // 설명창은 판 구성(질량 단계, 황금 비율·배율)과 색 등급마다 비율·HP·크기·Gold(황금이 되는 종류는 황금 Gold도)를 보여 준다.
     // 판 구성은 산 노드가 정한다 — 노드는 업그레이드 화면에서 산다.
@@ -36,11 +34,10 @@ namespace BlackHole.Unity
         private readonly NodeTree _nodes;
         private readonly EnemyLooks _looks;
         private readonly GameObject _canvas;
-        private readonly TMP_Text _stageText;
         private readonly TMP_Text _seedText;
-        private readonly TMP_Text _poolText;
-        private readonly RectTransform _poolRows;
-        private readonly List<PoolRow> _rows = new List<PoolRow>();
+        private readonly TMP_Text _kindsText;
+        private readonly RectTransform _kindRows;
+        private readonly List<KindRow> _rows = new List<KindRow>();
         private readonly GameObject _detailPanel;
         private readonly TMP_Text _detailTitle;
         private readonly Image _detailForm;
@@ -50,13 +47,12 @@ namespace BlackHole.Unity
         private readonly TMP_Text _detailStats;
         private readonly StringBuilder _builder = new StringBuilder();
 
-        private int _shownStage = -1;
         private int? _shownSeed;
         private bool _seedShown;
-        // 풀 표시가 마지막으로 그린 것. 바뀔 때만 다시 쓴다.
-        private EnemyPoolDefinition _shownPool;
-        private int _shownPoolStage;
-        private bool _shownLive;
+        // 종류 줄이 마지막으로 본 판과 산 노드 수. 둘 중 하나가 바뀌면 해금을 다시 읽는다.
+        private bool _kindsShown;
+        private GameSession _shownKindsBattle;
+        private int _shownKindsOwnedNodes;
         // 설명창에 보일 종류. 없으면 설명창을 닫는다.
         private EnemyDefinition _selected;
         private bool _detailDirty;
@@ -81,21 +77,14 @@ namespace BlackHole.Unity
 
             RectTransform panel = Panel(stack, "Panel", PanelColor);
             Text(panel, "Title", "CONTROL CONSOLE  ( ` )", 22);
-            _stageText = Text(panel, "Stage", string.Empty, 28);
-
-            RectTransform buttons = Child(panel, "StageButtons");
-            HorizontalLayout(buttons, 8);
-            StageButton(buttons, -10);
-            StageButton(buttons, -1);
-            StageButton(buttons, +1);
-            StageButton(buttons, +10);
-
             _seedText = Text(panel, "Seed", string.Empty, 28);
-            Text(panel, "Note", "Stage applies from the next battle.", 18);
 
-            _poolText = Text(panel, "Pool", string.Empty, 28);
-            _poolRows = Child(panel, "PoolRows");
-            VerticalLayout(_poolRows, 0, 2).childForceExpandWidth = true;
+            _kindsText = Text(panel, "Kinds", string.Empty, 28);
+            _kindRows = Child(panel, "KindRows");
+            VerticalLayout(_kindRows, 0, 2).childForceExpandWidth = true;
+
+            foreach (EnemyDefinition kind in content.Enemies)
+                _rows.Add(CreateRow(kind));
 
             RectTransform detail = Panel(stack, "Detail", DetailColor);
             _detailPanel = detail.gameObject;
@@ -129,12 +118,6 @@ namespace BlackHole.Unity
 
         private void Refresh()
         {
-            if (_orchestrator.Stage != _shownStage)
-            {
-                _shownStage = _orchestrator.Stage;
-                _stageText.text = $"Stage  {_shownStage} / {_orchestrator.StageCount}";
-            }
-
             GameSession battle = _battle.Session;
             int? seed = battle?.Seed;
 
@@ -145,77 +128,52 @@ namespace BlackHole.Unity
                 _seedText.text = seed.HasValue ? $"Seed  {seed.Value}" : "Seed  -";
             }
 
-            RefreshPool(battle);
+            RefreshKinds(battle);
             RefreshDetail(battle);
         }
 
-        #region 풀
+        #region 종류
 
-        private void RefreshPool(GameSession battle)
+        private void RefreshKinds(GameSession battle)
         {
             bool live = battle != null;
-            EnemyPoolDefinition pool;
-            int stage;
+            int owned = _orchestrator.Progress.OwnedNodes.Count;
 
-            if (live)
+            // 해금은 판 동안 바뀌지 않는다. 판이 바뀌거나 노드를 샀을 때만 다시 읽는다.
+            if (!_kindsShown || battle != _shownKindsBattle || owned != _shownKindsOwnedNodes)
             {
-                pool = battle.World.Pool;
-                stage = battle.Stage;
-            }
-            else
-            {
-                StageDefinition selected = _content.GetStage(_orchestrator.Stage);
-                pool = selected.Pool;
-                stage = selected.Number;
-            }
+                _kindsShown = true;
+                _shownKindsBattle = battle;
+                _shownKindsOwnedNodes = owned;
+                _kindsText.text = live ? "Kinds  (battle)" : "Kinds  (next battle)";
 
-            if (pool != _shownPool || stage != _shownPoolStage || live != _shownLive)
-            {
-                _shownPool = pool;
-                _shownPoolStage = stage;
-                _shownLive = live;
-                _poolText.text = live ? $"Pool  {pool.Id}  (battle, stage {stage})" : $"Pool  {pool.Id}  (stage {stage})";
-                BuildRows(pool);
+                IReadOnlyDictionary<EnemyDefinition, EnemyComposition> next = live
+                    ? null
+                    : SessionAssembler.PreviewCompositions(_content, _orchestrator.Progress, _nodes);
+
+                foreach (KindRow row in _rows)
+                {
+                    row.Unlocked = live ? battle.World.Stats.CompositionOf(row.Kind).Unlocked : next[row.Kind].Unlocked;
+                    row.Shown = false;
+                }
             }
 
-            for (int i = 0; i < _rows.Count; i++)
+            foreach (KindRow row in _rows)
             {
-                PoolRow row = _rows[i];
-                int count = live ? battle.World.CountAlive(row.Entry.Enemy) : -1;
+                int count = live ? battle.World.CountAlive(row.Kind) : -1;
 
                 if (count == row.ShownCount && row.Shown)
                     continue;
 
                 row.ShownCount = count;
                 row.Shown = true;
-                row.Label.text = $"  {row.Entry.Enemy.Id}<pos=9em>{(live ? count.ToString() : "-")} / {row.Entry.MaxAlive}";
+                row.Label.text = $"  {row.Kind.Id}<pos=9em>{(live ? count.ToString() : "-")}<pos=12em>{(row.Unlocked ? "unlocked" : "locked")}";
             }
         }
 
-        // 풀이 바뀌면 종류 줄을 새로 만든다. 선택한 종류가 새 풀에 없으면 설명창을 닫는다.
-        private void BuildRows(EnemyPoolDefinition pool)
+        private KindRow CreateRow(EnemyDefinition kind)
         {
-            foreach (PoolRow row in _rows)
-                Object.Destroy(row.Root);
-
-            _rows.Clear();
-            bool selectedInPool = false;
-
-            foreach (EnemyPoolEntry entry in pool.Entries)
-            {
-                _rows.Add(CreateRow(entry));
-                selectedInPool |= entry.Enemy == _selected;
-            }
-
-            if (!selectedInPool)
-                Select(null);
-            else
-                PaintRows();
-        }
-
-        private PoolRow CreateRow(EnemyPoolEntry entry)
-        {
-            RectTransform rect = Child(_poolRows, entry.Enemy.Id);
+            RectTransform rect = Child(_kindRows, kind.Id);
             HorizontalLayout(rect, 0).padding = new RectOffset(0, 8, 2, 2);
 
             var image = rect.gameObject.AddComponent<Image>();
@@ -223,16 +181,15 @@ namespace BlackHole.Unity
 
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
-            EnemyDefinition kind = entry.Enemy;
             button.onClick.AddListener(() => Select(_selected == kind ? null : kind));
 
-            return new PoolRow(rect.gameObject, image, Text(rect, "Label", string.Empty, 22), entry);
+            return new KindRow(image, Text(rect, "Label", string.Empty, 22), kind);
         }
 
         private void PaintRows()
         {
-            foreach (PoolRow row in _rows)
-                row.Background.color = row.Entry.Enemy == _selected ? SelectedRowColor : RowColor;
+            foreach (KindRow row in _rows)
+                row.Background.color = row.Kind == _selected ? SelectedRowColor : RowColor;
         }
 
         #endregion
@@ -377,10 +334,6 @@ namespace BlackHole.Unity
 
         #region 부품
 
-        private void StageButton(RectTransform parent, int delta) =>
-            ButtonOf(parent, $"Stage{delta:+0;-0}", $"{delta:+0;-0}", 80,
-                () => _orchestrator.SetStage(_orchestrator.Stage + delta));
-
         private static Image FormPreview(RectTransform parent)
         {
             RectTransform rect = Child(parent, "Preview");
@@ -396,22 +349,21 @@ namespace BlackHole.Unity
 
         #endregion
 
-        // 풀의 종류 한 줄: 누르면 그 종류를 설명창에 띄운다.
-        private sealed class PoolRow
+        // 종류 한 줄: 누르면 그 종류를 설명창에 띄운다.
+        private sealed class KindRow
         {
-            public readonly GameObject Root;
             public readonly Image Background;
             public readonly TMP_Text Label;
-            public readonly EnemyPoolEntry Entry;
+            public readonly EnemyDefinition Kind;
+            public bool Unlocked;
             public int ShownCount;
             public bool Shown;
 
-            public PoolRow(GameObject root, Image background, TMP_Text label, EnemyPoolEntry entry)
+            public KindRow(Image background, TMP_Text label, EnemyDefinition kind)
             {
-                Root = root;
                 Background = background;
                 Label = label;
-                Entry = entry;
+                Kind = kind;
             }
         }
     }

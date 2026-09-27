@@ -25,7 +25,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 1));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1, gold: 7));
-            TestContent.Allow(data, TestContent.EnemyId);
             var state = new PlayerState(TestContent.First);
             state.EarnGold(long.MaxValue - 3);
             GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), state));
@@ -100,7 +99,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 1));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1, gold: 7));
-            TestContent.Allow(data, TestContent.EnemyId);
             var state = new PlayerState(TestContent.First);
             state.EarnGold(20);
             GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), state));
@@ -147,13 +145,17 @@ namespace BlackHole.Core.Tests
             Expect.Equal(20, state.Gold);
         }
 
-        // 조립이 실패하면(범위 밖의 단계 등) 진행 상태는 전투에 묶이지 않고, 그대로 다음 조립에 쓸 수 있다.
+        // 조립이 실패하면(산 노드가 질량 단계 표 밖을 가리키는 등) 진행 상태는 전투에 묶이지 않고, 그대로 다음 조립에 쓸 수 있다.
         private static void FailedAssemblyLeavesProgressFree()
         {
-            GameContent content = TestContent.Load(TestContent.Data());
+            ContentData data = TestContent.Data();
+            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            GameContent content = TestContent.Load(data);
             var state = new PlayerState(TestContent.First);
+            NodeTree tooHeavy = TestContent.Owned(state,
+                new Upgrade(EnemyUpgradeStats.MassLevel(TestContent.EnemyId), UpgradeOperation.Add, 1));
 
-            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, state, 0, 1));
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, state, 1, tooHeavy));
             Expect.True(!state.InBattle, "실패한 조립이 진행 상태를 묶으면 안 된다.");
 
             SessionAssembler.CreateBattle(content, state);

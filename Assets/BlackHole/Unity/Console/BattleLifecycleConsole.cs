@@ -186,7 +186,6 @@ namespace BlackHole.Unity
 
             _builder.Clear();
             _builder.Append("Last battle");
-            _builder.Append("\n  Stage<pos=6em>").Append(raw.Stage);
             _builder.Append("\n  Seed<pos=6em>").Append(raw.Seed);
             _builder.Append("\n  Time<pos=6em>").Append(Number(raw.PlayedSeconds)).Append('s');
             _builder.Append("\n  Gold<pos=6em>+").Append(raw.EarnedGold);

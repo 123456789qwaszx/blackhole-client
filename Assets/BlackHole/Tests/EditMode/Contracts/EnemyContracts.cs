@@ -3,8 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core.Tests
 {
-    // 적: 전투 시작 공급·풀 여과·배치, HQ 공전, 피해와 사망 확정, 생성·파괴 요청, 판 정리(GAME_RULES 7~9·12·13절).
-    // 공급된 적은 판의 단계 풀을 거쳐서만 나오므로, 계약은 공급하는 종류를 기본 풀에 넣는다(TestContent.Allow).
+    // 적: 전투 시작 공급·생성 여과(해금·전체 상한)·배치, HQ 공전, 피해와 사망 확정, 생성·파괴 요청, 판 정리(GAME_RULES 7~9·12·13절).
     internal static class EnemyContracts
     {
         private static readonly Damage Hit = new Damage(4, TestContent.First);
@@ -21,9 +20,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.DeathEarnsItsGoldForTheBattleAtOnce", DeathEarnsItsGoldForTheBattleAtOnce);
             yield return new Contract("Enemy.EachBattleHasItsOwnEnemies", EachBattleHasItsOwnEnemies);
             yield return new Contract("Enemy.ForeignOrClearedEnemyTakesNoDamage", ForeignOrClearedEnemyTakesNoDamage);
-            yield return new Contract("Enemy.PoolFilterDropsKindsOutsideThePool", PoolFilterDropsKindsOutsideThePool);
-            yield return new Contract("Enemy.PoolFilterCapsAliveCountPerKind", PoolFilterCapsAliveCountPerKind);
-            yield return new Contract("Enemy.BattleUsesItsStagePool", BattleUsesItsStagePool);
+            yield return new Contract("Enemy.OnlyUnlockedKindsAppear", OnlyUnlockedKindsAppear);
             yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
             yield return new Contract("Enemy.TierStatsComeFromTheMassLevel", TierStatsComeFromTheMassLevel);
             yield return new Contract("Enemy.TierRatioHoldsAtEveryCount", TierRatioHoldsAtEveryCount);
@@ -64,12 +61,12 @@ namespace BlackHole.Core.Tests
                 Expect.Near(3, TestContent.DistanceToHq(enemy.Position));
         }
 
-        // 풀 여과 장치가 거른 생성 요청은 버린다. 나중에 자리가 나도 다시 나오지 않는다.
+        // 생성 여과 장치가 거른 생성 요청(여기서는 전체 상한)은 버린다. 나중에 자리가 나도 다시 나오지 않는다.
         private static void FilteredSpawnRequestsAreDropped()
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 2));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
-            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 2);
+            data.MaxAliveEnemies = 2;
             GameSession game = TestContent.Session(data);
             World world = game.World;
 
@@ -94,9 +91,12 @@ namespace BlackHole.Core.Tests
             Expect.Equal(0, world.PendingSpawns.Count);
             Expect.Equal(0, world.PendingDestroys.Count);
 
-            World bare = TestContent.Session(TestContent.Data()).World;
-            EnemyDefinition poolKind = bare.Pool.Entries[0].Enemy;
-            Expect.Throws<InvalidOperationException>(() => bare.RequestSpawn(new SupplyRequest(poolKind, 1)));
+            ContentData bareData = TestContent.Data();
+            bareData.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
+            GameSession bareGame = TestContent.Session(bareData);
+            World bare = bareGame.World;
+            EnemyDefinition bareKind = bareGame.World.Stats.Kinds[0];
+            Expect.Throws<InvalidOperationException>(() => bare.RequestSpawn(new SupplyRequest(bareKind, 1)));
         }
 
         // 파괴 요청은 쌓였다가 다음 Step의 사망 처리 때 사망을 확정한다. 피해·HP를 계산하지 않고,
@@ -106,7 +106,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 2));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 10));
-            TestContent.Allow(data, TestContent.EnemyId);
             GameSession game = TestContent.Session(data);
             World world = game.World;
             Enemy target = world.Enemies[0];
@@ -137,7 +136,7 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 1));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
-            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 1);
+            data.MaxAliveEnemies = 1;
             GameSession game = TestContent.Session(data);
             World world = game.World;
             Enemy old = world.Enemies[0];
@@ -178,7 +177,6 @@ namespace BlackHole.Core.Tests
             kindData.MassLevels.Add(TestContent.MassLevel(1, 1, 1, 0));
             kindData.MassLevels.Add(TestContent.MassLevel(2, 3, 0, 1));
             data.Enemies.Add(kindData);
-            TestContent.Allow(data, TestContent.EnemyId);
             GameContent content = TestContent.Load(data);
             content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
 
@@ -206,19 +204,19 @@ namespace BlackHole.Core.Tests
 
             var state = new PlayerState(TestContent.First);
             NodeTree tooHeavy = TestContent.Owned(state, Mass(kind, 2));
-            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, state, 1, 0, tooHeavy));
+            Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, state, 0, tooHeavy));
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
         }
 
-        // 풀 여과 장치가 거른 생성 요청은 색·황금 몫과 위치 난수를 쓰지 않는다. 그래서 거른 요청이 섞여도 실제로 나온 적의
-        // (색, 황금, 위치) 순서는 걸러지는 일이 없던 판의 순서와 같다. 최대 수 1인 판은 Step마다 한 마리를 치우고 세 마리를 요청한다
+        // 생성 여과 장치가 거른 생성 요청은 색·황금 몫과 위치 난수를 쓰지 않는다. 그래서 거른 요청이 섞여도 실제로 나온 적의
+        // (색, 황금, 위치) 순서는 걸러지는 일이 없던 판의 순서와 같다. 전체 상한 1인 판은 Step마다 한 마리를 치우고 세 마리를 요청한다
         // (한 마리 나오고 두 마리는 걸러진다). 걸러진 요청이 몫을 썼다면 나온 순서가 1, 2, 5, 8…번째가 된다.
         private static void FilteredSpawnsUseNoTierGoldenOrPlacement()
         {
             const int spawns = 7;
             const int seed = 11;
             GameSession filtered = QuotaSession(maxAlive: 1, startSupply: 1, seed);
-            GameSession roomy = QuotaSession(maxAlive: TestContent.RoomyMax, startSupply: 1 + 3 * (spawns - 1), seed);
+            GameSession roomy = QuotaSession(maxAlive: TestContent.RoomyTotal, startSupply: 1 + 3 * (spawns - 1), seed);
             World world = filtered.World;
             // 나온 순간의 (색, 황금, 위치). 적은 치워지기 전 Step에도 움직이므로 위치는 나온 순간에 적어 둔다.
             var seen = new List<(int Tier, bool Golden, Point2 Position)>();
@@ -249,7 +247,7 @@ namespace BlackHole.Core.Tests
             Expect.True(consumingWouldDiffer, "이 seed에서는 걸러진 요청이 몫을 썼을 때의 순서가 달라야 계약이 의미가 있다.");
         }
 
-        // 색 셋(비율 0.2·0.3·0.5), 황금 비율 1/3인 종류가 나오는 판. 종류의 최대 수와 전투 시작 공급 수를 정한다.
+        // 색 셋(비율 0.2·0.3·0.5), 황금 비율 1/3인 종류가 나오는 판. 전체 상한과 전투 시작 공급 수를 정한다.
         private static GameSession QuotaSession(int maxAlive, int startSupply, int seed)
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, startSupply));
@@ -260,7 +258,7 @@ namespace BlackHole.Core.Tests
             kindData.MassLevels.Add(TestContent.MassLevel(1, 1, 0.2f, 0.3f, 0.5f));
             kindData.GoldenMultiplier = 50;
             data.Enemies.Add(kindData);
-            TestContent.Allow(data, TestContent.EnemyId, maxAlive);
+            data.MaxAliveEnemies = maxAlive;
             GameContent content = TestContent.Load(data);
             content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
             return Upgraded(content, seed, Golden(kind, 1f / 3));
@@ -274,12 +272,12 @@ namespace BlackHole.Core.Tests
         private static Upgrade Golden(EnemyDefinition kind, float ratio) =>
             new Upgrade(EnemyUpgradeStats.GoldenRatio(kind.Id), UpgradeOperation.Add, ratio);
 
-        // 이 업그레이드들을 산 새 진행 상태로 첫 단계의 판을 seed로 조립하고 시작한다.
+        // 이 업그레이드들을 산 새 진행 상태로 판을 seed로 조립하고 시작한다.
         private static GameSession Upgraded(GameContent content, int seed, params Upgrade[] upgrades)
         {
             var state = new PlayerState(TestContent.First);
             NodeTree tree = TestContent.Owned(state, upgrades);
-            return TestContent.Begun(SessionAssembler.CreateBattle(content, state, SessionAssembler.FirstStage, seed, tree));
+            return TestContent.Begun(SessionAssembler.CreateBattle(content, state, seed, tree));
         }
 
         // 색 비율은 몫 방식으로 지킨다: 색이 둘이면 몇 마리를 공급한 시점이든 색마다 (비율 × 공급 수)에서 1마리 넘게 벗어나지 않는다.
@@ -325,7 +323,6 @@ namespace BlackHole.Core.Tests
             kindData.GoldenMultiplier = 50;
             data.Enemies.Add(kindData);
             data.Enemies.Add(TestContent.Enemy("plain"));
-            TestContent.Allow(data, TestContent.EnemyId);
             GameContent content = TestContent.Load(data);
             content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
             content.TryGetEnemy("plain", out EnemyDefinition plain);
@@ -364,7 +361,7 @@ namespace BlackHole.Core.Tests
 
             var state = new PlayerState(TestContent.First);
             NodeTree goldenPlain = TestContent.Owned(state, Golden(plain, 0.1f));
-            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, state, 1, 0, goldenPlain));
+            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, state, 0, goldenPlain));
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
 
             Expect.Near(1, Upgraded(content, 3, Golden(kind, 1.5f)).World.Stats.CompositionOf(kind).GoldenRatio);
@@ -377,8 +374,6 @@ namespace BlackHole.Core.Tests
             ContentData data = TestContent.Arena(1, 3, TestContent.Supply("first", 3), TestContent.Supply("second", 2));
             data.Enemies.Add(TestContent.Enemy("first"));
             data.Enemies.Add(TestContent.Enemy("second"));
-            TestContent.Allow(data, "first");
-            TestContent.Allow(data, "second");
             data.MaxAliveEnemies = 5;
             GameSession game = TestContent.Session(data);
             World world = game.World;
@@ -410,64 +405,44 @@ namespace BlackHole.Core.Tests
             EnemyData kind = TestContent.Tiered(TestContent.EnemyId, 1, false, TestContent.Tier(10, 0.2f, 1), TestContent.Tier(10, 0.2f, 1));
             kind.MassLevels.Add(TestContent.MassLevel(1, 1, first, second));
             data.Enemies.Add(kind);
-            TestContent.Allow(data, TestContent.EnemyId);
             return TestContent.Session(data, seed);
         }
 
-        // 공급이 요청해도 이 판의 단계 풀에 없는 종류는 나오지 않는다. 걸러진 요청은 버린다.
-        private static void PoolFilterDropsKindsOutsideThePool()
+        // 잠긴 종류는 판에 나오지 않는다: 전투 시작 공급에서 빠지고(더할 공급 수 노드를 사도), 판 안의 생성 요청은 버린다.
+        // 해금 노드를 사면 다음 판부터 나온다. 판의 해금은 조립 때 정해져, 판이 끝난 뒤 노드를 사도 그 판은 그대로다.
+        private static void OnlyUnlockedKindsAppear()
         {
-            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("inside", 2), TestContent.Supply("outside", 3));
-            data.Enemies.Add(TestContent.Enemy("inside"));
-            data.Enemies.Add(TestContent.Enemy("outside"));
-            TestContent.Allow(data, "inside");
-            GameSession game = TestContent.Session(data);
-
-            Expect.Equal(2, game.World.Enemies.Count);
-            Expect.Equal(2, game.World.CountAlive(game.World.Enemies[0].Definition));
-            foreach (Enemy enemy in game.World.Enemies)
-                Expect.Equal("inside", enemy.Definition.Id);
-        }
-
-        // 한 종류가 동시에 살아 있을 수 있는 수는 풀의 최대 수까지다. 살아 있는 수는 사망 때 준다.
-        private static void PoolFilterCapsAliveCountPerKind()
-        {
-            ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 5));
-            data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1));
-            TestContent.Allow(data, TestContent.EnemyId, maxAlive: 3);
-            GameSession game = TestContent.Session(data);
-
-            EnemyDefinition kind = game.World.Enemies[0].Definition;
-            Expect.Equal(3, game.World.Enemies.Count);
-            Expect.Equal(3, game.World.CountAlive(kind));
-
-            game.World.DealDamage(game.World.Enemies[0], Hit);
-            Expect.Equal(2, game.World.CountAlive(kind));
-            Expect.Equal(2, game.World.Enemies.Count);
-        }
-
-        // 판은 자신을 조립한 단계의 풀을 쓴다. 같은 공급이라도 단계가 다르면 나오는 적이 다르다.
-        private static void BattleUsesItsStagePool()
-        {
-            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("small", 2), TestContent.Supply("big", 2));
-            data.Enemies.Add(TestContent.Enemy("small"));
-            data.Enemies.Add(TestContent.Enemy("big"));
-            TestContent.Allow(data, "small");
-            data.EnemyPools.Add(TestContent.Pool("late", "big"));
-            data.Stages[1].Pool = "late";
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("open", 2), TestContent.Supply("locked", 3));
+            data.Enemies.Add(TestContent.Enemy("open"));
+            EnemyData lockedData = TestContent.Enemy("locked");
+            lockedData.StartsLocked = true;
+            data.Enemies.Add(lockedData);
             GameContent content = TestContent.Load(data);
+            content.TryGetEnemy("locked", out EnemyDefinition locked);
 
-            GameSession early = TestContent.Begun(
-                SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 1, 0));
-            GameSession late = TestContent.Begun(
-                SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First), 2, 0));
+            var state = new PlayerState(TestContent.First);
+            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+            Expect.True(!plain.World.Stats.CompositionOf(locked).Unlocked, "잠긴 채 시작하는 종류다.");
+            Expect.Equal(2, plain.World.Enemies.Count);
+            foreach (Enemy enemy in plain.World.Enemies)
+                Expect.Equal("open", enemy.Definition.Id);
 
-            Expect.Equal(TestContent.PoolId, early.World.Pool.Id);
-            Expect.Equal("late", late.World.Pool.Id);
-            Expect.Equal("small", early.World.Enemies[0].Definition.Id);
-            Expect.Equal(2, early.World.Enemies.Count);
-            Expect.Equal("big", late.World.Enemies[0].Definition.Id);
-            Expect.Equal(2, late.World.Enemies.Count);
+            plain.World.RequestSpawn(new SupplyRequest(locked, 1));
+            plain.Advance(0.1f);
+            Expect.Equal(0, plain.World.CountAlive(locked));
+            Expect.Equal(0, plain.World.PendingSpawns.Count);
+
+            GameSession bonused = Upgraded(content, 0,
+                new Upgrade(EnemyUpgradeStats.StartSupply(locked.Id), UpgradeOperation.Add, 2));
+            Expect.Equal(0, bonused.World.CountAlive(locked));
+
+            plain.RequestEnd();
+            NodeTree tree = TestContent.Owned(state, new Upgrade(EnemyUpgradeStats.Unlock(locked.Id), UpgradeOperation.Add, 1));
+            Expect.True(!plain.World.Stats.CompositionOf(locked).Unlocked, "끝난 판의 해금은 그대로다.");
+
+            GameSession unlocked = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
+            Expect.Equal(5, unlocked.World.Enemies.Count);
+            Expect.Equal(3, unlocked.World.CountAlive(locked));
         }
 
         // 요청마다 정해진 수가 요청 순서대로 나온다. 모두 HQ로부터 띠 [2, 4] 안에 있고, 체력은 가득 차 있다.
@@ -476,8 +451,6 @@ namespace BlackHole.Core.Tests
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply("a", 3), TestContent.Supply("b", 2));
             data.Enemies.Add(TestContent.Enemy("a", health: 10));
             data.Enemies.Add(TestContent.Enemy("b", health: 25));
-            TestContent.Allow(data, "a");
-            TestContent.Allow(data, "b");
             GameSession game = TestContent.Session(data);
 
             IReadOnlyList<Enemy> enemies = game.World.Enemies;
@@ -501,7 +474,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(1, 5, TestContent.Supply(TestContent.EnemyId, 4));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId));
-            TestContent.Allow(data, TestContent.EnemyId);
 
             IReadOnlyList<Enemy> first = TestContent.Session(data, seed: 7).World.Enemies;
             IReadOnlyList<Enemy> again = TestContent.Session(data, seed: 7).World.Enemies;
@@ -525,8 +497,6 @@ namespace BlackHole.Core.Tests
                 TestContent.Supply("ccw", 1), TestContent.Supply("cw", 1));
             data.Enemies.Add(TestContent.Enemy("ccw", speed: 1.5f));
             data.Enemies.Add(TestContent.Enemy("cw", speed: 1.5f, clockwise: true));
-            TestContent.Allow(data, "ccw");
-            TestContent.Allow(data, "cw");
             GameSession game = TestContent.Session(data);
 
             Enemy ccw = game.World.Enemies[0];
@@ -578,7 +548,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 3));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 10, gold: 7));
-            TestContent.Allow(data, TestContent.EnemyId);
             var state = new PlayerState(TestContent.First);
             state.EarnGold(20);
             GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), state));
@@ -660,8 +629,6 @@ namespace BlackHole.Core.Tests
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply("a", 3), TestContent.Supply("b", 1));
             data.Enemies.Add(TestContent.Enemy("a", health: 1));
             data.Enemies.Add(TestContent.Enemy("b", health: 1));
-            TestContent.Allow(data, "a");
-            TestContent.Allow(data, "b");
             GameSession game = TestContent.Session(data);
 
             World world = game.World;
@@ -701,7 +668,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 1));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: 1, gold: 7));
-            TestContent.Allow(data, TestContent.EnemyId);
             GameContent content = TestContent.Load(data);
             GameSession mine = TestContent.Begun(SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First)));
             GameSession other = TestContent.Begun(SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First)));
@@ -736,7 +702,6 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(3, 3, TestContent.Supply(TestContent.EnemyId, 1));
             data.Enemies.Add(TestContent.Enemy(TestContent.EnemyId, health: health));
-            TestContent.Allow(data, TestContent.EnemyId);
             return data;
         }
 

@@ -9,10 +9,10 @@ namespace BlackHole.Core
     //
     // 적이 생기고 죽는 일은 요청으로 들어와 쌓이고, Step의 정해진 자리에서 요청 순서대로 처리된다.
     // - 파괴 요청(RequestDestroy) → 13절 3. Damage / Death 자리: 그 적의 사망을 확정한다(피해·HP 계산 없음).
-    // - 생성 요청(RequestSpawn)  → 13절 7. Enemy Supply 자리: 풀 여과 장치를 거쳐 한 마리씩 생성한다.
-    //   한 마리마다: 풀 여과(종류별 최대 수·전체 상한) → 색 등급(그 종류의 색 비율) → 황금 여부(그 종류의 황금 비율) → 위치.
+    // - 생성 요청(RequestSpawn)  → 13절 7. Enemy Supply 자리: 생성 여과 장치를 거쳐 한 마리씩 생성한다.
+    //   한 마리마다: 생성 여과(해금·전체 상한) → 색 등급(그 종류의 색 비율) → 황금 여부(그 종류의 황금 비율) → 위치.
     //   색과 황금은 몫 방식(QuotaPicker)으로 정한다. 수치(Gold 포함)는 판의 적 수치 표에서 (종류, 색 등급, 황금)의 값이다.
-    // 같은 Step에서 사망이 생성보다 먼저다. 그래서 죽어서 비운 자리(풀의 최대 수)에 같은 Step의 생성이 들어갈 수 있다.
+    // 같은 Step에서 사망이 생성보다 먼저다. 그래서 죽어서 비운 자리(전체 상한)에 같은 Step의 생성이 들어갈 수 있다.
     // 생성된 적은 다음 Step부터 움직이고 공격 대상이 된다. 처리되지 않은 요청은 판 정리가 버린다.
     //
     // 판의 난수는 seed 하나에서 용도마다 스트림을 따로 만든다(BattleRandom). 한 용도의 비율을 바꿔도 다른 용도의 순서는 그대로다
@@ -20,7 +20,7 @@ namespace BlackHole.Core
     public sealed class World
     {
         private readonly EnemyRoster _enemies = new EnemyRoster();
-        private readonly PoolFilter _filter;
+        private readonly SpawnFilter _filter;
         private readonly EnemyPlacementDefinition _placement;
         private readonly BattleRandom _placementRandom;
         // 종류마다 색 등급과 황금 여부를 고르는 몫. 판 조립 때 만들고 판 동안 이어진다(공급이 여러 번이어도 비율이 판 전체에 걸쳐 맞는다).
@@ -42,26 +42,22 @@ namespace BlackHole.Core
         // 아직 처리되지 않은 생성 요청과 파괴 요청(들어온 순서).
         public IReadOnlyList<SupplyRequest> PendingSpawns { get; }
         public IReadOnlyList<Enemy> PendingDestroys { get; }
-        // 이 판의 단계가 쓰는 적 풀. 생성 요청은 이 풀을 거쳐서만 적이 된다.
-        public EnemyPoolDefinition Pool { get; }
         // 이 판의 종류별 판 구성·색 비율과 (종류, 색 등급, 황금)별 수치. 판 조립 때 정해졌고 이 판 동안 바뀌지 않는다.
         public EnemyStatTable Stats { get; }
-        // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수. 이 수에 닿으면 생성 요청을 거른다(PoolFilter).
+        // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수. 이 수에 닿으면 생성 요청을 거른다(SpawnFilter).
         public int MaxAliveEnemies { get; }
 
         internal World(
             int seed,
-            EnemyPoolDefinition pool,
             EnemyStatTable stats,
             EnemyPlacementDefinition placement,
             int maxAliveEnemies,
             IReadOnlyList<BattlePlayer> players)
         {
-            Pool = pool ?? throw new ArgumentNullException(nameof(pool));
             Stats = stats ?? throw new ArgumentNullException(nameof(stats));
             _placement = placement;
             _placementRandom = new BattleRandom(seed, BattleRandom.PlacementStream);
-            _filter = new PoolFilter(pool, maxAliveEnemies);
+            _filter = new SpawnFilter(Stats, maxAliveEnemies);
             MaxAliveEnemies = maxAliveEnemies;
             _players = new List<BattlePlayer>(players);
             Players = _players.AsReadOnly();
@@ -126,7 +122,7 @@ namespace BlackHole.Core
 
         // 생성 요청: 이 종류를 몇 마리. 다음 공급 처리(Step의 Enemy Supply 자리) 때 처리된다.
         // 이 판의 종류가 아니거나, 콘텐츠에 출현 배치가 없으면 요청 때 거부한다.
-        // 풀에 없거나 최대 수에 닿은 종류는 처리 때 풀 여과 장치가 거른다.
+        // 잠긴 종류이거나 전체 상한에 닿았으면 처리 때 생성 여과 장치가 거른다.
         public void RequestSpawn(SupplyRequest request)
         {
             Stats.Require(request.Enemy);
@@ -153,7 +149,7 @@ namespace BlackHole.Core
             return _enemies.ClearAlive();
         }
 
-        // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 풀 여과 장치를 거쳐 배치 띠 안에 생성한다.
+        // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 생성 여과 장치를 거쳐 배치 띠 안에 생성한다.
         // 거른 요청은 버린다 — 나중에 자리가 나도 다시 나오지 않는다. 전투 시작 공급은 Begin(0초)이 바로 부른다.
         // 색 등급과 황금은 여과를 통과한 뒤에 고른다. 최대 수는 종류 단위라 색·황금 때문에 걸러지는 일은 없고,
         // 걸러진 요청은 몫을 쓰지 않는다.

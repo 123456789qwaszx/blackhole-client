@@ -34,8 +34,7 @@ namespace BlackHole.Core
 
         public World World { get; }
         public TimeLimitRule TimeLimit { get; }
-        // 이 판을 조립한 진행도(적의 강도 단계)와 난수 seed. 같은 콘텐츠·단계·seed면 같은 판이 나온다.
-        public int Stage { get; }
+        // 이 판을 조립한 난수 seed. 같은 콘텐츠·산 노드·seed면 같은 판이 나온다.
         public int Seed { get; }
         public SessionPhase Phase { get; private set; } = SessionPhase.Preparing;
         public float Elapsed { get; private set; }
@@ -49,7 +48,6 @@ namespace BlackHole.Core
         internal GameSession(
             World world,
             TimeLimitRule timeLimit,
-            int stage,
             int seed,
             PlayerState progress,
             UpgradeTable upgrades,
@@ -57,7 +55,6 @@ namespace BlackHole.Core
         {
             World = world;
             TimeLimit = timeLimit;
-            Stage = stage;
             Seed = seed;
             _progress = progress;
             Upgrades = upgrades;
@@ -125,7 +122,7 @@ namespace BlackHole.Core
         public BattleRawData CreateRawData()
         {
             RequireEnded();
-            return new BattleRawData(Stage, Seed, Result.PlayedSeconds, World.Kills(), World.EarnedGold);
+            return new BattleRawData(Seed, Result.PlayedSeconds, World.Kills(), World.EarnedGold);
         }
 
         // 결산을 마쳤는가.

@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: planet
   moveSpeed: 0.8
+  startsLocked: 1
   tiers:
   - color: {r: 0.62, g: 0.32, b: 0.26, a: 1}
     maxHealth: 60
