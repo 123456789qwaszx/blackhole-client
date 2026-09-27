@@ -106,7 +106,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(NodeState.Revealed, NodePurchase.StateOf(state, tree, "s"));
             Expect.Equal(5L, state.Gold);
 
-            battle.RequestEnd(SessionEndReason.TimeExpired);
+            battle.RequestEnd();
             Expect.Equal(PurchaseResult.Purchased, NodePurchase.TryPurchase(state, tree, "s"));
         }
 

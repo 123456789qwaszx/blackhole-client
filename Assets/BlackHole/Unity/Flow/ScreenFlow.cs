@@ -1,30 +1,38 @@
 using System;
 using System.Collections.Generic;
+using BlackHole.Core;
 
 namespace BlackHole.Unity
 {
-    // 화면 프리팹과 UIManager를 연결한다. 게임 상태, 화면 전환 판단, 게임 명령은 GameFlow가 가진다.
+    // 화면 연결과 전환. 버튼과 시간 종료에서 전투 수명을 요청하고, 성공 결과로 다음 화면을 연다.
     internal sealed partial class ScreenFlow : IDisposable
     {
         private readonly UIManager _ui;
         private readonly UIPresentationSpec _battlePresentation;
         private readonly UIPresentationSpec _upgradePresentation;
         private readonly UIPresentationSpec _settlementPresentation;
+        private readonly BattleSystem _battle;
+        private readonly BattleOrchestrator _orchestrator;
+        private readonly NodeTree _tree;
+        private readonly PlayerState _player;
+        private readonly UpgradePresenter _upgradePresenter;
         private readonly Dictionary<UIBase, List<Action>> _cleanupByScreen = new Dictionary<UIBase, List<Action>>();
 
-        public event Action PauseClicked;
-        public event Action EndClicked;
-        public event Action<string> NodeClicked;
-        public event Action StartBattleClicked;
-        public event Action ContinueClicked;
-
         public ScreenFlow(UIManager ui, UIPresentationSpec battlePresentation,
-            UIPresentationSpec upgradePresentation, UIPresentationSpec settlementPresentation)
+            UIPresentationSpec upgradePresentation, UIPresentationSpec settlementPresentation,
+            BattleSystem battle, BattleOrchestrator orchestrator, NodeTree tree,
+            NodeTreeData layout, PlayerState player, UpgradePresenter upgradePresenter)
         {
             _ui = ui;
             _battlePresentation = battlePresentation;
             _upgradePresentation = upgradePresentation;
             _settlementPresentation = settlementPresentation;
+            _battle = battle;
+            _orchestrator = orchestrator;
+            _tree = tree;
+            _player = player;
+            _upgradePresenter = upgradePresenter;
+            _nodes = BuildNodeItems(tree, layout);
         }
 
         private void BindView<T>(T screen, Action<T> apply) where T : UIBase

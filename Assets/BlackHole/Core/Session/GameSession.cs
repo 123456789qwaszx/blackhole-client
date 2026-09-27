@@ -7,18 +7,13 @@ namespace BlackHole.Core
     // Running / Paused: Begin 뒤. Ended: 결과가 확정됐다.
     public enum SessionPhase { Preparing, Running, Paused, Ended }
 
-    // 판이 끝난 사유. 지금은 시간 종료 하나로 통일한다(돌아가기 요청 같은 사유는 그 흐름이 생길 때 더한다).
-    public enum SessionEndReason { TimeExpired }
-
     // 판이 끝날 때 한 번 확정되는 결과. 이후 판 상태가 바뀌어도 변하지 않는 스냅샷이다.
     public sealed class SessionResult
     {
-        public SessionEndReason Reason { get; }
         public float PlayedSeconds { get; }
 
-        internal SessionResult(SessionEndReason reason, float playedSeconds)
+        internal SessionResult(float playedSeconds)
         {
-            Reason = reason;
             PlayedSeconds = playedSeconds;
         }
     }
@@ -109,8 +104,8 @@ namespace BlackHole.Core
             World.Step(step);
             Elapsed += step;
 
-            if (TimeLimit.TryEnd(Elapsed, out SessionEndReason reason))
-                End(reason);
+            if (TimeLimit.HasExpired(Elapsed))
+                End();
         }
 
         // 진행 ↔ 정지. 준비 중이거나 끝난 판에서는 아무 일도 없다.
@@ -122,14 +117,8 @@ namespace BlackHole.Core
                 Phase = SessionPhase.Running;
         }
 
-        // 판을 끝내라는 요청. 이미 끝난 판이면 처음 사유를 그대로 둔다.
-        public void RequestEnd(SessionEndReason reason)
-        {
-            if (!Enum.IsDefined(typeof(SessionEndReason), reason))
-                throw new ArgumentOutOfRangeException(nameof(reason));
-
-            End(reason);
-        }
+        // 판을 끝내라는 요청. 이미 끝난 판이면 최초 결과를 그대로 둔다.
+        public void RequestEnd() => End();
 
         // 끝난 판에 남은 적과 처리되지 않은 생성·파괴 요청을 치운다. 처치가 아니다 — 사망 기록도, 처치 수도 없다(GAME_RULES 9절).
         // 치운 적의 수를 돌려준다.
@@ -139,11 +128,11 @@ namespace BlackHole.Core
             return World.ClearRemainingEnemies();
         }
 
-        // 끝난 판의 원자료(조립 조건, 끝난 사유와 시간, 종류별 처치 수, 번 Gold)를 만든다. 진행 상태는 바꾸지 않는다.
+        // 끝난 판의 원자료(조립 조건, 진행 시간, 종류별 처치 수, 번 Gold)를 만든다. 진행 상태는 바꾸지 않는다.
         public BattleRawData CreateRawData()
         {
             RequireEnded();
-            return new BattleRawData(Stage, Seed, Result.Reason, Result.PlayedSeconds, World.Kills(), World.EarnedGold);
+            return new BattleRawData(Stage, Seed, Result.PlayedSeconds, World.Kills(), World.EarnedGold);
         }
 
         // 결산을 마쳤는가.
@@ -167,12 +156,12 @@ namespace BlackHole.Core
         }
 
         // 결과를 확정하고 진행 상태를 전투에서 풀어 준다.
-        private void End(SessionEndReason reason)
+        private void End()
         {
             if (Phase == SessionPhase.Ended)
                 return;
 
-            Result = new SessionResult(reason, Elapsed);
+            Result = new SessionResult(Elapsed);
             Phase = SessionPhase.Ended;
 
             foreach (PlayerState player in _players)

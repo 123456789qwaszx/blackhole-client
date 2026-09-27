@@ -595,7 +595,7 @@ namespace BlackHole.Core.Tests
             game.Advance(0.1f);
             Expect.Equal(14L, world.EarnedGold);
 
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
             Expect.Equal(1, game.ClearRemainingEnemies());
             Expect.Equal(14L, world.EarnedGold);
             Expect.Equal(14L, game.CreateRawData().EarnedGold);
@@ -634,7 +634,7 @@ namespace BlackHole.Core.Tests
 
             ended.World.RequestSpawn(new SupplyRequest(survivor.Definition, 1));
             ended.World.RequestDestroy(survivor);
-            ended.RequestEnd(SessionEndReason.TimeExpired);
+            ended.RequestEnd();
             ended.Advance(0.1f);
             Expect.Equal(1, ended.ClearRemainingEnemies());
             Expect.Equal(0, ended.World.Enemies.Count);
@@ -671,7 +671,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(3, world.TotalKills);
             Expect.True(!world.HasPendingDeathProcessing, "사망 처리는 확정 순간 끝나야 한다.");
 
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
             game.ClearRemainingEnemies();
             BattleRawData raw = game.CreateRawData();
             Expect.Equal(3, raw.TotalKills);
@@ -721,7 +721,7 @@ namespace BlackHole.Core.Tests
             }
 
             Enemy cleared = mine.World.Enemies[0];
-            mine.RequestEnd(SessionEndReason.TimeExpired);
+            mine.RequestEnd();
             mine.ClearRemainingEnemies();
 
             Expect.True(!mine.World.DealDamage(cleared, Hit), "정리된 적은 죽지 않는다.");

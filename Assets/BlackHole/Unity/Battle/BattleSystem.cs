@@ -10,7 +10,7 @@ namespace BlackHole.Unity
     // 스킬은 판의 일부다 — 판 조립 때 참가자마다 생기고 판과 함께 버려진다. 그래서 스킬 화면도 적 화면과 같이 정리한다.
     //
     // 스스로 시작하거나 끝내지 않는다. 상위 오케스트레이터(BattleOrchestrator)가 정해진 순서 안에서 부를 때만
-    // 시작(StartAsync)하고 정리(ShutdownAsync)한다. 시간이 끝나면 알릴 뿐(TimeExpired)이고, 정리는 오케스트레이터가 요청한다.
+    // 시작(StartAsync)하고 정리(ShutdownAsync)한다. Tick은 판을 진행하고 종료에 도달한 순간을 돌려준다.
     // 사운드 같은 다른 시스템의 정리는 이 시스템의 일이 아니다.
     //
     // 시작 단계:
@@ -18,7 +18,7 @@ namespace BlackHole.Unity
     //      이 판의 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수)과 적 수치·색 비율을 확정한다.
     //   2. 적 소환 단계 진입 — 전투 시작 공급을 내보내고 판을 진행 단계로 넣는다.
     // 종료 단계:
-    //   1. 종료 요청(사유)             2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
+    //   1. 종료 요청                   2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
     //   3. 죽은 적의 처리 완료          4. 처치 집계와 번 Gold를 계산해 보관(원자료)
     //   5. 결산(번 Gold를 진행 상태에)   6. 화면의 연출 정리
     //   7. 모두 끝났으면 완전 초기화
@@ -35,20 +35,6 @@ namespace BlackHole.Unity
         private readonly DeathEffectView _deathEffectView;
         private State _state = State.Idle;
         private IReadOnlyList<PlayerState> _players;
-        private bool _timeExpiredRaised;
-
-        public Checklist StartSteps { get; } = new Checklist(
-            "Receive upgraded stats",
-            "Enter spawning phase");
-
-        public Checklist EndSteps { get; } = new Checklist(
-            "End requested",
-            "Enemies on screen: 0",
-            "Dead enemies processed",
-            "Kill tally stored",
-            "Gold settled",
-            "Presentation cleared",
-            "Fully reset");
 
         // 진행 중인(또는 정리 중인) 판. 시작 전과 완전 초기화 뒤에는 null이다.
         public GameSession Session { get; private set; }
@@ -59,9 +45,6 @@ namespace BlackHole.Unity
         // 정리를 요청할 수 있는가: 진행 중이거나, 앞선 정리가 실패해 멈춘 상태.
         public bool CanShutdown => _state == State.Running || _state == State.Faulted;
 
-        // 판의 시간이 끝났다. 정리하지 않고 알리기만 한다(한 판에 한 번).
-        public event Action TimeExpired;
-
         public BattleSystem(GameContent content, NodeTree nodes, EnemyView enemyView, SkillView skillView, DeathEffectView deathEffectView)
         {
             _content = content;
@@ -71,10 +54,6 @@ namespace BlackHole.Unity
             _deathEffectView = deathEffectView;
         }
 
-        // 지금 산 노드로 조립하면 받을 적 종류의 판 구성(조립과 같은 계산). 콘솔이 다음 판을 미리 보여 줄 때 쓴다.
-        public IReadOnlyDictionary<EnemyDefinition, EnemyComposition> PreviewCompositions(IReadOnlyList<PlayerState> players) =>
-            SessionAssembler.PreviewCompositions(_content, players, _nodes);
-
         // 전투 진입을 위한 초기화. 오케스트레이터만 부른다.
         public Task StartAsync(IReadOnlyList<PlayerState> players, int stage, int seed)
         {
@@ -83,9 +62,6 @@ namespace BlackHole.Unity
 
             _state = State.Starting;
             _players = players;
-            _timeExpiredRaised = false;
-            StartSteps.Reset();
-            EndSteps.Reset();
 
             // 1. 업그레이드에서 바뀐 수치 받기: 조립이 참가자마다 산 노드로 업그레이드 표를 만들고,
             //    그 표로 이 판의 Breaker 수치, 판 구성과 적 수치 표를 확정한다. 판이 끝날 때까지 바뀌지 않는다.
@@ -96,13 +72,10 @@ namespace BlackHole.Unity
             }
             catch
             {
-                StartSteps.Mark(0, StepState.Failed);
                 _players = null;
                 _state = State.Idle;
                 throw;
             }
-
-            StartSteps.Mark(0, StepState.Done);
 
             // 2. 적 소환 단계 진입.
             Session.Begin();
@@ -110,27 +83,24 @@ namespace BlackHole.Unity
             _enemyView.Synchronize(Session.World);
             _skillView.Reset();
             _deathEffectView.Reset();
-            StartSteps.Mark(1, StepState.Done);
 
             _state = State.Running;
             return Task.CompletedTask;
         }
 
-        public void Tick(float delta)
+        // 전투 Step과 적·스킬·사망 효과 표현을 진행한다. 이번 Step에서 판이 끝났을 때만 true를 반환한다.
+        public bool Tick(float delta)
         {
             if (_state != State.Running)
-                return;
+                return false;
 
+            bool wasRunning = Session.Phase == SessionPhase.Running;
             Session.Advance(delta);
             _enemyView.Synchronize(Session.World);
             _skillView.Synchronize(Session.World, delta);
             _deathEffectView.Synchronize(Session.World, delta);
 
-            if (Session.Phase == SessionPhase.Ended && !_timeExpiredRaised)
-            {
-                _timeExpiredRaised = true;
-                TimeExpired?.Invoke();
-            }
+            return wasRunning && Session.Phase == SessionPhase.Ended;
         }
 
         public void TogglePause()
@@ -141,50 +111,47 @@ namespace BlackHole.Unity
 
         // 전투 종료 뒤 자신의 모든 것을 정리한다. 오케스트레이터만 부른다.
         // 단계 하나라도 확인에 실패하면 멈추고(Faulted) 완전 초기화하지 않는다. 다시 부르면 처음부터 확인한다.
-        public async Task<BattleRawData> ShutdownAsync(SessionEndReason reason)
+        public async Task<BattleRawData> ShutdownAsync()
         {
             if (!CanShutdown)
                 throw new InvalidOperationException($"진행 중인 판이 없다. 지금: {_state}.");
 
             _state = State.ShuttingDown;
-            EndSteps.Reset();
 
             try
             {
-                // 1. 종료 요청. 시간이 끝나 이미 끝난 판이면 처음 사유가 남는다.
-                Session.RequestEnd(reason);
-                EndSteps.Rename(0, $"End requested: {Session.Result.Reason}");
-                EndSteps.Mark(0, StepState.Done);
+                // 1. 종료 요청. 시간이 끝나 이미 끝난 판이면 기존 결과를 유지한다.
+                Session.RequestEnd();
 
                 // 2. 화면에서 관리하던 적의 수가 0. 남은 적은 처치가 아니라 정리다.
                 //    처리되지 않은 생성·파괴 요청도 함께 버린다 — 끝난 판은 새 적도, 새 사망도 만들지 않는다.
                 Session.ClearRemainingEnemies();
                 World world = Session.World;
-                Verify(1, world.Enemies.Count == 0 && world.PendingSpawns.Count == 0 && world.PendingDestroys.Count == 0);
+                Verify(world.Enemies.Count == 0 && world.PendingSpawns.Count == 0 && world.PendingDestroys.Count == 0,
+                    "Enemies on screen: 0");
 
                 // 3. 죽은 적의 처리 완료(사망 효과·보상 처리가 붙으면 그것이 끝났는지까지).
-                Verify(2, !Session.World.HasPendingDeathProcessing);
+                Verify(!Session.World.HasPendingDeathProcessing, "Dead enemies processed");
 
                 // 4. 처치 집계와 번 Gold를 계산해 보관.
                 LastRawData = Session.CreateRawData();
-                Verify(3, LastRawData != null);
+                Verify(LastRawData != null, "Kill tally stored");
 
                 // 5. 결산: 판이 번 Gold를 진행 상태에 한 번 더한다. 앞선 정리가 이 뒤에서 실패했다가 다시 와도 두 번 더하지 않는다.
                 Session.Settle();
-                Verify(4, Session.IsSettled);
+                Verify(Session.IsSettled, "Gold settled");
 
                 // 6. 화면의 연출 정리. 지운 객체는 프레임 끝에 사라지므로 한 프레임 기다린 뒤 확인한다.
                 _enemyView.Reset();
                 _skillView.Reset();
                 _deathEffectView.Reset();
                 await Awaitable.NextFrameAsync();
-                Verify(5, _enemyView.IsClear && _skillView.IsClear && _deathEffectView.IsClear);
+                Verify(_enemyView.IsClear && _skillView.IsClear && _deathEffectView.IsClear, "Presentation cleared");
 
                 // 7. 완전 초기화: 판을 버리고, 진행 상태가 전투에서 풀렸는지 확인한다.
-                Verify(6, PlayersReleased());
+                Verify(PlayersReleased(), "Fully reset");
                 Session = null;
                 _players = null;
-                _timeExpiredRaised = false;
                 _state = State.Idle;
                 return LastRawData;
             }
@@ -195,12 +162,10 @@ namespace BlackHole.Unity
             }
         }
 
-        private void Verify(int step, bool passed)
+        private static void Verify(bool passed, string stepName)
         {
-            EndSteps.Mark(step, passed ? StepState.Done : StepState.Failed);
-
             if (!passed)
-                throw new InvalidOperationException($"전투 정리 단계 실패: {EndSteps.NameOf(step)}.");
+                throw new InvalidOperationException($"전투 정리 단계 실패: {stepName}.");
         }
 
         private bool PlayersReleased()

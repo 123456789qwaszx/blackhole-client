@@ -1,33 +1,60 @@
+using System;
+using BlackHole.Core;
+using UnityEngine;
+
 namespace BlackHole.Unity
 {
     internal sealed partial class ScreenFlow
     {
-        private BattleScreen _battleScreen;
-        public bool IsBattleOpen => _battleScreen != null;
-
-        public void OpenBattleScreen()
+        public void GoToBattle()
         {
             _ui.SwitchRoot<BattleScreen>(
                 _battlePresentation,
-                afterPresented: screen => BindView(screen, BindBattle),
+                afterPresented: root =>
+                {
+                    BindView(root, ApplyBindings);
+                    root.ShowIdle();
+                },
                 afterClosed: Unbind);
         }
 
-        private void BindBattle(BattleScreen screen)
+        private void ApplyBindings(BattleScreen root)
         {
-            _battleScreen = screen;
-            AddCleanup(screen, () => _battleScreen = null);
-            AddBinding(screen, s => s.PauseClicked += OnPauseClicked, s => s.PauseClicked -= OnPauseClicked);
-            AddBinding(screen, s => s.EndClicked += OnEndClicked, s => s.EndClicked -= OnEndClicked);
-            screen.ShowIdle();
+            AddBinding(root,
+                r => r.PauseClicked += HandleBattlePauseClicked,
+                r => r.PauseClicked -= HandleBattlePauseClicked);
+
+            AddBinding(root,
+                r => r.EndClicked += HandleBattleEndClicked,
+                r => r.EndClicked -= HandleBattleEndClicked);
         }
 
-        private void OnPauseClicked() => PauseClicked?.Invoke();
-        private void OnEndClicked() => EndClicked?.Invoke();
+        private void HandleBattlePauseClicked() => _battle.TogglePause();
+        private void HandleBattleEndClicked() => RequestEnd();
 
-        public void ShowBattle(float remaining, long earnedGold, bool paused) =>
-            _battleScreen?.Show(remaining, earnedGold, paused);
+        internal void HandleBattleTimeExpired() => RequestEnd();
 
-        public void ShowBattleIdle() => _battleScreen?.ShowIdle();
+        // 화면 버튼, 시간 종료, 개발용 콘솔이 같은 전환 경로를 사용한다.
+        public async void RequestStart()
+        {
+            try
+            {
+                if (await _orchestrator.StartBattleAsync())
+                    GoToBattle();
+            }
+            catch (Exception error) { Debug.LogException(error); }
+        }
+
+        public async void RequestEnd()
+        {
+            try
+            {
+                BattleRawData raw = await _orchestrator.EndBattleAsync();
+                if (raw != null)
+                    GoToSettlement(raw.PlayedSeconds, raw.TotalKills,
+                        raw.Kills, raw.EarnedGold, _player.Gold);
+            }
+            catch (Exception error) { Debug.LogException(error); }
+        }
     }
 }

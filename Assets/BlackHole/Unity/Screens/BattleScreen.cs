@@ -2,11 +2,12 @@ using System;
 using System.Globalization;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace BlackHole.Unity
 {
     // 전투 화면(전투 장면 위의 겹 화면). 남은 시간, 이 판이 번 Gold, 일시정지 여부를 받아 보여 주고, 일시정지·종료 버튼을 알린다.
-    // 전투 Session을 모른다 — GameFlow가 ScreenFlow를 통해 표시 값을 넘긴다. 진행 중인 판이 없으면 비어 있는 표시(ShowIdle)다.
+    // 전투 Session을 모른다 — GameHost가 전투 Step 뒤 표시 값을 넘긴다. 진행 중인 판이 없으면 비어 있는 표시(ShowIdle)다.
     // 번 Gold는 이 판의 합계일 뿐이다. 진행 상태의 Gold는 판이 끝난 뒤 결산이 바꾼다.
     public sealed class BattleScreen : UIRoot<BattleScreen.Refs>
     {
@@ -37,9 +38,12 @@ namespace BlackHole.Unity
             _earned = View.Text(Refs.EarnedGoldText);
             _pauseLabel = View.Text(Refs.PauseBtn_Text);
 
-            BindEvent(View.Button(Refs.PauseBtn_Button), _ => PauseClicked?.Invoke());
-            BindEvent(View.Button(Refs.EndBtn_Button), _ => EndClicked?.Invoke());
+            BindEvent(View.Button(Refs.PauseBtn_Button), HandlePauseClicked);
+            BindEvent(View.Button(Refs.EndBtn_Button), HandleEndClicked);
         }
+
+        private void HandlePauseClicked(PointerEventData _) => PauseClicked?.Invoke();
+        private void HandleEndClicked(PointerEventData _) => EndClicked?.Invoke();
 
         // 진행 중인 판이 없을 때의 표시. 매 프레임 불러도 된다.
         public void ShowIdle()

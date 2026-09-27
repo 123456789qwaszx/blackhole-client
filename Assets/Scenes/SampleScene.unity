@@ -488,7 +488,7 @@ GameObject:
   - component: {fileID: 900000002}
   - component: {fileID: 900000003}
   m_Layer: 0
-  m_Name: GameHost
+  m_Name: GameBootstrap
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -520,7 +520,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b8a576f4c54a40039b3e6860fe948215, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.GameHost
+  m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.GameBootstrap
   enemyCatalog: {fileID: 11400000, guid: ded2d6b762d0427189db081f4023c81a, type: 2}
   enemySupply: {fileID: 11400000, guid: 1506d53a97654897bc5d7b4126a28333, type: 2}
   stageTable: {fileID: 11400000, guid: 2119f531773848c9843f106b4555b50e, type: 2}

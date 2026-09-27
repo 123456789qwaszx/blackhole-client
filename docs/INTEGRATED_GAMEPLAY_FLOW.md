@@ -29,7 +29,7 @@
 종료·결산 (BattleSystem.ShutdownAsync, 오케스트레이터가 부름)
   │  종료 요청 → 남은 적 정리(처치 아님) → 사망 처리 끝 확인 → 원자료(BattleRawData)
   │  → 결산(GameSession.Settle: PlayerState.Gold += EarnedGold, 한 번) → 연출 정리 → 완전 초기화
-  │  성공하면 BattleOrchestrator.BattleCompleted(원자료)
+  │  성공하면 BattleOrchestrator가 원자료(BattleRawData) 반환
   ▼
 결산 화면 (보여 주기만)
   │  Continue → 결산 대기 비움
@@ -43,7 +43,7 @@
 
 | 단계 | 하는 일 | 규칙 | 코드 |
 |---|---|---|---|
-| 휴식 | 노드 구매 | 드러남(시작 노드이거나 산 이웃이 있음), 한 번만, Gold ≥ 가격, 전투 중 불가 | `Core/Nodes/NodePurchase.cs`, `NodeGraph.cs`, `Unity/Flow/GameFlow.cs` |
+| 휴식 | 노드 구매 | 드러남(시작 노드이거나 산 이웃이 있음), 한 번만, Gold ≥ 가격, 전투 중 불가 | `Core/Nodes/NodePurchase.cs`, `NodeGraph.cs`, `Unity/Flow/ScreenFlow.Upgrade.cs` |
 | 판 조립 | 참가자별 업그레이드 표 | 산 노드의 업그레이드 합성: (기본 + Σ더하기) × (1 + Σ비율) × Π곱하기 | `NodePurchase.UpgradesFor`, `Core/Upgrades/UpgradeTable.cs` |
 | 판 조립 | Breaker 수치 | 수치 이름 `breaker.*`, 한계는 Breaker가 건다 | `Core/Skills/BreakerDefinition.cs` (`Upgraded`, `BreakerUpgradeStats`) |
 | 판 조립 | 적 판 구성 | 수치 이름 `enemy.<종류>.*`, 한계는 적 시스템이 건다. 참가자가 1명일 때만 보정 | `Core/Enemies/EnemyComposition.cs` (`From`, `EnemyUpgradeStats`), `EnemyStatTable.cs` |
@@ -52,7 +52,7 @@
 | 전투 | 피해·사망 | 이 판에 살아 있는 적만 받는다. 사망은 한 번, 즉시 판에서 빠진다 | `Core/Enemies/EnemyRoster.cs` (`Holds`, `RecordDeath`), `World.DealDamage` |
 | 보상 | 판의 Gold | 사망 확정 순간 그 적의 Gold(생성 때 색·황금으로 정해짐)를 더한다. 정리된 적은 없다 | `EnemyRoster.RecordDeath`, `World.EarnedGold` |
 | 종료 | 정리·원자료·결산 | 결산은 Gold를 더한 뒤에야 마친 것으로 기록. 다시 불러도 한 번 | `Unity/Battle/BattleSystem.cs` (`ShutdownAsync`), `Core/Session/GameSession.cs` (`Settle`) |
-| 화면 | 전환 | 판 진행 → 전투 화면, 결산 대기 → 결산 화면, 판 없음 → 업그레이드 화면. 시작·정리 중에는 그대로. 결산 화면 중 새 판이 시작되면(개발용 콘솔) 결산 표시를 넘긴다 | `Unity/Flow/GameFlow.cs`, `Unity/Battle/BattleOrchestrator.cs` (`BattleCompleted`) |
+| 화면 | 전환 | ScreenFlow가 전투 시작 성공 후 `GoToBattle`, 정리·결산 결과 반환 후 `GoToSettlement` 호출. 시간 만료와 개발용 콘솔도 같은 요청 경로를 쓰며 Continue는 업그레이드 화면을 연다 | `Unity/Flow/ScreenFlow*.cs`, `Unity/Battle/BattleOrchestrator.cs` |
 
 ---
 
@@ -94,12 +94,12 @@
 |---|---|---|---|
 | 업그레이드 | `Assets/BlackHole/Prefabs/Screens/UpgradeScreen.prefab` | Gold, 산 노드 수 / 전체, 노드 트리(격자 칸 배치, 선은 `NodeGraph.Links`, 네 상태) | 노드 ID 클릭, Start battle |
 | 전투 | `BattleScreen.prefab` (배경 없음, 위쪽 띠) | 남은 시간, 이 판이 번 Gold, Pause/Resume | Pause, End battle |
-| 결산 | `SettlementScreen.prefab` | 끝난 사유, 시간, 처치 수(종류별), 번 Gold, 결산 뒤 Gold | Continue |
+| 결산 | `SettlementScreen.prefab` | 진행 시간, 처치 수(종류별), 번 Gold, 결산 뒤 Gold | Continue |
 
-- 씬(`SampleScene`)의 `UI > UI Canvas > RootLayer`에 세 화면이 있고 GameHost의 Root Layer·Panel Layer·Registered Views에 연결돼 있다. 자식 이름은 각 화면의 `Refs`와 같다(`UIRoot<TRefs>`).
-- 연결을 비우면 코드로 만든 임시 화면(`PlaceholderScreens`)을 쓴다. 개발용 대체일 뿐 정상 실행 경로가 아니다.
+- 씬(`SampleScene`)의 `UI > UI Canvas > RootLayer`에 세 화면이 있고 GameBootstrap의 Root Layer·Panel Layer·Registered Views에 연결돼 있다. 자식 이름은 각 화면의 `Refs`와 같다(`UIRoot<TRefs>`).
+- 세 화면과 UI Layer 연결이 없으면 GameBootstrap이 오류를 알리고 실행을 중단한다.
 - 화면은 규칙을 계산하지 않는다. 가격·구매 가능 여부는 `NodePurchase`, 번 Gold는 `World.EarnedGold`, 결산은 `GameSession.Settle`이 가진다.
-- `GameFlow`가 판 상태와 결산 대기를 보고 화면을 선택하며, 구매·전투 명령을 처리한다. `ScreenFlow`는 `UIManager`로 화면을 열고 표시 값을 전달하며 클릭 이벤트만 알린다.
+- `BattleSystem.Tick`은 제한 시간이 끝난 프레임에만 `true`를 한 번 반환한다. `GameHost`는 그때 `ScreenFlow.HandleBattleTimeExpired()`를 직접 호출한다. `ScreenFlow`는 버튼·시간 만료·개발 콘솔의 요청을 한곳으로 모으고, 오케스트레이터의 성공 결과를 받아 화면을 전환한다. `UpgradePresenter`는 화면 진입·구매·개발 콘솔 변경 때 Gold·소유 수·노드별 상태를 계산해 넘긴다. 전투 HUD의 남은 시간과 번 Gold는 전투 Step 뒤에 갱신한다. 화면 전환을 위한 프레임별 상태 확인은 없다.
 - 적·스킬·사망 효과 표현(EnemyView, SkillView, DeathEffectView)은 Core 기록을 읽어 그린다. 결산 화면으로 넘어가기 전에 셋 다 비었는지 확인한다(정리 6단계).
 - 개발용 콘솔(` 키)은 그대로 있다. 루프의 어떤 단계도 콘솔 없이 된다.
 
@@ -111,7 +111,7 @@
 - 황금 배율 노드: 옛 구조의 "정하기 4200"을 범용 표에서 "더하기 4150"(기본 50 + 4150)으로 옮겼다. 노드 모양(곱하기인지, 몇 단계인지)은 BATTLE_COMPOSITION_PLAN의 미정 그대로다.
 - 적 종류 노드 35개의 격자 칸은 Breaker 노드 왼쪽에 계열별로 둔 [임시] 배치다. `asteroid-mass-1`은 선행 노드가 없던 노드라 두 번째 시작 노드가 됐다.
 - 참가자가 둘 이상이면 적 판 구성은 보정 없이 기본값이고 결산은 아무도 받지 않는다(보상·공유 대상 귀속은 F06 미정).
-- 판이 끝난 사유는 시간 종료 하나다. End battle 버튼도 같은 사유로 끝낸다(결산 화면은 "Battle over"로만 적는다).
+- 제한 시간이 끝나거나 End battle 버튼을 누르면 같은 종료 절차를 실행한다(결산 화면에는 "Battle over"로 표시한다).
 - HQ EXP·성장 이정표(Step 5·6), 저장, 노드 표시 이름·아이콘, 한글 글꼴은 없다(화면 글자는 영문).
 
 ---

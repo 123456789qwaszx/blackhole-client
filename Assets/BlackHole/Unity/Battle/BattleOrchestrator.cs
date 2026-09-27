@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BlackHole.Core;
-using UnityEngine;
 
 namespace BlackHole.Unity
 {
@@ -16,10 +15,8 @@ namespace BlackHole.Unity
     // 진행 상태(PlayerState: Gold, 산 노드)와 다음 전투의 진행도(적의 강도 단계)를 가진다.
     // 진행 상태는 전투 밖에서만 바뀐다: 노드 구매(업그레이드 화면, 전투 중에는 살 수 없다)와
     // 판의 결산(GameSession.Settle — 적·전투 시스템의 정리 순서 안에서 한 번). 그래서 저장은 전투 밖(휴식 공간)에서만 하면 된다.
-    // 콘솔·전투 화면의 버튼과 판의 시간 종료는 모두 여기로 요청한다. 나중의 GoToBattle·GoToUpgrade도 여기를 쓴다.
-    // 종료 순서가 끝까지 성공하면(정리·결산·연출 정리·완전 초기화) 그 판의 원자료로 BattleCompleted를 한 번 알린다.
-    // 정리가 실패하면 알리지 않는다 — 결산 화면은 결산을 마친 판만 보여 준다.
-    internal sealed class BattleOrchestrator : IDisposable
+    // 시작·종료 요청의 성공 결과만 돌려준다. 화면 전환은 요청한 흐름이 결정한다.
+    internal sealed class BattleOrchestrator
     {
         private readonly GameContent _content;
         private readonly BattleSystem _battle;
@@ -30,20 +27,12 @@ namespace BlackHole.Unity
 
         // 참가자마다의 진행 상태(Gold, 산 노드). 참가자 순서다.
         public IReadOnlyList<PlayerState> Progress => _progress;
-        // 다음 전투의 판 구성: 지금 산 노드로 계산한다(판 조립과 같은 계산). 콘솔이 다음 판을 미리 보여 줄 때 쓴다.
-        public IReadOnlyDictionary<EnemyDefinition, EnemyComposition> NextCompositions => _battle.PreviewCompositions(_progress);
         public int Stage => _stage;
         public int StageCount => _content.StageCount;
-        // 지금 진행도의 단계 정의(쓰는 적 풀 포함).
-        public StageDefinition SelectedStage => _content.GetStage(_stage);
         // 시작 또는 종료 순서를 처리하는 중인가. 이 동안 들어온 요청은 무시한다.
         public bool Busy { get; private set; }
         public bool CanStart => !Busy && _battle.IsIdle;
         public bool CanEnd => !Busy && _battle.CanShutdown;
-
-        // 판의 종료 순서가 끝까지 성공했다(결산 포함). 원자료는 결산 전 판 결과의 스냅샷이다.
-        // 종료 순서의 마지막에 같은 호출 안에서 알리므로, 알리기 전까지 Busy가 풀리지 않는다.
-        public event Action<BattleRawData> BattleCompleted;
 
         public BattleOrchestrator(GameContent content, BattleSystem battle, PlayerId[] participants)
         {
@@ -51,17 +40,16 @@ namespace BlackHole.Unity
             _battle = battle;
             _participants = participants;
             _progress = NewProgress();
-            _battle.TimeExpired += OnTimeExpired;
         }
 
         // 진행도를 바꾼다. 범위 밖의 값은 가장 가까운 단계가 된다. 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
         public void SetStage(int stage) =>
             _stage = Math.Max(SessionAssembler.FirstStage, Math.Min(StageCount, stage));
 
-        public async Task StartBattleAsync()
+        public async Task<bool> StartBattleAsync()
         {
             if (!CanStart)
-                return;
+                return false;
 
             Busy = true;
 
@@ -69,6 +57,7 @@ namespace BlackHole.Unity
             {
                 // 전투마다 seed를 새로 정한다. 쓴 seed는 판과 원자료에 남는다.
                 await _battle.StartAsync(_progress, _stage, Environment.TickCount);
+                return true;
             }
             finally
             {
@@ -76,40 +65,22 @@ namespace BlackHole.Unity
             }
         }
 
-        public async Task EndBattleAsync(SessionEndReason reason)
+        public async Task<BattleRawData> EndBattleAsync()
         {
             if (!CanEnd)
-                return;
+                return null;
 
             Busy = true;
 
             try
             {
-                BattleRawData raw = await _battle.ShutdownAsync(reason);
-                BattleCompleted?.Invoke(raw);
+                return await _battle.ShutdownAsync();
             }
             finally
             {
                 Busy = false;
             }
         }
-
-        // 버튼·사건에서 부르는 입구. 순서 처리 중 난 예외는 로그로 남긴다.
-        public async void RequestStart()
-        {
-            try { await StartBattleAsync(); }
-            catch (Exception error) { Debug.LogException(error); }
-        }
-
-        public async void RequestEnd(SessionEndReason reason)
-        {
-            try { await EndBattleAsync(reason); }
-            catch (Exception error) { Debug.LogException(error); }
-        }
-
-        public void Dispose() => _battle.TimeExpired -= OnTimeExpired;
-
-        private void OnTimeExpired() => RequestEnd(SessionEndReason.TimeExpired);
 
         private PlayerState[] NewProgress()
         {

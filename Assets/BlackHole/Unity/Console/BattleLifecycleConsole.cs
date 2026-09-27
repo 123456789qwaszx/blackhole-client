@@ -12,29 +12,28 @@ namespace BlackHole.Unity
 {
     // 전투 시작·종료 콘솔(개발용). 조종 콘솔과 다른 창이다(왼쪽 위).
     //
-    // 시작·종료 버튼은 오케스트레이터(BattleOrchestrator)에 요청할 뿐이다. 순서와 책임은 오케스트레이터에 있다.
+    // 시작·종료 버튼은 조립 시 받은 요청을 부른다. 전투 순서는 오케스트레이터가, 화면 전환은 ScreenFlow가 맡는다.
     // 일시정지 버튼은 진행 중인 판을 멈추고 다시 돌린다(전투 시스템). 판이 없거나 끝났으면 누를 수 없다.
-    // 버튼 아래에는 적·전투 시스템의 시작·종료 체크리스트가, 그 아래에는 Gold와 마지막 판의 원자료가 나온다.
+    // 버튼 아래에는 진행 중인 판의 업그레이드 표, Gold와 마지막 판의 원자료가 나온다.
     // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
-    // 시작 체크리스트 아래에는 진행 중인 판의 업그레이드 표(보는 참가자의 것) 중 산 노드가 바꾼 수치만 나온다:
+    // 진행 중인 판의 업그레이드 표(보는 참가자의 것) 중 산 노드가 바꾼 수치만 나온다:
     // 수치마다 기본값 0과 1일 때의 값이다(실제 기본값은 가져가는 시스템이 가진다).
-    // 종료 사유는 지금 시간 종료로 통일한다.
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
     internal sealed class BattleLifecycleConsole : IDisposable
     {
-        // 버튼 너비. 창의 너비도 이것으로 정해진다(체크리스트와 원자료는 이 너비 안에서 줄을 나눠 쓴다).
+        // 버튼 너비. 창의 너비도 이것으로 정해진다(업그레이드 표와 원자료는 이 너비 안에서 줄을 나눠 쓴다).
         private const float ButtonWidth = 344;
 
         private readonly BattleOrchestrator _orchestrator;
         private readonly BattleSystem _battle;
+        private readonly Action _requestStart;
+        private readonly Action _requestEnd;
         private readonly GameObject _canvas;
         private readonly Button _startButton;
         private readonly Button _pauseButton;
         private readonly TMP_Text _pauseLabel;
         private readonly Button _endButton;
-        private readonly TMP_Text _startStepsText;
-        private readonly TMP_Text _endStepsText;
         private readonly TMP_Text _goldText;
         private readonly TMP_Text _rawDataText;
         private readonly TMP_Text _upgradesText;
@@ -43,8 +42,6 @@ namespace BlackHole.Unity
         private readonly StringBuilder _builder = new StringBuilder();
 
         private bool? _shownPaused;
-        private int _shownStartVersion = -1;
-        private int _shownEndVersion = -1;
         private long[] _shownGold;
         private long _shownEarned = -1;
         private BattleRawData _shownRawData;
@@ -52,10 +49,13 @@ namespace BlackHole.Unity
         private GameSession _shownSession;
         private bool _upgradesShown;
 
-        public BattleLifecycleConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle, NodeTree nodes, PlayerId viewer)
+        public BattleLifecycleConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle,
+            NodeTree nodes, PlayerId viewer, Action requestStart, Action requestEnd)
         {
             _orchestrator = orchestrator;
             _battle = battle;
+            _requestStart = requestStart;
+            _requestEnd = requestEnd;
             _viewer = viewer;
 
             foreach (NodeDefinition node in nodes.Nodes)
@@ -70,14 +70,11 @@ namespace BlackHole.Unity
             RectTransform panel = Panel(Stack(canvas, new Vector2(0, 1)), "Panel", PanelColor);
             Text(panel, "Title", "BATTLE START / END  ( ` )", 22);
 
-            _startButton = ButtonOf(panel, "StartBattle", "Start battle", ButtonWidth, () => _orchestrator.RequestStart());
-            _startStepsText = Text(panel, "StartSteps", string.Empty, 20);
+            _startButton = ButtonOf(panel, "StartBattle", "Start battle", ButtonWidth, _requestStart);
             _upgradesText = Text(panel, "Upgrades", string.Empty, 20);
             _pauseButton = ButtonOf(panel, "PauseBattle", "Pause", ButtonWidth, () => _battle.TogglePause());
             _pauseLabel = _pauseButton.GetComponentInChildren<TMP_Text>();
-            _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth,
-                () => _orchestrator.RequestEnd(SessionEndReason.TimeExpired));
-            _endStepsText = Text(panel, "EndSteps", string.Empty, 20);
+            _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth, _requestEnd);
             _goldText = Text(panel, "Gold", string.Empty, 20);
             _rawDataText = Text(panel, "RawData", string.Empty, 20);
 
@@ -108,18 +105,6 @@ namespace BlackHole.Unity
             {
                 _shownPaused = paused;
                 _pauseLabel.text = paused ? "Resume" : "Pause";
-            }
-
-            if (_battle.StartSteps.Version != _shownStartVersion)
-            {
-                _shownStartVersion = _battle.StartSteps.Version;
-                _startStepsText.text = Describe(_battle.StartSteps);
-            }
-
-            if (_battle.EndSteps.Version != _shownEndVersion)
-            {
-                _shownEndVersion = _battle.EndSteps.Version;
-                _endStepsText.text = Describe(_battle.EndSteps);
             }
 
             if (!_upgradesShown || _battle.Session != _shownSession)
@@ -172,28 +157,6 @@ namespace BlackHole.Unity
             _goldText.text = _builder.ToString();
         }
 
-        private string Describe(Checklist steps)
-        {
-            _builder.Clear();
-
-            for (int i = 0; i < steps.Count; i++)
-            {
-                if (i > 0)
-                    _builder.Append('\n');
-
-                switch (steps.StateOf(i))
-                {
-                    case StepState.Done: _builder.Append("  <color=#7CFC7C>[x]</color> "); break;
-                    case StepState.Failed: _builder.Append("  <color=#FF6B6B>[!]</color> "); break;
-                    default: _builder.Append("  <color=#808080>[ ]</color> "); break;
-                }
-
-                _builder.Append(steps.NameOf(i));
-            }
-
-            return _builder.ToString();
-        }
-
         // 진행 중인 판이 보는 참가자에게 준 업그레이드 표. 산 노드가 바꾼 수치마다 "기본값 0일 때 / 1일 때"다.
         private string DescribeUpgrades(GameSession session)
         {
@@ -234,7 +197,6 @@ namespace BlackHole.Unity
             _builder.Append("Last battle");
             _builder.Append("\n  Stage<pos=6em>").Append(raw.Stage);
             _builder.Append("\n  Seed<pos=6em>").Append(raw.Seed);
-            _builder.Append("\n  Reason<pos=6em>").Append(raw.EndReason);
             _builder.Append("\n  Time<pos=6em>").Append(Number(raw.PlayedSeconds)).Append('s');
             _builder.Append("\n  Gold<pos=6em>+").Append(raw.EarnedGold);
             _builder.Append("\n  Kills<pos=6em>").Append(raw.TotalKills);

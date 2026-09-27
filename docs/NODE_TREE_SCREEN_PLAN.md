@@ -112,7 +112,7 @@
 | Core | `PlayerState` | 치트가 부르는 내부 입구: Gold 빼기, 노드 소유, 소유 비우기 |
 | Unity | `Screens/UpgradeScreen` (새) | 화면(UIRoot). Gold·진행 글자, 트리 보기. 노드 클릭을 노드 ID로 알린다 |
 | Unity | `Screens/NodeTreeView` (새) | 트리 보기: 노드·선 만들기, 상태 칠하기, 확대·이동, 전체 맞추기. 규칙을 모른다 |
-| Unity | `Screens/PlaceholderScreens` | 업그레이드 화면의 임시 틀(배경, 위쪽 글자, 트리 영역) |
+| Unity | `Prefabs/Screens/UpgradeScreen.prefab` | 업그레이드 화면의 배경, 위쪽 글자, 트리 영역 |
 | Unity | `Flow/ScreenFlow.Upgrade` (새) | 업그레이드 화면 ↔ 노드 트리·진행 상태. 구매를 부르고, 바뀐 프레임에만 다시 칠한다 |
 | Unity | `Console/UpgradeConsole` (새) | 개발용 콘솔 |
 | Unity | `GameHost` | 노드 트리·진행 상태·UI·화면 흐름·콘솔 조립. 시작 화면 = 업그레이드 화면 |

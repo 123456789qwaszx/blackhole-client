@@ -44,13 +44,13 @@ namespace BlackHole.Core.Tests
             Expect.Equal(10f, battle.UpgradesOf(other.Id).Apply("damage", 10));
             Expect.Throws<ArgumentException>(() => battle.UpgradesOf(new PlayerId(99)));
 
-            battle.RequestEnd(SessionEndReason.TimeExpired);
+            battle.RequestEnd();
             ProgressCheats.LockAllNodes(buyer);
             Expect.Equal(12f, battle.UpgradesOf(buyer.Id).Apply("damage", 10));
 
             GameSession next = SessionAssembler.CreateBattle(content, new[] { buyer }, SessionAssembler.FirstStage, 0, tree);
             Expect.Equal(10f, next.UpgradesOf(buyer.Id).Apply("damage", 10));
-            next.RequestEnd(SessionEndReason.TimeExpired);
+            next.RequestEnd();
 
             buyer.EarnGold(1);
             NodePurchase.TryPurchase(buyer, tree, "s");
@@ -84,7 +84,7 @@ namespace BlackHole.Core.Tests
 
             var state = new PlayerState(TestContent.First);
             GameSession unused = SessionAssembler.CreateBattle(content, new[] { state });
-            unused.RequestEnd(SessionEndReason.TimeExpired);
+            unused.RequestEnd();
             Expect.Equal(SessionPhase.Ended, unused.Phase);
             Expect.True(!state.InBattle, "준비 단계에서 끝나도 진행 상태를 풀어 줘야 한다.");
             Expect.Throws<InvalidOperationException>(() => unused.Begin());
@@ -100,7 +100,6 @@ namespace BlackHole.Core.Tests
             Expect.Equal(SessionPhase.Ended, split.Phase);
             Expect.Near(0.75f, split.Elapsed);
             Expect.Near(0, split.Remaining);
-            Expect.Equal(SessionEndReason.TimeExpired, split.Result.Reason);
             Expect.Near(0.75f, split.Result.PlayedSeconds);
 
             GameSession longFrame = TestContent.Session(TestContent.Data(timeLimit: 0.1f));
@@ -113,14 +112,13 @@ namespace BlackHole.Core.Tests
         {
             GameSession game = TestContent.Session(TestContent.Data());
             game.Advance(1);
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
             SessionResult result = game.Result;
-            Expect.Equal(SessionEndReason.TimeExpired, result.Reason);
             Expect.Near(1, result.PlayedSeconds);
 
             game.Advance(5);
             game.TogglePause();
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
             Expect.Equal(SessionPhase.Ended, game.Phase);
             Expect.Near(1, game.Elapsed);
             Expect.True(ReferenceEquals(result, game.Result), "결과를 다시 만들면 안 된다.");
@@ -147,7 +145,7 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
             GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }));
             first.Advance(10);
-            first.RequestEnd(SessionEndReason.TimeExpired);
+            first.RequestEnd();
             SessionResult result = first.Result;
 
             GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }));
@@ -195,7 +193,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(TestContent.StageCount, last.Stage);
         }
 
-        // 원자료는 끝난 판에서만 만든다: 조립 조건(단계·seed), 끝난 사유와 시간, 종류별 처치 수.
+        // 원자료는 끝난 판에서만 만든다: 조립 조건(단계·seed), 진행 시간, 종류별 처치 수.
         private static void RawDataRecordsTheEndedBattle()
         {
             GameContent content = TestContent.Load(TestContent.Data());
@@ -204,11 +202,10 @@ namespace BlackHole.Core.Tests
             game.Advance(2);
             Expect.Throws<InvalidOperationException>(() => game.CreateRawData());
 
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
             BattleRawData raw = game.CreateRawData();
             Expect.Equal(3, raw.Stage);
             Expect.Equal(99, raw.Seed);
-            Expect.Equal(SessionEndReason.TimeExpired, raw.EndReason);
             Expect.Near(2, raw.PlayedSeconds);
             Expect.Equal(0, raw.TotalKills);
             Expect.Equal(0, raw.Kills.Count);

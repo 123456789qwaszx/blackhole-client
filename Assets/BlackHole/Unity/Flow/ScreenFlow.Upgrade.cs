@@ -6,41 +6,58 @@ namespace BlackHole.Unity
 {
     internal sealed partial class ScreenFlow
     {
-        private UpgradeScreen _upgradeScreen;
-        public bool IsUpgradeOpen => _upgradeScreen != null;
+        private readonly IReadOnlyList<NodeTreeView.NodeItem> _nodes;
 
-        public void OpenUpgradeScreen(IReadOnlyList<NodeTreeView.NodeItem> nodes,
-            IReadOnlyList<(string A, string B)> links)
+        public void GoToUpgrade()
         {
             _ui.SwitchRoot<UpgradeScreen>(
                 _upgradePresentation,
-                afterPresented: screen =>
+                afterPresented: root =>
                 {
-                    BindView(screen, BindUpgrade);
-                    screen.BuildTree(nodes, links);
+                    BindView(root, ApplyBindings);
+                    root.BuildTree(_nodes, _tree.Graph.Links);
+                    _upgradePresenter.Present(root);
                 },
                 afterClosed: Unbind);
         }
 
-        private void BindUpgrade(UpgradeScreen screen)
+        private void ApplyBindings(UpgradeScreen root)
         {
-            _upgradeScreen = screen;
-            AddCleanup(screen, () => _upgradeScreen = null);
-            AddBinding(screen, s => s.NodeClicked += OnNodeClicked, s => s.NodeClicked -= OnNodeClicked);
-            AddBinding(screen, s => s.StartBattleClicked += OnStartClicked, s => s.StartBattleClicked -= OnStartClicked);
+            AddBinding(root,
+                r => r.NodeClicked += HandleUpgradeNodeClicked,
+                r => r.NodeClicked -= HandleUpgradeNodeClicked);
+
+            AddBinding(root,
+                r => r.StartBattleClicked += HandleUpgradeStartBattleClicked,
+                r => r.StartBattleClicked -= HandleUpgradeStartBattleClicked);
         }
 
-        private void OnNodeClicked(string id) => NodeClicked?.Invoke(id);
-        private void OnStartClicked() => StartBattleClicked?.Invoke();
-
-        public void ShowUpgrade(long gold, int owned, int total, Func<string, NodeState> stateOf)
+        private void HandleUpgradeNodeClicked(string id)
         {
-            if (_upgradeScreen == null)
-                return;
+            NodePurchase.TryPurchase(_player, _tree, id);
+            _upgradePresenter.PresentCurrent();
+        }
 
-            _upgradeScreen.ShowGold(gold);
-            _upgradeScreen.ShowProgress(owned, total);
-            _upgradeScreen.ShowNodes(stateOf);
+        private void HandleUpgradeStartBattleClicked() => RequestStart();
+
+        // 격자 칸은 화면 배치용 데이터다. 규칙 트리와 같은 저작 데이터에서 한 번 읽는다.
+        private static IReadOnlyList<NodeTreeView.NodeItem> BuildNodeItems(NodeTree tree, NodeTreeData layout)
+        {
+            var cells = new Dictionary<string, (int X, int Y)>(StringComparer.Ordinal);
+            foreach (NodeData node in layout.Nodes)
+            {
+                if (node?.Id != null && !cells.ContainsKey(node.Id))
+                    cells.Add(node.Id, (node.X, node.Y));
+            }
+
+            var nodes = new List<NodeTreeView.NodeItem>(tree.Nodes.Count);
+            foreach (NodeDefinition node in tree.Nodes)
+            {
+                (int x, int y) = cells.TryGetValue(node.Id, out (int X, int Y) cell) ? cell : (0, 0);
+                nodes.Add(new NodeTreeView.NodeItem(node.Id, x, y, node.Price));
+            }
+
+            return nodes;
         }
     }
 }
