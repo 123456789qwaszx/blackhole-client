@@ -137,7 +137,7 @@ namespace BlackHole.Unity
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
                 OrEmpty(nodeTreePresentation, "NodeTree"),
-                _battle, _orchestrator, _nodeTree, BuildNodeItems(_nodeTree, _layout), _viewer);
+                _battle, _orchestrator, _nodeTree, BuildNodeItems(_nodeTree, _layout), _viewer, _content.Growth);
         }
 
         private void BootstrapHost()

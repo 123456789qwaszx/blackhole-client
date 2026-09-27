@@ -6,7 +6,7 @@ using UnityEngine.EventSystems;
 
 namespace BlackHole.Unity
 {
-    // 업그레이드 화면(플레이어가 보는 노드 트리, F02의 임시 모양). Gold, 산 노드 수, 전투 시작 버튼을 가진다.
+    // 업그레이드 화면(플레이어가 보는 노드 트리, F02의 임시 모양). Gold, 산 노드 수, 블랙홀 Level·이정표 진행도, 전투 시작 버튼을 가진다.
     // 노드 트리의 규칙을 모른다 — ScreenFlow가 표시 값을 넘기고, 전투 시작은 사건으로 알린다.
     // 페이지의 호스트다(IUIPageOwner). 어떤 페이지가 올라오는지는 모른다 — 지금은 ScreenFlow가 트리 보기(NodeTreeView)를 연다.
     // 페이지 자리(PageRoot)는 이 화면 자신이다. 페이지는 이 화면의 바로 아래 자식이어야 한다.
@@ -16,6 +16,7 @@ namespace BlackHole.Unity
         {
             GoldText,
             ProgressText,
+            HqText,
             StartBattleBtn_Button,
         }
 
@@ -25,6 +26,7 @@ namespace BlackHole.Unity
 
         private TMP_Text _gold;
         private TMP_Text _progress;
+        private TMP_Text _hq;
 
         protected override void OnInitialize()
         {
@@ -32,6 +34,7 @@ namespace BlackHole.Unity
 
             _gold = View.Text(Refs.GoldText);
             _progress = View.Text(Refs.ProgressText);
+            _hq = View.Text(Refs.HqText);
 
             BindEvent(View.Button(Refs.StartBattleBtn_Button), HandleStartBattleClicked);
         }
@@ -48,6 +51,22 @@ namespace BlackHole.Unity
         {
             if (_progress != null)
                 _progress.text = $"{owned} / {total} nodes";
+        }
+
+        // 블랙홀(판 밖 진행): Level, 다음 Level까지의 %, 이정표 진행도(닿은 수 / 전체).
+        public void ShowHq(int level, float progress, int milestonesReached, int milestoneCount)
+        {
+            if (_hq == null)
+                return;
+
+            string text = "Black hole  Lv " + level.ToString(CultureInfo.InvariantCulture)
+                + "  " + Mathf.FloorToInt(progress * 100).ToString(CultureInfo.InvariantCulture) + "%";
+
+            if (milestoneCount > 0)
+                text += "   Milestone " + milestonesReached.ToString(CultureInfo.InvariantCulture)
+                    + " / " + milestoneCount.ToString(CultureInfo.InvariantCulture);
+
+            _hq.text = text;
         }
     }
 }

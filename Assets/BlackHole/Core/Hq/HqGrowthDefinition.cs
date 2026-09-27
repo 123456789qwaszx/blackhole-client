@@ -84,6 +84,19 @@ namespace BlackHole.Core
             return level;
         }
 
+        // Level level에서 누적 EXP exp일 때, 그 Level의 임계값에서 다음 임계값까지 몇 %인가(0 ~ 1). 마지막 Level이면 1이다.
+        // 판 밖(진행 상태)에서는 LevelAt(exp)와 함께 부른다.
+        public float ProgressAt(int level, long exp)
+        {
+            long? next = ExpToReach(level + 1);
+            long? from = ExpToReach(level);
+
+            if (!next.HasValue || !from.HasValue)
+                return 1;
+
+            return (float)Math.Max(0, Math.Min(1, (double)(exp - from.Value) / (next.Value - from.Value)));
+        }
+
         // 이 Level에 닿는 누적 EXP. 시작 Level은 0이다. 표 밖이면 null이다.
         public long? ExpToReach(int level)
         {

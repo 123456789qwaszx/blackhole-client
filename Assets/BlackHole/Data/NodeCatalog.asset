@@ -540,3 +540,91 @@ MonoBehaviour:
       - Stat: enemy.star.mass-level
         Operation: 0
         Value: 1
+    - Id: asteroid-to-planet-2
+      Price: 40000
+      Start: 0
+      X: -10
+      Y: -1
+      Links:
+      - asteroid-to-planet-1
+      Upgrades:
+      - Stat: enemy.asteroid.upgrade
+        Operation: 0
+        Value: 5
+    - Id: asteroid-to-planet-3
+      Price: 60000
+      Start: 0
+      X: -11
+      Y: -1
+      Links:
+      - asteroid-to-planet-2
+      Upgrades:
+      - Stat: enemy.asteroid.upgrade
+        Operation: 0
+        Value: 5
+    - Id: asteroid-to-planet-4
+      Price: 90000
+      Start: 0
+      X: -12
+      Y: -1
+      Links:
+      - asteroid-to-planet-3
+      Upgrades:
+      - Stat: enemy.asteroid.upgrade
+        Operation: 0
+        Value: 5
+    - Id: asteroid-to-planet-5
+      Price: 135000
+      Start: 0
+      X: -13
+      Y: -1
+      Links:
+      - asteroid-to-planet-4
+      Upgrades:
+      - Stat: enemy.asteroid.upgrade
+        Operation: 0
+        Value: 5
+    - Id: planet-to-star-2
+      Price: 300000000
+      Start: 0
+      X: -1
+      Y: -5
+      Links:
+      - planet-to-star-1
+      Upgrades:
+      - Stat: enemy.planet.upgrade
+        Operation: 0
+        Value: 5
+    - Id: planet-to-star-3
+      Price: 450000000
+      Start: 0
+      X: 0
+      Y: -5
+      Links:
+      - planet-to-star-2
+      Upgrades:
+      - Stat: enemy.planet.upgrade
+        Operation: 0
+        Value: 5
+    - Id: planet-to-star-4
+      Price: 675000000
+      Start: 0
+      X: 1
+      Y: -5
+      Links:
+      - planet-to-star-3
+      Upgrades:
+      - Stat: enemy.planet.upgrade
+        Operation: 0
+        Value: 5
+    - Id: planet-to-star-5
+      Price: 1000000000
+      Start: 0
+      X: 2
+      Y: -5
+      Links:
+      - planet-to-star-4
+      Upgrades:
+      - Stat: enemy.planet.upgrade
+        Operation: 0
+        Value: 5

@@ -42,19 +42,7 @@ namespace BlackHole.Core
 
         // 지금 Level의 임계값에서 다음 임계값까지 몇 %인가(0 ~ 1). 마지막 Level이면 1이다.
         // EXP는 사망 순간에 들고 Level은 Step의 5 자리에서 오르므로, 그 사이에는 1에서 멈춘다.
-        public float Progress
-        {
-            get
-            {
-                long? next = NextLevelExp;
-
-                if (!next.HasValue)
-                    return 1;
-
-                long from = Growth.ExpToReach(Level).Value;
-                return (float)Math.Min(1, (double)(Exp - from) / (next.Value - from));
-            }
-        }
+        public float Progress => Growth.ProgressAt(Level, Exp);
 
         // exp: 판을 시작할 때의 누적 EXP(진행 상태의 것). 그 EXP가 닿는 Level에서 시작한다 — 이 Level들의 성장 효과는 이미 지난 판의 것이다.
         internal Hq(HqGrowthDefinition growth, float growthTime, long exp = 0)
