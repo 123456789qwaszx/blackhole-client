@@ -14,30 +14,35 @@ namespace BlackHole.Core
         public float Size { get; }
         // 이 적의 사망이 확정되는 순간 판의 Gold 합계에 드는 값. 같은 판의 같은 색은 모두 같은 값이다.
         public long Gold { get; }
+        // 이 적의 사망이 확정되는 순간 블랙홀에 드는 EXP. 색 등급의 값 그대로다 — 질량 단계와 황금은 곱하지 않는다(BLACKHOLE_GROWTH_PLAN 4.1).
+        public long Exp { get; }
 
-        public EnemyStats(float maxHealth, float moveSpeed, float size, long gold)
+        public EnemyStats(float maxHealth, float moveSpeed, float size, long gold, long exp = 0)
         {
             MaxHealth = DefinitionGuard.Positive(maxHealth, nameof(maxHealth));
             MoveSpeed = DefinitionGuard.Positive(moveSpeed, nameof(moveSpeed));
             Size = DefinitionGuard.Positive(size, nameof(size));
             Gold = DefinitionGuard.NotNegative(gold, nameof(gold));
+            Exp = DefinitionGuard.NotNegative(exp, nameof(exp));
         }
     }
 
-    // 색 등급 하나: 한 종류 안의 색 하나(BATTLE_COMPOSITION_PLAN 4.1). 색이 크기·기본 HP·기본 Gold를 정한다.
-    // 원작의 돈은 색마다 비선형이라 공식을 두지 않고 색마다 숫자를 적는다.
+    // 색 등급 하나: 한 종류 안의 색 하나(BATTLE_COMPOSITION_PLAN 4.1). 색이 크기·기본 HP·기본 Gold·EXP를 정한다.
+    // 원작의 돈과 EXP는 색마다 비선형이라 공식을 두지 않고 색마다 숫자를 적는다.
     // 색(외형) 자체는 Core가 모른다 — Unity 쪽 종류 에셋의 같은 번호 줄이 가진다.
     public readonly struct EnemyTier
     {
         public float MaxHealth { get; }
         public float Size { get; }
         public long Gold { get; }
+        public long Exp { get; }
 
-        public EnemyTier(float maxHealth, float size, long gold)
+        public EnemyTier(float maxHealth, float size, long gold, long exp = 0)
         {
             MaxHealth = DefinitionGuard.Positive(maxHealth, nameof(maxHealth));
             Size = DefinitionGuard.Positive(size, nameof(size));
             Gold = DefinitionGuard.NotNegative(gold, nameof(gold));
+            Exp = DefinitionGuard.NotNegative(exp, nameof(exp));
         }
     }
 
@@ -80,7 +85,7 @@ namespace BlackHole.Core
 
     // 적 종류 하나의 공유 정의: 이동 속도, 색 등급 표, 질량 단계 표, 황금 배율, 행동, 사망 효과.
     // 종류는 계열(소행성·행성·별·달·혜성)이고 색은 종류 안에 둔다(BATTLE_COMPOSITION_PLAN 4.1). 색이 없는 종류는 색 등급이 한 줄이다.
-    // 사망 효과는 종류에 붙는 특성이다(전기·폭발·처치 버프). HQ EXP는 그 시스템이 붙을 때 더한다. 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
+    // 사망 효과는 종류에 붙는 특성이다(전기·폭발·처치 버프). HQ EXP는 색 등급마다 적는다(블랙홀 성장). 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
     public sealed class EnemyDefinition
     {
         public string Id { get; }
@@ -144,7 +149,7 @@ namespace BlackHole.Core
 
         // 판 구성 composition에서 색 등급 tier의 실행 수치.
         // HP = 색의 기본 HP × 질량 단계의 HP 계수, Gold = 색의 기본 Gold × 질량 단계의 Gold 계수(반올림 [임시]),
-        // 크기 = 색의 크기, 속도 = 종류의 속도.
+        // 크기 = 색의 크기, 속도 = 종류의 속도, EXP = 색의 EXP(질량 단계·황금과 무관).
         // 황금이면 Gold에 판 구성의 황금 배율을 한 번 더 곱한다(반올림). HP·크기는 같은 색과 같다 [임시].
         // 판 조립(EnemyStatTable)과 다음 판을 미리 보는 콘솔이 같은 계산을 쓴다.
         public EnemyStats StatsAt(EnemyComposition composition, int tier, bool golden = false)
@@ -169,7 +174,7 @@ namespace BlackHole.Core
             if (golden)
                 gold = Multiply(gold, composition.GoldenMultiplier);
 
-            return new EnemyStats(row.MaxHealth * level.HealthMultiplier, MoveSpeed, row.Size, gold);
+            return new EnemyStats(row.MaxHealth * level.HealthMultiplier, MoveSpeed, row.Size, gold, row.Exp);
         }
 
         private static long Multiply(long gold, float multiplier) =>

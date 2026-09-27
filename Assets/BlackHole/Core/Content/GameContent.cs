@@ -26,6 +26,8 @@ namespace BlackHole.Core
         public int MaxAliveEnemies { get; }
         // 전투 시작 공급. 전투를 시작할 때 한 번 공급한다. 업그레이드가 더하는 공급 수는 판 조립이 더한다.
         public IReadOnlyList<SupplyRequest> StartSupply { get; }
+        // 블랙홀 성장의 Level 표. 없으면 HqGrowthDefinition.None(블랙홀이 Level 1에 머문다).
+        public HqGrowthDefinition Growth { get; }
 
         public GameContent(
             TimeLimitDefinition timeLimit,
@@ -34,8 +36,10 @@ namespace BlackHole.Core
             IReadOnlyList<EnemyDefinition> enemies,
             EnemyPlacementDefinition enemyPlacement,
             int maxAliveEnemies,
-            IReadOnlyList<SupplyRequest> startSupply)
+            IReadOnlyList<SupplyRequest> startSupply,
+            HqGrowthDefinition growth = null)
         {
+            Growth = growth ?? HqGrowthDefinition.None;
             TimeLimit = timeLimit ?? throw new ArgumentNullException(nameof(timeLimit));
             Breaker = breaker;
             Laser = laser;

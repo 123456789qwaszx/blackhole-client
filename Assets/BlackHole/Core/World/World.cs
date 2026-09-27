@@ -4,8 +4,8 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 한 판 안에 존재하는 것들과 한 단계의 처리 순서.
-    // 지금 판 안에 있는 것은 적, 참가자(조준점·스킬), 사망 효과 대기열, 이 판이 번 Gold다. 다른 전투 시스템(HQ 성장)은 붙을 때
-    // Step의 정해진 자리(GAME_RULES 13절)에 들어간다.
+    // 지금 판 안에 있는 것은 적, 참가자(조준점·스킬), 사망 효과 대기열, 블랙홀(EXP·Level), 이 판이 번 Gold다.
+    // 각 시스템은 Step의 정해진 자리(GAME_RULES 13절)에 들어간다.
     //
     // 적이 생기고 죽는 일은 요청으로 들어와 쌓이고, Step의 정해진 자리에서 요청 순서대로 처리된다.
     // - 파괴 요청(RequestDestroy) → 13절 3. Damage / Death 자리: 그 적의 사망을 확정한다(피해·HP 계산 없음).
@@ -46,15 +46,19 @@ namespace BlackHole.Core
         public EnemyStatTable Stats { get; }
         // 한 판에 동시에 살아 있을 수 있는 적의 전체 최대 수. 이 수에 닿으면 생성 요청을 거른다(SpawnFilter).
         public int MaxAliveEnemies { get; }
+        // 이 판의 블랙홀. 사망이 확정되는 순간 그 적의 EXP가 들고, Step의 5 자리에서 Level이 오른다.
+        public Hq Hq { get; }
 
         internal World(
             int seed,
             EnemyStatTable stats,
             EnemyPlacementDefinition placement,
             int maxAliveEnemies,
+            Hq hq,
             IReadOnlyList<BattlePlayer> players)
         {
             Stats = stats ?? throw new ArgumentNullException(nameof(stats));
+            Hq = hq ?? throw new ArgumentNullException(nameof(hq));
             _placement = placement;
             _placementRandom = new BattleRandom(seed, BattleRandom.PlacementStream);
             _filter = new SpawnFilter(Stats, maxAliveEnemies);
@@ -151,7 +155,7 @@ namespace BlackHole.Core
 
         // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 생성 여과 장치를 거쳐 배치 띠 안에 생성한다.
         // 거른 요청은 버린다 — 나중에 자리가 나도 다시 나오지 않는다. 전투 시작 공급은 Begin(0초)이 바로 부른다.
-        // 색 등급과 황금은 여과를 통과한 뒤에 고른다. 최대 수는 종류 단위라 색·황금 때문에 걸러지는 일은 없고,
+        // 색 등급과 황금은 여과를 통과한 뒤에 고른다. 여과는 종류와 수만 보므로 색·황금 때문에 걸러지는 일은 없고,
         // 걸러진 요청은 몫을 쓰지 않는다.
         internal void ProcessSpawnRequests()
         {
@@ -185,9 +189,12 @@ namespace BlackHole.Core
         // 2. Passive Attack: 참가자 순서로 스킬이 공격한다. 피해로 죽은 적은 그 순간 사망이 확정된다(DealDamage).
         // 3. Damage / Death: 쌓인 파괴 요청의 사망을 확정한다.
         // 4. Death Effect: 이번 Step에 피해로 죽은 효과 보유 적의 효과를 사망 순서대로 처리한다. 효과로 죽은 적도 같은 Step의 사망이다.
+        // 5. HQ EXP / Level: 쌓인 EXP로 블랙홀의 Level을 올린다.
+        // 6. Growth: 오른 Level마다 해금된 종류의 성장 공급을 생성 요청으로 넣는다. 시간 연장은 판(GameSession)이 종료 판정 전에 한다.
         // 7. Enemy Supply: 쌓인 생성 요청을 처리한다.
-        // Gold는 따로 자리가 없다 — 사망이 확정되는 순간 그 적에 이미 정해져 있던 Gold가 이 판의 합계에 든다.
-        internal void Step(float delta)
+        // Gold와 EXP는 따로 자리가 없다 — 사망이 확정되는 순간 그 적에 이미 정해져 있던 값이 이 판의 합계와 블랙홀에 든다.
+        // 오른 Level 수를 돌려준다.
+        internal int Step(float delta)
         {
             _enemies.Move(delta);
 
@@ -196,7 +203,26 @@ namespace BlackHole.Core
 
             ProcessDestroyRequests();
             DeathEffects.Resolve(this);
+
+            int raised = Hq.RaiseLevels();
+
+            for (int i = 0; i < raised; i++)
+                RequestGrowthSupply();
+
             ProcessSpawnRequests();
+            return raised;
+        }
+
+        // Level업 한 번의 성장 공급: 해금된 종류마다 판 구성의 성장 공급 수만큼(콘텐츠 종류 순서).
+        private void RequestGrowthSupply()
+        {
+            foreach (EnemyDefinition kind in Stats.Kinds)
+            {
+                EnemyComposition composition = Stats.CompositionOf(kind);
+
+                if (composition.Unlocked && composition.GrowthSupply > 0)
+                    RequestSpawn(new SupplyRequest(kind, composition.GrowthSupply));
+            }
         }
 
         // 적에게 피해를 주는 입구. 피해를 주는 쪽(Skill·사망 효과)은 모두 여기로 요청한다.
@@ -211,6 +237,7 @@ namespace BlackHole.Core
             if (!_enemies.DealDamage(enemy, damage))
                 return false;
 
+            Hq.AddExp(enemy.Stats.Exp);
             DeathEffects.Enqueue(enemy, damage.Source);
             return true;
         }
@@ -218,7 +245,10 @@ namespace BlackHole.Core
         private void ProcessDestroyRequests()
         {
             foreach (Enemy enemy in _destroyRequests)
-                _enemies.Destroy(enemy);
+            {
+                if (_enemies.Destroy(enemy))
+                    Hq.AddExp(enemy.Stats.Exp);
+            }
 
             _destroyRequests.Clear();
         }

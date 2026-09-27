@@ -17,6 +17,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.SupplyNeedsPlacement", SupplyNeedsPlacement);
             yield return new Contract("Content.UnlockDefaultsComeFromTheKind", UnlockDefaultsComeFromTheKind);
+            yield return new Contract("Content.ReportsGrowthErrorsWithPath", ReportsGrowthErrorsWithPath);
         }
 
         // 적 종류와 출현 배치의 오류. 행동 종류 이름은 로더가, 수치는 정의 생성자가 경로와 함께 보고한다.
@@ -131,6 +132,31 @@ namespace BlackHole.Core.Tests
             result = ContentLoader.Load(crowded);
             Expect.Equal(1, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "MaxAliveEnemies", "6마리");
+        }
+
+        // 블랙홀 성장의 Level 표와 색 등급 EXP의 오류. Level 표는 누적 EXP라 양수이고 앞 줄보다 커야 한다.
+        // 표가 없으면 블랙홀이 Level 1에 머문다.
+        private static void ReportsGrowthErrorsWithPath()
+        {
+            ContentData data = TestContent.Data();
+            EnemyData kind = TestContent.Enemy(TestContent.EnemyId);
+            kind.Tiers[0].Exp = -1;
+            data.Enemies.Add(kind);
+            data.Growth = new HqGrowthData { LevelExp = new List<long> { 5, 5 } };
+
+            ContentLoadResult result = ContentLoader.Load(data);
+            Expect.Equal(2, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, $"Enemies[{TestContent.EnemyId}].Tiers[0]", "exp");
+            TestContent.HasDiagnostic(result, "Growth.LevelExp", "앞 줄");
+
+            data.Growth.LevelExp = new List<long> { 0 };
+            kind.Tiers[0].Exp = 0;
+            result = ContentLoader.Load(data);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Growth.LevelExp", "양수");
+
+            data.Growth = null;
+            Expect.Equal(HqGrowthDefinition.StartLevel, TestContent.Load(data).Growth.MaxLevel);
         }
 
         private static void ReportsEveryErrorWithPath()

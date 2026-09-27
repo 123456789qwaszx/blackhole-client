@@ -16,7 +16,8 @@ namespace BlackHole.Core
     // 업그레이드: 노드 트리를 받으면 방장의 산 노드로 업그레이드 표(UpgradeTable)를 한 번 만들어 판에 둔다(GameSession.Upgrades).
     // 표는 판이 끝날 때까지 같다(전투 중에는 살 수 없다). 노드 트리가 없으면 빈 표다. 이 판의 값은 모두 여기서 한 번 계산한다:
     // - 참가자의 Breaker 수치(피해·주기·반지름·치명타 확률)는 이 표에서 계산한다(BreakerDefinition.Upgraded).
-    // - 적 종류의 판 구성(해금·질량 단계·황금 비율·황금 배율·더할 공급 수)은 이 표에서 계산한다(EnemyComposition.From).
+    // - 적 종류의 판 구성(해금·질량 단계·황금 비율·황금 배율·더할 공급 수·성장 공급 수)은 이 표에서 계산한다(EnemyComposition.From).
+    // - 블랙홀의 Level업마다 늘어나는 시간은 이 표에서 계산한다(HqUpgradeStats.GrowthTimeFrom). 블랙홀은 판마다 Level 1에서 시작한다.
     //   어떤 종류가 나오는가도 여기서 정해진다: 잠긴 종류는 이 판에 나오지 않는다(ENEMY_UNLOCK_PLAN).
     // - 적 수치(Gold 포함)와 색·황금 비율은 판 구성으로 적 수치 표(EnemyStatTable)에 옮겨 적는다.
     //
@@ -47,11 +48,15 @@ namespace BlackHole.Core
                 content.Enemies,
                 CompositionsOf(content, table));
 
+            // 이 판의 블랙홀: Level 1, EXP 0. Level업마다 늘어나는 시간은 방장의 표로 정한다(성장 노드를 사기 전에는 0).
+            var hq = new Hq(content.Growth, HqUpgradeStats.GrowthTimeFrom(table));
+
             var world = new World(
                 seed,
                 stats,
                 content.EnemyPlacement,
                 content.MaxAliveEnemies,
+                hq,
                 battlePlayers);
             
             var session = new GameSession(

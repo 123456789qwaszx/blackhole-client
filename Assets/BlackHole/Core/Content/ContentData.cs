@@ -5,7 +5,7 @@ namespace BlackHole.Core
 {
     // 저작 형식. 검증 전 값이며 실행에 쓰지 않는다 — ContentLoader만 읽는다.
     // 적 종류·공급·배치·전체 개체 수 상한은 Unity 쪽 에셋(EnemyCatalog, EnemySupplySetup)이,
-    // 스킬은 스킬 설정 에셋(SkillSetup)이 채운다. 판 설정은 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
+    // 스킬은 스킬 설정 에셋(SkillSetup)이, 블랙홀 성장의 Level 표는 블랙홀 성장 에셋이 채운다. 판 설정은 아직 BlackHole.Sample의 SampleContent가 코드로 채운다.
     // 업그레이드 노드는 판 조립 콘텐츠가 아니다 — 노드 목록 에셋(NodeCatalog → NodeTreeData)이 따로 가진다.
     [Serializable]
     public sealed class ContentData
@@ -21,6 +21,8 @@ namespace BlackHole.Core
         public int MaxAliveEnemies;
         // 전투 시작 공급. 전투를 시작할 때(0초) 한 번 공급한다.
         public List<SupplyData> StartSupply = new List<SupplyData>();
+        // 블랙홀 성장의 Level 표. 없으면 블랙홀이 Level 1에 머문다.
+        public HqGrowthData Growth;
     }
 
     [Serializable]
@@ -85,6 +87,8 @@ namespace BlackHole.Core
         public float Size;
         // 사망 때 판의 합계에 드는 Gold의 기본값. 0 이상.
         public long Gold;
+        // 사망 때 블랙홀에 드는 EXP. 0 이상. 질량 단계와 황금은 곱하지 않는다.
+        public long Exp;
     }
 
     // 질량 단계 한 줄: 색마다 나오는 비율(색 등급 표와 같은 순서·길이)과 HP·Gold 계수.
@@ -130,6 +134,13 @@ namespace BlackHole.Core
     {
         public float MinDistance;
         public float MaxDistance;
+    }
+
+    // 블랙홀 성장의 Level 표: LevelExp[i]는 Level (i + 2)에 닿는 누적 EXP. 앞 줄보다 커야 한다. 성장 효과는 노드가 정한다.
+    [Serializable]
+    public sealed class HqGrowthData
+    {
+        public List<long> LevelExp = new List<long>();
     }
 
     // 적 공급 한 건: 어떤 종류를 몇 마리.

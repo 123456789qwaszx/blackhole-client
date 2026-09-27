@@ -103,7 +103,7 @@ namespace BlackHole.Core.Tests
         }
 
         // 노드를 모두 산 경우를 로드 때 계산해 본다: 질량 단계 표 밖, 황금이 되지 않는 종류의 황금 비율,
-        // 전체 개체 수 상한을 넘는 전투 시작 공급을 경로와 함께 보고한다. 받아들일 수 있는 트리는 진단이 없다.
+        // 전체 개체 수 상한을 넘는 전투 시작 공급, 음수인 성장 시간, 출현 배치 없는 공급 수 노드를 경로와 함께 보고한다. 받아들일 수 있는 트리는 진단이 없다.
         private static void LoadCheckFindsNodesTheContentCannotTake()
         {
             ContentData data = TestContent.Arena(1, 3, TestContent.Supply(Rock, 2));
@@ -127,6 +127,22 @@ namespace BlackHole.Core.Tests
             diagnostics = UpgradeContentCheck.Check(content, crowd);
             Expect.Equal(1, diagnostics.Count);
             Has(diagnostics, "MaxAliveEnemies", "5마리");
+
+            // 성장: Level업마다의 시간은 음수가 아니다. 성장 공급은 판 중에 나오므로 전체 상한과 합을 비교하지 않는다.
+            NodeTree growth = Tree(
+                Node("shrink", true, HqUpgradeStats.GrowthTime, UpgradeOperation.Add, -1),
+                Node("swarm", true, EnemyUpgradeStats.GrowthSupply(Rock), UpgradeOperation.Add, 100));
+            diagnostics = UpgradeContentCheck.Check(content, growth);
+            Expect.Equal(1, diagnostics.Count);
+            Has(diagnostics, "Hq", "시간");
+
+            // 공급 수 노드가 있으면 출현 배치가 필요하다.
+            ContentData bare = TestContent.Data();
+            bare.Enemies.Add(TestContent.Enemy(Rock));
+            NodeTree grow = Tree(Node("grow", true, EnemyUpgradeStats.GrowthSupply(Rock), UpgradeOperation.Add, 1));
+            diagnostics = UpgradeContentCheck.Check(TestContent.Load(bare), grow);
+            Expect.Equal(1, diagnostics.Count);
+            Has(diagnostics, "EnemyPlacement", "출현 배치");
         }
 
         // 진행 상태로 판을 조립해 그 종류의 판 구성을 읽고, 판을 끝낸다.

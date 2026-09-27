@@ -91,8 +91,11 @@ namespace BlackHole.Core
             World.BeginAdvance();
 
             float step = TimeLimit.LimitStep(Elapsed, delta);
-            World.Step(step);
+            int raised = World.Step(step);
             Elapsed += step;
+
+            // 6. Growth의 시간 연장: 오른 Level마다 이 판의 제한 시간을 늘린다. 종료 판정보다 먼저다(GAME_RULES 13·14절).
+            TimeLimit.Extend(raised * World.Hq.GrowthTime);
 
             if (TimeLimit.HasExpired(Elapsed))
                 End();
@@ -118,11 +121,11 @@ namespace BlackHole.Core
             return World.ClearRemainingEnemies();
         }
 
-        // 끝난 판의 원자료(조립 조건, 진행 시간, 종류별 처치 수, 번 Gold)를 만든다. 진행 상태는 바꾸지 않는다.
+        // 끝난 판의 원자료(조립 조건, 진행 시간, 종류별 처치 수, 번 Gold, 블랙홀의 도달 Level·EXP)를 만든다. 진행 상태는 바꾸지 않는다.
         public BattleRawData CreateRawData()
         {
             RequireEnded();
-            return new BattleRawData(Seed, Result.PlayedSeconds, World.Kills(), World.EarnedGold);
+            return new BattleRawData(Seed, Result.PlayedSeconds, World.Kills(), World.EarnedGold, World.Hq.Level, World.Hq.Exp);
         }
 
         // 결산을 마쳤는가.

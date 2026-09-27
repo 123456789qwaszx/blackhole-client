@@ -10,7 +10,7 @@ namespace BlackHole.Core
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
-    // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·질량 단계·사망 효과), 출현 배치.
+    // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·질량 단계·사망 효과), 출현 배치, 블랙홀 성장의 Level 표.
     // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 전체 개체 수 상한.
     // 3. 전체: 전투 시작 공급이 상한 안인가.
     // 업그레이드 노드는 여기서 읽지 않는다(NodeTreeLoader). 노드와 콘텐츠를 함께 보는 검사는 UpgradeContentCheck가 한다.
@@ -31,6 +31,7 @@ namespace BlackHole.Core
             LaserDefinition laser = LoadLaser(data.Laser, diagnostics);
             List<EnemyDefinition> enemies = LoadEnemies(data.Enemies, diagnostics);
             EnemyPlacementDefinition placement = LoadPlacement(data.EnemyPlacement, diagnostics);
+            HqGrowthDefinition growth = LoadGrowth(data.Growth, diagnostics);
 
             if (diagnostics.Count > 0)
                 return Fail(diagnostics);
@@ -52,7 +53,7 @@ namespace BlackHole.Core
                 return Fail(diagnostics);
 
             return new ContentLoadResult(
-                new GameContent(timeLimit, breaker, laser, enemies, placement, data.MaxAliveEnemies, startSupply),
+                new GameContent(timeLimit, breaker, laser, enemies, placement, data.MaxAliveEnemies, startSupply, growth),
                 diagnostics);
         }
 
@@ -140,7 +141,7 @@ namespace BlackHole.Core
                     continue;
                 }
 
-                EnemyTier? tier = GuardValue($"{at}[{i}]", into, () => new EnemyTier(item.MaxHealth, item.Size, item.Gold));
+                EnemyTier? tier = GuardValue($"{at}[{i}]", into, () => new EnemyTier(item.MaxHealth, item.Size, item.Gold, item.Exp));
 
                 if (tier.HasValue)
                     tiers.Add(tier.Value);
@@ -219,6 +220,15 @@ namespace BlackHole.Core
                 return null;
 
             return Guard("EnemyPlacement", into, () => new EnemyPlacementDefinition(item.MinDistance, item.MaxDistance));
+        }
+
+        // 없으면 블랙홀이 Level 1에 머문다.
+        private static HqGrowthDefinition LoadGrowth(HqGrowthData item, List<ContentDiagnostic> into)
+        {
+            if (item == null)
+                return HqGrowthDefinition.None;
+
+            return Guard("Growth.LevelExp", into, () => new HqGrowthDefinition(item.LevelExp ?? new List<long>()));
         }
 
         // 없으면 공급이 없다. 적 ID는 1단계의 색인으로 정의에 잇는다.

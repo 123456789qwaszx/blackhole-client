@@ -16,7 +16,7 @@ namespace BlackHole.Core
         }
     }
 
-    // 끝난 전투 한 판의 원자료: 어떤 조건(seed)으로 조립됐고, 얼마나 진행했으며, 무엇을 얼마나 처치하고 얼마를 벌었는가.
+    // 끝난 전투 한 판의 원자료: 어떤 조건(seed)으로 조립됐고, 얼마나 진행했으며, 무엇을 얼마나 처치하고 얼마를 벌었는가, 블랙홀이 얼마나 컸는가.
     // 판을 정리한 뒤에도 남는 유일한 기록이다. 결산·업그레이드 같은 다음 단계가 이것을 읽는다.
     public sealed class BattleRawData
     {
@@ -28,17 +28,24 @@ namespace BlackHole.Core
         public int TotalKills { get; }
         // 이 판에서 번 Gold. 사망 순간마다 그 적의 Gold가 더해진 합계이며, 결산(GameSession.Settle)이 진행 상태에 더한 값과 같다.
         public long EarnedGold { get; }
+        // 이 판에서 블랙홀이 닿은 Level과 모은 EXP. 기록일 뿐이며 판 밖으로 이어지지 않는다(다음 판은 Level 1에서 시작한다).
+        public int ReachedLevel { get; }
+        public long Exp { get; }
 
         internal BattleRawData(
             int seed,
             float playedSeconds,
             IReadOnlyList<EnemyKillCount> kills,
-            long earnedGold)
+            long earnedGold,
+            int reachedLevel,
+            long exp)
         {
             Seed = seed;
             PlayedSeconds = playedSeconds;
             Kills = kills;
             EarnedGold = earnedGold;
+            ReachedLevel = reachedLevel;
+            Exp = exp;
 
             foreach (EnemyKillCount kill in kills)
                 TotalKills += kill.Count;
