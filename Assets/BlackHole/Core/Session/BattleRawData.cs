@@ -28,7 +28,7 @@ namespace BlackHole.Core
         public int TotalKills { get; }
         // 이 판에서 번 Gold. 사망 순간마다 그 적의 Gold가 더해진 합계이며, 결산(GameSession.Settle)이 진행 상태에 더한 값과 같다.
         public long EarnedGold { get; }
-        // 이 판에서 블랙홀이 닿은 Level과 모은 EXP. 기록일 뿐이며 판 밖으로 이어지지 않는다(다음 판은 Level 1에서 시작한다).
+        // 이 판이 끝났을 때 블랙홀의 Level과 누적 EXP(이 판 앞의 EXP 포함). 결산이 누적 EXP를 진행 상태에 돌려놓는다.
         public int ReachedLevel { get; }
         public long Exp { get; }
 

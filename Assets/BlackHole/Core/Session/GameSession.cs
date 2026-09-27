@@ -24,7 +24,7 @@ namespace BlackHole.Core
     //
     // 수명: 조립(Preparing) → Begin(전투 시작 공급, Running) → 끝(Ended: 시간 종료 또는 종료 요청)
     //      → 남은 적 정리(처치 아님) → 원자료 만들기 → 결산. 이 순서를 누가 언제 부를지는 판 바깥(오케스트레이터)이 정한다.
-    // 진행 상태(Gold)를 바꾸는 것은 결산뿐이다. 전투 중에는 진행 상태가 바뀌지 않으므로 저장은 전투 밖에서만 하면 된다.
+    // 진행 상태(Gold·블랙홀 EXP)를 바꾸는 것은 결산뿐이다. 전투 중에는 진행 상태가 바뀌지 않으므로 저장은 전투 밖에서만 하면 된다.
     public sealed class GameSession
     {
         // 이 판에 묶인 진행 상태(방장의 것). 결산이 번 Gold를 여기에 더한다.
@@ -131,7 +131,7 @@ namespace BlackHole.Core
         // 결산을 마쳤는가.
         public bool IsSettled => _settled;
 
-        // 결산: 끝난 판이 번 Gold를 진행 상태(방장의 것)에 더한다. 한 판에 한 번만 더하고, 다시 불러도 아무 일도 없다.
+        // 결산: 끝난 판이 번 Gold를 진행 상태(방장의 것)에 더하고, 블랙홀의 누적 EXP를 돌려놓는다. 한 판에 한 번만 하고, 다시 불러도 아무 일도 없다.
         // Gold를 더한 뒤에야 결산을 마친 것으로 기록한다. 더하기가 실패하면(Gold 넘침) 예외가 나가고 결산하지 않은 상태로 남는다.
         public void Settle()
         {
@@ -141,6 +141,7 @@ namespace BlackHole.Core
                 return;
 
             _progress.EarnGold(World.EarnedGold);
+            _progress.KeepHqExp(World.Hq.Exp);
             _settled = true;
         }
 

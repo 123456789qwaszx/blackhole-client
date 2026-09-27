@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core.Tests
 {
-    // 블랙홀 성장: 사망 순간의 EXP, Step 5 자리의 Level, 성장 노드를 산 뒤 Level업마다의 시간 연장·공급(BLACKHOLE_GROWTH_PLAN 4·7절).
+    // 블랙홀 성장: 사망 순간의 EXP, Step 5 자리의 Level, 성장 노드를 산 뒤 Level업마다의 시간 연장·공급(BLACKHOLE_GROWTH_PLAN 4·7절),
+    // 판을 넘어 이어지는 누적 EXP(BLACKHOLE_LEVEL_PLAN 4.1).
     internal static class GrowthContracts
     {
         private const string Rock = "rock";
@@ -16,7 +17,8 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Growth.OneGainCanRaiseSeveralLevels", OneGainCanRaiseSeveralLevels);
             yield return new Contract("Growth.LevelUpExtendsThisBattleAndRequestsSupply", LevelUpExtendsThisBattleAndRequestsSupply);
             yield return new Contract("Growth.GrowthOnTheLastStepKeepsTheBattleGoing", GrowthOnTheLastStepKeepsTheBattleGoing);
-            yield return new Contract("Growth.EachBattleStartsFresh", EachBattleStartsFresh);
+            yield return new Contract("Hq.LevelCarriesOverBetweenBattles", LevelCarriesOverBetweenBattles);
+            yield return new Contract("Hq.CleanupGivesNoExp", CleanupGivesNoExp);
             yield return new Contract("Growth.StopsAtTheLastLevel", StopsAtTheLastLevel);
             yield return new Contract("Growth.EndedBattleDoesNotGrow", EndedBattleDoesNotGrow);
         }
@@ -143,24 +145,63 @@ namespace BlackHole.Core.Tests
             Expect.Equal(SessionPhase.Ended, plain.Phase);
         }
 
-        // 새 판은 Level 1, EXP 0이고 제한 시간은 콘텐츠의 기본값이다. 앞 판에서 늘어난 시간은 이어지지 않는다.
-        private static void EachBattleStartsFresh()
+        // 블랙홀 Level은 판을 넘어 이어진다: 결산이 누적 EXP를 진행 상태에 돌려놓고, 다음 판은 그 EXP·Level에서 시작한다.
+        // 이어받은 Level의 성장 효과는 다시 오지 않는다. 제한 시간은 다시 기본값이다(늘어난 시간은 그 판에만). 새 진행은 Level 1이다.
+        private static void LevelCarriesOverBetweenBattles()
         {
-            GameContent content = TestContent.Load(Arena(exp: 5, 5));
+            GameContent content = TestContent.Load(Arena(exp: 5, 5, 15));
             var state = new PlayerState(TestContent.First);
             NodeTree tree = TestContent.Owned(state, GrowthTime(3));
 
+            GameSession fresh = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.Second));
+            Expect.Equal(1, fresh.World.Hq.Level);
+            Expect.Equal(0L, fresh.World.Hq.Exp);
+
             GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
+            Kill(first.World, first.World.Enemies[0]);
             Kill(first.World, first.World.Enemies[0]);
             first.Advance(0.1f);
             Expect.Equal(2, first.World.Hq.Level);
             Expect.Near(content.TimeLimit.Duration + 3, first.TimeLimit.Limit);
             first.RequestEnd();
+            Expect.Equal(0L, state.HqExp);
+            first.Settle();
+            Expect.Equal(10L, state.HqExp);
 
             GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
-            Expect.Equal(1, next.World.Hq.Level);
-            Expect.Equal(0L, next.World.Hq.Exp);
+            Expect.Equal(2, next.World.Hq.Level);
+            Expect.Equal(2, next.World.Hq.StartLevel);
+            Expect.Equal(10L, next.World.Hq.Exp);
+            Expect.Near(0.5f, next.World.Hq.Progress);
             Expect.Near(content.TimeLimit.Duration, next.TimeLimit.Limit);
+
+            next.Advance(0.1f);
+            Expect.Near(content.TimeLimit.Duration, next.TimeLimit.Limit);
+            Expect.Equal(3, next.World.Enemies.Count);
+        }
+
+        // 전투 정리로 치운 적은 EXP를 주지 않는다. 결산이 돌려놓는 것은 확정된 사망의 EXP뿐이다(시간 종료·요청 종료 모두).
+        private static void CleanupGivesNoExp()
+        {
+            ContentData data = Arena(exp: 5, 100);
+            data.Session.TimeLimit = 1;
+            GameContent content = TestContent.Load(data);
+
+            var timedOut = new PlayerState(TestContent.First);
+            GameSession expired = TestContent.Begun(SessionAssembler.CreateBattle(content, timedOut));
+            Kill(expired.World, expired.World.Enemies[0]);
+            expired.Advance(2);
+            Expect.Equal(SessionPhase.Ended, expired.Phase);
+            Expect.Equal(2, expired.ClearRemainingEnemies());
+            expired.Settle();
+            Expect.Equal(5L, timedOut.HqExp);
+
+            var requested = new PlayerState(TestContent.First);
+            GameSession ended = TestContent.Begun(SessionAssembler.CreateBattle(content, requested));
+            ended.RequestEnd();
+            ended.ClearRemainingEnemies();
+            ended.Settle();
+            Expect.Equal(0L, requested.HqExp);
         }
 
         // Level 표의 끝에서는 EXP만 쌓이고 성장 효과도 없다. 진행 막대는 가득 찬 것으로 보인다.

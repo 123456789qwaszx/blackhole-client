@@ -21,7 +21,7 @@ namespace BlackHole.Core
         public override string ToString() => $"Player {Value}";
     }
 
-    // Player 한 명의 진행 상태: Gold와 산 노드. 전투 사이에 유지된다(앱 종료 후 저장은 하지 않는다).
+    // Player 한 명의 진행 상태: Gold, 산 노드, 블랙홀의 누적 EXP. 전투 사이에 유지된다(앱 종료 후 저장은 하지 않는다).
     // 새 진행은 새 PlayerState로 시작한다. 판은 PlayerState 목록을 받는다 — 지금 1명일 뿐 하나로 고정된 것이 아니다.
     // 산 노드는 전투 밖에서만 바뀐다(NodePurchase.TryPurchase, 전투 중에는 살 수 없다).
     public sealed class PlayerState
@@ -36,6 +36,9 @@ namespace BlackHole.Core
         public IReadOnlyList<string> OwnedNodes { get; }
         // 진행 중인 전투에 들어가 있는가. 한 진행 상태는 한 번에 한 전투에만 들어간다.
         public bool InBattle { get; private set; }
+        // 블랙홀의 누적 EXP. 판이 이어받아 키우고 결산이 돌려놓는다. 줄지 않는다(BLACKHOLE_LEVEL_PLAN 4.1).
+        // Level과 이정표 진행도는 Level 표와 이 값으로 계산한다(Hq) — 따로 저장하지 않는다.
+        public long HqExp { get; private set; }
 
         public PlayerState(PlayerId id)
         {
@@ -54,6 +57,15 @@ namespace BlackHole.Core
                 throw new ArgumentOutOfRangeException(nameof(amount), "0 이상이어야 한다.");
 
             Gold = checked(Gold + amount);
+        }
+
+        // 결산(GameSession.Settle)이 판의 블랙홀 EXP를 돌려놓는다. 판은 이 값에서 시작했으므로 줄지 않는다.
+        internal void KeepHqExp(long exp)
+        {
+            if (exp < HqExp)
+                throw new ArgumentOutOfRangeException(nameof(exp), $"블랙홀 EXP는 줄지 않는다. 지금 {HqExp}, 받은 값 {exp}.");
+
+            HqExp = exp;
         }
 
         // 구매 규칙(NodePurchase.TryPurchase)이 확인한 뒤에만 부른다.

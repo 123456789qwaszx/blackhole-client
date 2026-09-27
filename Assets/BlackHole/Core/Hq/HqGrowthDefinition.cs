@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace BlackHole.Core
 {
     // 블랙홀 성장의 공유 정의: Level 표(BLACKHOLE_GROWTH_PLAN 4.2).
-    // 판은 Level 1에서 시작한다. LevelExp[i]는 Level (i + 2)에 닿는 누적 EXP이며, 앞 줄보다 커야 한다.
+    // 새 진행은 Level 1(누적 EXP 0)이다. LevelExp[i]는 Level (i + 2)에 닿는 누적 EXP이며, 앞 줄보다 커야 한다. Level은 판을 넘어 이어진다.
     // 성장 효과(시간·공급)는 표에 두지 않는다 — 산 노드가 정하고 Level업마다 같은 값이 온다(4.3).
     public sealed class HqGrowthDefinition
     {
