@@ -29,13 +29,14 @@ namespace BlackHole.Unity
                 r => r.EndClicked -= HandleBattleEndClicked);
         }
 
-        private void HandleBattlePauseClicked() => _battle.TogglePause();
-        private void HandleBattleEndClicked() => RequestEnd();
+        // 개발용 전투 시작·종료 콘솔의 Pause·End battle도 이 핸들을 쓴다.
+        internal void HandleBattlePauseClicked() => _battle.TogglePause();
+        internal void HandleBattleEndClicked() => RequestEnd();
 
         internal void HandleBattleTimeExpired() => RequestEnd();
 
         // 화면 버튼, 시간 종료, 개발용 콘솔이 같은 전환 경로를 사용한다.
-        public async void RequestStart()
+        private async void RequestStart()
         {
             try
             {
@@ -45,7 +46,7 @@ namespace BlackHole.Unity
             catch (Exception error) { Debug.LogException(error); }
         }
 
-        public async void RequestEnd()
+        private async void RequestEnd()
         {
             try
             {

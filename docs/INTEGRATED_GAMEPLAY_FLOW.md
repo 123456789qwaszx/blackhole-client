@@ -12,7 +12,7 @@
 ```text
 휴식(업그레이드 화면)
   │  노드 클릭 → NodePurchase.TryPurchase (Gold 차감, 산 노드 기록)
-  │  Start battle → BattleOrchestrator.RequestStart
+  │  Start battle → ScreenFlow → BattleOrchestrator.StartBattleAsync
   ▼
 판 조립 (SessionAssembler.CreateBattle, 한 번)
   │  산 노드 → UpgradeTable (참가자마다)
