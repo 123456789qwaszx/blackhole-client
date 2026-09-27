@@ -6,14 +6,17 @@ using UnityEngine.UI;
 
 namespace BlackHole.Unity
 {
-    // 화면 프리팹이 연결되기 전에 쓰는 임시 화면. Canvas와 화면(업그레이드, 전투)을 코드로 만든다.
+    // 화면 프리팹을 연결하지 않았을 때 쓰는 임시 화면(개발용 대체). Canvas와 화면(업그레이드, 전투, 결산)을 코드로 만든다.
     // 자식 이름은 화면 클래스의 Refs와 같다 — 실제 프리팹도 같은 이름을 쓰면 화면 클래스가 그대로 붙는다.
-    // GameHost에 사용자 UI를 연결하면 쓰지 않는다. 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
+    // 씬의 화면 프리팹(Assets/BlackHole/Prefabs/Screens)은 처음에 이 배치로 만들었다. 지금 정상 실행은 프리팹을 쓴다.
+    // 글자는 TMP 기본 글꼴(한글 없음)이라 영문이다.
     internal static class PlaceholderScreens
     {
         private static readonly Color ButtonColor = new Color(0.2f, 0.26f, 0.42f);
         private static readonly Vector2 MenuButton = new Vector2(420, 72);
+        private static readonly Vector2 BarButton = new Vector2(220, 64);
         private static readonly Color Backdrop = new Color(0.08f, 0.08f, 0.11f);
+        private static readonly Color GoldColor = new Color(1f, 0.84f, 0.35f);
         private const float HeaderHeight = 110;
         private const float FooterHeight = 110;
 
@@ -39,14 +42,14 @@ namespace BlackHole.Unity
             RectTransform rootLayer = Stretch(Child(canvas, "RootLayer"));
             RectTransform panelLayer = Stretch(Child(canvas, "PanelLayer"));
 
-            var views = new UIBase[] { BuildUpgrade(rootLayer), BuildBattle(rootLayer) };
+            var views = new UIBase[] { BuildUpgrade(rootLayer), BuildBattle(rootLayer), BuildSettlement(rootLayer) };
             return new Result(rootLayer, panelLayer, views);
         }
 
         #region 화면
 
         // 자식을 모두 만든 뒤 화면 클래스를 붙인다. 화면 클래스는 붙는 순간 자식을 이름으로 찾는다.
-        // 업그레이드 화면: 어두운 배경, 위쪽 글자(Gold, 제목, 산 노드 수), 가운데 트리 영역, 아래쪽 전투 시작 버튼.
+        // 업그레이드 화면: 어두운 배경, 위쪽 글자(Gold, 제목, 산 노드 수), 가운데 트리 영역(트리 보기), 아래쪽 조작 안내와 전투 시작 버튼.
         private static UIBase BuildUpgrade(RectTransform layer)
         {
             RectTransform screen = Stretch(Child(layer, nameof(UpgradeScreen)));
@@ -55,29 +58,57 @@ namespace BlackHole.Unity
             RectTransform viewport = Stretch(Child(screen, nameof(UpgradeScreen.Refs.TreeViewport)));
             viewport.offsetMin = new Vector2(0, FooterHeight);
             viewport.offsetMax = new Vector2(0, -HeaderHeight);
+            viewport.gameObject.AddComponent<Image>().color = Color.clear;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            viewport.gameObject.AddComponent<NodeTreeView>();
 
-            Label(screen, nameof(UpgradeScreen.Refs.GoldText), string.Empty, 36, new Vector2(0.2f, 0.955f));
+            Label(screen, nameof(UpgradeScreen.Refs.GoldText), string.Empty, 36, new Vector2(0.2f, 0.955f)).color = GoldColor;
             Label(screen, "Heading", "UPGRADES", 40, new Vector2(0.5f, 0.955f));
             Label(screen, nameof(UpgradeScreen.Refs.ProgressText), string.Empty, 36, new Vector2(0.8f, 0.955f));
+            Label(screen, "Hint", "Click a lit node to buy it  ·  drag to pan  ·  scroll to zoom", 24, new Vector2(0.5f, 0.12f))
+                .color = new Color(1, 1, 1, 0.5f);
 
             RectTransform footer = Row(screen, "Footer", new Vector2(0.5f, 0.05f), 24);
-            MenuButtonOf(footer, nameof(UpgradeScreen.Refs.StartBattleBtn_Button), "Start battle");
+            MenuButtonOf(footer, nameof(UpgradeScreen.Refs.StartBattleBtn_Button), "Start battle", MenuButton);
 
             return screen.gameObject.AddComponent<UpgradeScreen>();
         }
 
-        // 전투 화면은 배경이 없다. 뒤의 전투 장면(적)이 보여야 한다.
+        // 전투 화면은 배경이 없다. 뒤의 전투 장면(적)이 보여야 하므로 글자와 버튼을 위쪽 띠에만 둔다:
+        // 왼쪽에 이 판이 번 Gold, 가운데에 남은 시간, 오른쪽에 일시정지·전투 끝내기.
         private static UIBase BuildBattle(RectTransform layer)
         {
             RectTransform screen = Stretch(Child(layer, nameof(BattleScreen)));
-            Label(screen, "Heading", "BATTLE", 40, new Vector2(0.5f, 0.95f));
-            Label(screen, nameof(BattleScreen.Refs.RemainingText), string.Empty, 96, new Vector2(0.5f, 0.6f));
+            Label(screen, nameof(BattleScreen.Refs.EarnedGoldText), string.Empty, 40, new Vector2(0.15f, 0.945f)).color = GoldColor;
+            Label(screen, nameof(BattleScreen.Refs.RemainingText), string.Empty, 64, new Vector2(0.5f, 0.945f));
 
-            RectTransform menu = Row(screen, "Menu", new Vector2(0.5f, 0.15f), 24);
-            MenuButtonOf(menu, nameof(BattleScreen.Refs.PauseBtn_Button), "Pause");
-            MenuButtonOf(menu, nameof(BattleScreen.Refs.EndBtn_Button), "End battle");
+            RectTransform menu = Row(screen, "Menu", new Vector2(0.86f, 0.945f), 16);
+            MenuButtonOf(menu, nameof(BattleScreen.Refs.PauseBtn_Button), "Pause", BarButton);
+            MenuButtonOf(menu, nameof(BattleScreen.Refs.EndBtn_Button), "End battle", BarButton);
 
             return screen.gameObject.AddComponent<BattleScreen>();
+        }
+
+        // 결산 화면: 어두운 배경, 가운데 결과 글자(끝난 사유, 시간, 번 Gold, 결산 뒤 Gold, 처치 수), 아래쪽 계속하기 버튼.
+        private static UIBase BuildSettlement(RectTransform layer)
+        {
+            RectTransform screen = Stretch(Child(layer, nameof(SettlementScreen)));
+            screen.gameObject.AddComponent<Image>().color = Backdrop;
+
+            Label(screen, "Heading", "BATTLE RESULT", 48, new Vector2(0.5f, 0.86f));
+            Label(screen, nameof(SettlementScreen.Refs.ResultText), string.Empty, 36, new Vector2(0.5f, 0.77f));
+            Label(screen, nameof(SettlementScreen.Refs.TimeText), string.Empty, 32, new Vector2(0.5f, 0.7f));
+            Label(screen, nameof(SettlementScreen.Refs.EarnedGoldText), string.Empty, 44, new Vector2(0.5f, 0.61f)).color = GoldColor;
+            Label(screen, nameof(SettlementScreen.Refs.TotalGoldText), string.Empty, 32, new Vector2(0.5f, 0.535f));
+
+            TMP_Text kills = Label(screen, nameof(SettlementScreen.Refs.KillsText), string.Empty, 28, new Vector2(0.5f, 0.34f));
+            kills.rectTransform.sizeDelta = new Vector2(1600, 320);
+            kills.alignment = TextAlignmentOptions.Top;
+
+            RectTransform footer = Row(screen, "Footer", new Vector2(0.5f, 0.08f), 24);
+            MenuButtonOf(footer, nameof(SettlementScreen.Refs.ContinueBtn_Button), "Continue", MenuButton);
+
+            return screen.gameObject.AddComponent<SettlementScreen>();
         }
 
         #endregion
@@ -151,7 +182,7 @@ namespace BlackHole.Unity
         }
 
         // 버튼 글자의 이름은 프레임워크 예제의 관례를 따른다: PauseBtn_Button → PauseBtn_Text.
-        private static void MenuButtonOf(RectTransform parent, string name, string text)
+        private static void MenuButtonOf(RectTransform parent, string name, string text, Vector2 size)
         {
             RectTransform rect = Child(parent, name);
 
@@ -160,10 +191,10 @@ namespace BlackHole.Unity
             rect.gameObject.AddComponent<Button>().targetGraphic = image;
 
             var element = rect.gameObject.AddComponent<LayoutElement>();
-            element.preferredWidth = MenuButton.x;
-            element.preferredHeight = MenuButton.y;
+            element.preferredWidth = size.x;
+            element.preferredHeight = size.y;
 
-            Text(Stretch(Child(rect, name.Replace("_Button", "_Text"))), text, 32);
+            Text(Stretch(Child(rect, name.Replace("_Button", "_Text"))), text, size.y * 0.45f);
         }
 
         private static TMP_Text Text(RectTransform rect, string text, float size)

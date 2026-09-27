@@ -1,16 +1,19 @@
 using System;
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 
 namespace BlackHole.Unity
 {
-    // 전투 화면. 남은 시간과 일시정지 여부를 받아 보여 주고, 일시정지·종료 버튼을 알린다.
+    // 전투 화면(전투 장면 위의 겹 화면). 남은 시간, 이 판이 번 Gold, 일시정지 여부를 받아 보여 주고, 일시정지·종료 버튼을 알린다.
     // 전투 Session을 모른다 — 표시 값은 ScreenFlow가 넘긴다. 진행 중인 판이 없으면 비어 있는 표시(ShowIdle)다.
+    // 번 Gold는 이 판의 합계일 뿐이다. 진행 상태의 Gold는 판이 끝난 뒤 결산이 바꾼다.
     public sealed class BattleScreen : UIRoot<BattleScreen.Refs>
     {
         public enum Refs
         {
             RemainingText,
+            EarnedGoldText,
             PauseBtn_Button,
             PauseBtn_Text,
             EndBtn_Button,
@@ -20,8 +23,10 @@ namespace BlackHole.Unity
         public event Action EndClicked;
 
         private TMP_Text _remaining;
+        private TMP_Text _earned;
         private TMP_Text _pauseLabel;
         private int _shownTenths = -1;
+        private long _shownEarned = -1;
         private bool? _shownPaused;
 
         protected override void OnInitialize()
@@ -29,6 +34,7 @@ namespace BlackHole.Unity
             ScreenRefs.WarnMissing<Refs>(this);
 
             _remaining = View.Text(Refs.RemainingText);
+            _earned = View.Text(Refs.EarnedGoldText);
             _pauseLabel = View.Text(Refs.PauseBtn_Text);
 
             BindEvent(View.Button(Refs.PauseBtn_Button), _ => PauseClicked?.Invoke());
@@ -44,6 +50,12 @@ namespace BlackHole.Unity
                 _remaining.text = "-";
             }
 
+            if (_shownEarned != long.MinValue && _earned != null)
+            {
+                _shownEarned = long.MinValue;
+                _earned.text = string.Empty;
+            }
+
             if (_shownPaused != false && _pauseLabel != null)
             {
                 _shownPaused = false;
@@ -52,14 +64,20 @@ namespace BlackHole.Unity
         }
 
         // 매 프레임 불러도 된다. 보이는 값이 바뀔 때만 글자를 고친다.
-        public void Show(float remainingSeconds, bool paused)
+        public void Show(float remainingSeconds, long earnedGold, bool paused)
         {
             int tenths = Mathf.CeilToInt(remainingSeconds * 10);
 
             if (tenths != _shownTenths && _remaining != null)
             {
                 _shownTenths = tenths;
-                _remaining.text = (tenths / 10f).ToString("F1");
+                _remaining.text = (tenths / 10f).ToString("F1", CultureInfo.InvariantCulture);
+            }
+
+            if (earnedGold != _shownEarned && _earned != null)
+            {
+                _shownEarned = earnedGold;
+                _earned.text = "+" + earnedGold.ToString("N0", CultureInfo.InvariantCulture) + " Gold";
             }
 
             if (paused != _shownPaused && _pauseLabel != null)

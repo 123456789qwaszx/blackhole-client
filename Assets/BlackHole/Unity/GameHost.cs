@@ -6,17 +6,18 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
-    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면, 적·전투 시스템, 오케스트레이터, 조준 입력, UI(UIManager와 업그레이드·전투 화면),
-    //   화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔·스킬 콘솔(개발용) 조립.
+    // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면, 적·전투 시스템, 오케스트레이터, 조준 입력,
+    //   UI(UIManager와 업그레이드·전투·결산 화면), 화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔·스킬 콘솔(개발용) 조립.
     // - Start: 업그레이드 화면을 연다. 전투는 업그레이드 화면의 Start battle(또는 전투 시작·종료 콘솔)로 오케스트레이터에 요청한다.
-    //   그 뒤로 화면은 전투 시스템의 상태를 따른다(ScreenFlow).
+    //   그 뒤로 화면은 전투 시스템과 결산 대기를 따른다(ScreenFlow): 전투 → 결산 → 업그레이드.
     // - Update: 조준 입력·스킬 콘솔 → 적·전투 시스템 → 화면 → 다른 콘솔 순서로 한 프레임을 넘긴다.
     //   스킬 콘솔은 판에 스킬 켜짐을 맞추므로 판이 진행하기 전에 부른다.
     //
     // 콘텐츠: 판 설정은 SampleContent(C#), 스킬은 스킬 설정 에셋, 적 종류는 적 종류 목록 에셋,
     // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
     // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다. 업그레이드 화면은 같은 에셋의 격자 칸으로 노드를 놓는다.
-    // 화면 프리팹을 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens).
+    // 화면은 씬의 UI Canvas에 놓인 화면 프리팹(UpgradeScreen·BattleScreen·SettlementScreen)을 Root Layer와 Registered Views로 받는다.
+    // 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens, 개발용 대체).
     // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed class GameHost : MonoBehaviour
     {
@@ -40,6 +41,7 @@ namespace BlackHole.Unity
         [Header("Presentations (비우면 빈 Presentation)")]
         [SerializeField] private UIPresentationSpec battlePresentation;
         [SerializeField] private UIPresentationSpec upgradePresentation;
+        [SerializeField] private UIPresentationSpec settlementPresentation;
 
         [Header("UI Context")]
         [SerializeField] private string themeId = "Light";
@@ -117,7 +119,8 @@ namespace BlackHole.Unity
                 layout,
                 viewer,
                 OrEmpty(battlePresentation, "Battle"),
-                OrEmpty(upgradePresentation, "Upgrade"));
+                OrEmpty(upgradePresentation, "Upgrade"),
+                OrEmpty(settlementPresentation, "Settlement"));
 
             if (displayRefreshDriver != null)
                 displayRefreshDriver.Initialize(ui);
