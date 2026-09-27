@@ -28,6 +28,7 @@
 | [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) | 판 조립 때 정하는 판 구성(생성)과 처치 보상(Gold)의 계획과 티켓 (BC-001~006) |
 | [ENEMY_UNLOCK_PLAN](ENEMY_UNLOCK_PLAN.md) | 단계·풀을 지우고 나오는 적 종류를 노드(해금 수치)가 정하게 하기 (EU-001~004 완료) |
 | [BLACKHOLE_GROWTH_PLAN](BLACKHOLE_GROWTH_PLAN.md) | 판 안의 블랙홀 성장: EXP·Level, 성장 노드를 산 뒤 Level업마다 시간 연장·추가 공급 (BG-001~005 완료) |
+| [BLACKHOLE_LEVEL_PLAN](BLACKHOLE_LEVEL_PLAN.md) | 블랙홀 Level을 판 밖 진행으로, Level이 색을, 변환·확률 노드가 종류를 정하고 이정표가 판을 끝내며 고정 보상 (BL-001~007) |
 | [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
 | [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
 | [AUTHORING_PAIN](AUTHORING_PAIN.md) | 현재 형식의 저작 시험 결과와 Authoring Pain 목록 (CA-002~, CA-006의 입력) |
