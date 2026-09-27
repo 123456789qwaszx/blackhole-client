@@ -6,7 +6,7 @@ namespace BlackHole.Core
     // 전투 조립에 필요한 검증된 공유 정의 묶음. 읽기 전용이며 여러 판이 함께 쓴다.
     //
     // 생성자 보장(구현 = ContentInvariants와 아래 검사):
-    // [1] 적 종류 ID가 유일하다.
+    // [1] 적 종류 ID가 유일하다. 변환 대상·부모 종류가 콘텐츠에 있고, 부모는 특수 종류가 아니며, 변환 사슬이 돌지 않는다.
     // [2] 전투 시작 공급이 있으면 출현 배치가 있다. 공급은 적을 정의 객체로 참조한다(ContentLoader가 ID를 해석하며 진단한다).
     // [3] 출현 배치가 있으면 전체 개체 수 상한이 1 이상이고, 전투 시작 공급이 그 안이다.
     // 업그레이드 노드는 이 묶음에 없다(NodeTree). 노드를 모두 산 경우의 검사는 UpgradeContentCheck가 한다.
@@ -50,6 +50,7 @@ namespace BlackHole.Core
 
             var diagnostics = new List<ContentDiagnostic>();
             ContentInvariants.CollectEnemies(Enemies, diagnostics, out _enemiesById);
+            ContentInvariants.CheckKindLinks(Enemies, _enemiesById, diagnostics);
 
             if (StartSupply.Count > 0 && EnemyPlacement == null)
                 diagnostics.Add(new ContentDiagnostic("EnemyPlacement", "공급이 있으면 출현 배치가 필요하다."));

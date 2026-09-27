@@ -76,8 +76,10 @@ namespace BlackHole.Core
         public EnemyBehaviorData Behavior;
         // 없거나 종류 이름이 비어 있으면 사망 효과가 없다.
         public DeathEffectData DeathEffect;
-        // 잠긴 채 시작하는가. 그러면 해금 노드(enemy.<종류>.unlock)를 사야 판에 나온다. 기본은 처음부터 나온다.
-        public bool StartsLocked;
+        // 변환 대상 종류의 ID(소행성 → 행성 → 별). 비어 있으면 변환하지 않는다. 비율은 노드(enemy.<종류>.upgrade)가 정한다.
+        public string UpgradesTo;
+        // 특수 종류이면 부모 종류의 ID. 비어 있으면 특수 종류가 아니다. 생성 확률은 노드(enemy.<종류>.chance)가 정한다.
+        public string SpecialOf;
     }
 
     // 색 등급 한 줄.

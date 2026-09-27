@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: electric-asteroid
   moveSpeed: 1.5
-  startsLocked: 1
+  upgradesTo: {fileID: 0}
+  specialOf: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
   tiers:
   - color: {r: 0.45, g: 0.75, b: 1, a: 1}
     maxHealth: 10

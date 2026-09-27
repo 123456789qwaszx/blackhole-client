@@ -47,6 +47,44 @@ namespace BlackHole.Core
             enemiesById = Index(enemies, "Enemies", "적", e => e.Id, into);
         }
 
+        // 종류 사이의 연결(BLACKHOLE_LEVEL_PLAN 4.3): 변환 대상과 부모 종류는 콘텐츠에 있어야 한다.
+        // 부모는 특수 종류가 아니어야 하고(한 단계), 변환 사슬은 제자리로 돌아오지 않는다(한 마리의 변환이 끝나야 한다).
+        public static void CheckKindLinks(
+            IReadOnlyList<EnemyDefinition> enemies,
+            IReadOnlyDictionary<string, EnemyDefinition> enemiesById,
+            ICollection<ContentDiagnostic> into)
+        {
+            foreach (EnemyDefinition kind in enemies)
+            {
+                if (kind == null)
+                    continue;
+
+                string at = $"Enemies[{kind.Id}]";
+
+                if (kind.UpgradesTo != null && !enemiesById.ContainsKey(kind.UpgradesTo))
+                    into.Add(new ContentDiagnostic(at + ".UpgradesTo", $"정의되지 않은 적 ID '{kind.UpgradesTo}'."));
+
+                if (kind.SpecialOf != null)
+                {
+                    if (!enemiesById.TryGetValue(kind.SpecialOf, out EnemyDefinition parent))
+                        into.Add(new ContentDiagnostic(at + ".SpecialOf", $"정의되지 않은 적 ID '{kind.SpecialOf}'."));
+                    else if (parent.IsSpecial)
+                        into.Add(new ContentDiagnostic(at + ".SpecialOf", $"부모 '{parent.Id}'도 특수 종류다. 부모는 특수 종류가 아니어야 한다."));
+                }
+
+                var seen = new HashSet<string>(StringComparer.Ordinal) { kind.Id };
+
+                for (EnemyDefinition next = kind; next.UpgradesTo != null && enemiesById.TryGetValue(next.UpgradesTo, out next);)
+                {
+                    if (!seen.Add(next.Id))
+                    {
+                        into.Add(new ContentDiagnostic(at + ".UpgradesTo", $"변환 사슬이 '{next.Id}'에서 다시 돈다."));
+                        break;
+                    }
+                }
+            }
+        }
+
         private static Dictionary<string, T> Index<T>(
             IReadOnlyList<T> items,
             string section,

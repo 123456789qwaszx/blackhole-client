@@ -10,7 +10,7 @@ namespace BlackHole.Core
     // 적이 생기고 죽는 일은 요청으로 들어와 쌓이고, Step의 정해진 자리에서 요청 순서대로 처리된다.
     // - 파괴 요청(RequestDestroy) → 13절 3. Damage / Death 자리: 그 적의 사망을 확정한다(피해·HP 계산 없음).
     // - 생성 요청(RequestSpawn)  → 13절 7. Enemy Supply 자리: 생성 여과 장치를 거쳐 한 마리씩 생성한다.
-    //   한 마리마다: 생성 여과(해금·전체 상한) → 색 등급(그 종류의 색 비율) → 황금 여부(그 종류의 황금 비율) → 위치.
+    //   한 마리마다: 생성 여과(전체 상한) → 종류(변환 사슬 → 특수 종류) → 색 등급(그 종류의 색 비율) → 황금 여부(그 종류의 황금 비율) → 위치.
     //   색과 황금은 몫 방식(QuotaPicker)으로 정한다. 수치(Gold 포함)는 판의 적 수치 표에서 (종류, 색 등급, 황금)의 값이다.
     // 같은 Step에서 사망이 생성보다 먼저다. 그래서 죽어서 비운 자리(전체 상한)에 같은 Step의 생성이 들어갈 수 있다.
     // 생성된 적은 다음 Step부터 움직이고 공격 대상이 된다. 처리되지 않은 요청은 판 정리가 버린다.
@@ -27,6 +27,10 @@ namespace BlackHole.Core
         // 황금 몫은 황금 비율이 0보다 큰 종류에만 있고, 칸은 (보통, 황금) 둘이다.
         private readonly Dictionary<EnemyDefinition, QuotaPicker> _tierPickers = new Dictionary<EnemyDefinition, QuotaPicker>();
         private readonly Dictionary<EnemyDefinition, QuotaPicker> _goldenPickers = new Dictionary<EnemyDefinition, QuotaPicker>();
+        // 종류마다 어떤 종류로 나오는가를 고르는 몫(BLACKHOLE_LEVEL_PLAN 4.3). 변환 몫은 칸이 (그대로, 변환 대상) 둘이고 변환 비율이 0보다 큰 종류에만,
+        // 특수 몫은 칸이 (그대로, 특수 종류들…)이고 특수 종류의 생성 확률 합이 0보다 큰 부모에만 있다.
+        private readonly Dictionary<EnemyDefinition, QuotaPicker> _upgradePickers = new Dictionary<EnemyDefinition, QuotaPicker>();
+        private readonly Dictionary<EnemyDefinition, QuotaPicker> _specialPickers = new Dictionary<EnemyDefinition, QuotaPicker>();
         private readonly List<SupplyRequest> _spawnRequests = new List<SupplyRequest>();
         private readonly List<Enemy> _destroyRequests = new List<Enemy>();
         private readonly List<BattlePlayer> _players;
@@ -61,16 +65,17 @@ namespace BlackHole.Core
             Hq = hq ?? throw new ArgumentNullException(nameof(hq));
             _placement = placement;
             _placementRandom = new BattleRandom(seed, BattleRandom.PlacementStream);
-            _filter = new SpawnFilter(Stats, maxAliveEnemies);
+            _filter = new SpawnFilter(maxAliveEnemies);
             MaxAliveEnemies = maxAliveEnemies;
             _players = new List<BattlePlayer>(players);
             Players = _players.AsReadOnly();
             PendingSpawns = _spawnRequests.AsReadOnly();
             PendingDestroys = _destroyRequests.AsReadOnly();
 
-            // 종류마다 처음 몫을 콘텐츠 순서로 흩뜨린다. 같은 콘텐츠·판 구성·seed면 같은 색·황금 순서가 나온다.
+            // 종류마다 처음 몫을 콘텐츠 순서로 흩뜨린다. 같은 콘텐츠·판 구성·seed면 같은 종류·색·황금 순서가 나온다.
             var tierRandom = new BattleRandom(seed, BattleRandom.TierStream);
             var goldenRandom = new BattleRandom(seed, BattleRandom.GoldenStream);
+            var kindRandom = new BattleRandom(seed, BattleRandom.KindStream);
 
             foreach (EnemyDefinition kind in stats.Kinds)
             {
@@ -80,6 +85,27 @@ namespace BlackHole.Core
 
                 if (golden > 0)
                     _goldenPickers.Add(kind, new QuotaPicker(new[] { 1 - golden, golden }, goldenRandom));
+
+                float upgrade = stats.CompositionOf(kind).UpgradeRatio;
+
+                if (upgrade > 0)
+                    _upgradePickers.Add(kind, new QuotaPicker(new[] { 1 - upgrade, upgrade }, kindRandom));
+
+                IReadOnlyList<EnemyDefinition> specials = stats.SpecialsOf(kind);
+                var chances = new float[specials.Count + 1];
+                float chanceSum = 0;
+
+                for (int i = 0; i < specials.Count; i++)
+                {
+                    chances[i + 1] = stats.CompositionOf(specials[i]).SpecialChance;
+                    chanceSum += chances[i + 1];
+                }
+
+                if (chanceSum > 0)
+                {
+                    chances[0] = Math.Max(0, 1 - chanceSum);
+                    _specialPickers.Add(kind, new QuotaPicker(chances, kindRandom));
+                }
             }
         }
 
@@ -126,7 +152,7 @@ namespace BlackHole.Core
 
         // 생성 요청: 이 종류를 몇 마리. 다음 공급 처리(Step의 Enemy Supply 자리) 때 처리된다.
         // 이 판의 종류가 아니거나, 콘텐츠에 출현 배치가 없으면 요청 때 거부한다.
-        // 잠긴 종류이거나 전체 상한에 닿았으면 처리 때 생성 여과 장치가 거른다.
+        // 전체 상한에 닿았으면 처리 때 생성 여과 장치가 거른다.
         public void RequestSpawn(SupplyRequest request)
         {
             Stats.Require(request.Enemy);
@@ -153,26 +179,47 @@ namespace BlackHole.Core
             return _enemies.ClearAlive();
         }
 
-        // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 생성 여과 장치를 거쳐 배치 띠 안에 생성한다.
+        // 공급 처리: 쌓인 생성 요청을 요청 순서대로, 한 마리씩 생성 여과 장치(전체 상한)를 거쳐 배치 띠 안에 생성한다.
         // 거른 요청은 버린다 — 나중에 자리가 나도 다시 나오지 않는다. 전투 시작 공급은 Begin(0초)이 바로 부른다.
-        // 색 등급과 황금은 여과를 통과한 뒤에 고른다. 여과는 종류와 수만 보므로 색·황금 때문에 걸러지는 일은 없고,
-        // 걸러진 요청은 몫을 쓰지 않는다.
+        // 여과를 통과한 한 마리마다: 어떤 종류로 나오는가(변환 사슬 → 특수 종류) → 색 등급 → 황금 → 위치.
+        // 여과는 수만 보므로 종류·색·황금 때문에 걸러지는 일은 없고, 걸러진 요청은 몫을 쓰지 않는다.
         internal void ProcessSpawnRequests()
         {
             foreach (SupplyRequest request in _spawnRequests)
             {
                 for (int i = 0; i < request.Count; i++)
                 {
-                    if (!_filter.Allows(request.Enemy, _enemies))
+                    if (!_filter.Allows(_enemies))
                         continue;
 
-                    int tier = _tierPickers[request.Enemy].Pick();
-                    bool golden = _goldenPickers.TryGetValue(request.Enemy, out QuotaPicker goldenPicker) && goldenPicker.Pick() == 1;
-                    _enemies.Spawn(request.Enemy, tier, golden, Stats.Of(request.Enemy, tier, golden), _placement.Pick(_placementRandom));
+                    EnemyDefinition kind = KindOf(request.Enemy);
+                    int tier = _tierPickers[kind].Pick();
+                    bool golden = _goldenPickers.TryGetValue(kind, out QuotaPicker goldenPicker) && goldenPicker.Pick() == 1;
+                    _enemies.Spawn(kind, tier, golden, Stats.Of(kind, tier, golden), _placement.Pick(_placementRandom));
                 }
             }
 
             _spawnRequests.Clear();
+        }
+
+        // 요청한 종류에서 이 한 마리가 나올 종류: 변환 몫이 있으면 그 비율만큼 다음 종류로(사슬로 이어진다),
+        // 그렇게 정해진 종류에 특수 몫이 있으면 그 확률만큼 특수 종류로.
+        private EnemyDefinition KindOf(EnemyDefinition requested)
+        {
+            EnemyDefinition kind = requested;
+
+            while (_upgradePickers.TryGetValue(kind, out QuotaPicker upgrade) && upgrade.Pick() == 1)
+                kind = Stats.UpgradeTargetOf(kind);
+
+            if (_specialPickers.TryGetValue(kind, out QuotaPicker special))
+            {
+                int picked = special.Pick();
+
+                if (picked > 0)
+                    kind = Stats.SpecialsOf(kind)[picked - 1];
+            }
+
+            return kind;
         }
 
         internal void BeginAdvance()
@@ -190,7 +237,7 @@ namespace BlackHole.Core
         // 3. Damage / Death: 쌓인 파괴 요청의 사망을 확정한다.
         // 4. Death Effect: 이번 Step에 피해로 죽은 효과 보유 적의 효과를 사망 순서대로 처리한다. 효과로 죽은 적도 같은 Step의 사망이다.
         // 5. HQ EXP / Level: 쌓인 EXP로 블랙홀의 Level을 올린다.
-        // 6. Growth: 오른 Level마다 해금된 종류의 성장 공급을 생성 요청으로 넣는다. 시간 연장은 판(GameSession)이 종료 판정 전에 한다.
+        // 6. Growth: 오른 Level마다 종류의 성장 공급을 생성 요청으로 넣는다. 시간 연장은 판(GameSession)이 종료 판정 전에 한다.
         // 7. Enemy Supply: 쌓인 생성 요청을 처리한다.
         // Gold와 EXP는 따로 자리가 없다 — 사망이 확정되는 순간 그 적에 이미 정해져 있던 값이 이 판의 합계와 블랙홀에 든다.
         // 오른 Level 수를 돌려준다.
@@ -213,14 +260,14 @@ namespace BlackHole.Core
             return raised;
         }
 
-        // Level업 한 번의 성장 공급: 해금된 종류마다 판 구성의 성장 공급 수만큼(콘텐츠 종류 순서).
+        // Level업 한 번의 성장 공급: 종류마다 판 구성의 성장 공급 수만큼(콘텐츠 종류 순서). 나올 종류는 공급 처리가 변환·특수 확률로 정한다.
         private void RequestGrowthSupply()
         {
             foreach (EnemyDefinition kind in Stats.Kinds)
             {
                 EnemyComposition composition = Stats.CompositionOf(kind);
 
-                if (composition.Unlocked && composition.GrowthSupply > 0)
+                if (composition.GrowthSupply > 0)
                     RequestSpawn(new SupplyRequest(kind, composition.GrowthSupply));
             }
         }

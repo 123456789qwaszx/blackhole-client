@@ -95,17 +95,16 @@ namespace BlackHole.Core.Tests
         }
 
         // 성장 노드를 사면 Level업마다 이 판의 제한 시간이 늘고, 성장 공급이 같은 Step의 공급 처리에서 나온다.
-        // 성장 공급도 생성 요청이라 잠긴 종류는 나오지 않고, 전체 상한에 닿으면 버린다.
+        // 성장 공급도 생성 요청이라 전체 상한에 닿으면 버린다(여기서는 rock 둘 중 하나만 들어가고 hidden은 모두 버려진다).
         private static void LevelUpExtendsThisBattleAndRequestsSupply()
         {
             ContentData data = Arena(exp: 5, 5);
             EnemyData hidden = Kind(Hidden, exp: 5);
-            hidden.StartsLocked = true;
             data.Enemies.Add(hidden);
             data.MaxAliveEnemies = 3;
             GameContent content = TestContent.Load(data);
             content.TryGetEnemy(Rock, out EnemyDefinition rock);
-            content.TryGetEnemy(Hidden, out EnemyDefinition locked);
+            content.TryGetEnemy(Hidden, out EnemyDefinition hiddenKind);
             GameSession game = Grown(content, GrowthTime(3), GrowthSupply(Rock, 2), GrowthSupply(Hidden, 2));
             World world = game.World;
             float limit = game.TimeLimit.Limit;
@@ -118,7 +117,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(2, world.Hq.Level);
             Expect.Near(limit + 3, game.TimeLimit.Limit);
             Expect.Equal(3, world.CountAlive(rock));
-            Expect.Equal(0, world.CountAlive(locked));
+            Expect.Equal(0, world.CountAlive(hiddenKind));
             Expect.Equal(0, world.PendingSpawns.Count);
         }
 

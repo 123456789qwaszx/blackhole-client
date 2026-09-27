@@ -12,9 +12,9 @@ namespace BlackHole.Unity
 {
     // 조종 콘솔(개발용). 전투의 seed를 보여 준다. 전투 시작·종료는 다른 창(BattleLifecycleConsole)이다.
     //
-    // 아래에는 콘텐츠의 적 종류마다 "지금 살아 있는 수"와 해금 여부를 보여 준다. 해금은 산 노드가 정한다.
-    // - 판이 있으면 그 판의 해금과 지금 살아 있는 수(매 프레임).
-    // - 판이 없으면 지금 산 노드로 조립할 다음 판의 해금. 살아 있는 수는 '-'다.
+    // 아래에는 콘텐츠의 적 종류마다 "지금 살아 있는 수"와 나오는 방식(변환 비율·특수 확률)을 보여 준다. 둘 다 산 노드가 정한다.
+    // - 판이 있으면 그 판의 비율과 지금 살아 있는 수(매 프레임).
+    // - 판이 없으면 지금 산 노드로 조립할 다음 판의 비율. 살아 있는 수는 '-'다.
     // 종류 줄을 누르면 그 종류의 수치·형태·특성이 아래의 설명창에 나온다. 같은 줄을 다시 누르면 닫힌다.
     // 설명창은 판 구성(질량 단계, 시작·성장 공급 수, 황금 비율·배율), 색 비율을 고른 블랙홀 Level과 색 등급마다 비율·HP·크기·Gold·EXP(황금이 되는 종류는 황금 Gold도)를 보여 준다.
     // 판 구성은 산 노드가 정한다 — 노드는 업그레이드 화면에서 산다.
@@ -49,7 +49,7 @@ namespace BlackHole.Unity
 
         private int? _shownSeed;
         private bool _seedShown;
-        // 종류 줄이 마지막으로 본 판과 산 노드 수. 둘 중 하나가 바뀌면 해금을 다시 읽는다.
+        // 종류 줄이 마지막으로 본 판과 산 노드 수. 둘 중 하나가 바뀌면 비율을 다시 읽는다.
         private bool _kindsShown;
         private GameSession _shownKindsBattle;
         private int _shownKindsOwnedNodes;
@@ -139,7 +139,7 @@ namespace BlackHole.Unity
             bool live = battle != null;
             int owned = _orchestrator.Progress.OwnedNodes.Count;
 
-            // 해금은 판 동안 바뀌지 않는다. 판이 바뀌거나 노드를 샀을 때만 다시 읽는다.
+            // 변환 비율·특수 확률은 판 동안 바뀌지 않는다. 판이 바뀌거나 노드를 샀을 때만 다시 읽는다.
             if (!_kindsShown || battle != _shownKindsBattle || owned != _shownKindsOwnedNodes)
             {
                 _kindsShown = true;
@@ -153,7 +153,7 @@ namespace BlackHole.Unity
 
                 foreach (KindRow row in _rows)
                 {
-                    row.Unlocked = live ? battle.World.Stats.CompositionOf(row.Kind).Unlocked : next[row.Kind].Unlocked;
+                    row.Note = HowItAppears(row.Kind, live ? battle.World.Stats.CompositionOf(row.Kind) : next[row.Kind]);
                     row.Shown = false;
                 }
             }
@@ -167,7 +167,7 @@ namespace BlackHole.Unity
 
                 row.ShownCount = count;
                 row.Shown = true;
-                row.Label.text = $"  {row.Kind.Id}<pos=9em>{(live ? count.ToString() : "-")}<pos=12em>{(row.Unlocked ? "unlocked" : "locked")}";
+                row.Label.text = $"  {row.Kind.Id}<pos=9em>{(live ? count.ToString() : "-")}<pos=12em>{row.Note}";
             }
         }
 
@@ -288,6 +288,15 @@ namespace BlackHole.Unity
         // 0.001 → "0.1%". 황금 비율은 자릿수 단위로 바뀌므로 작은 값도 읽히게 쓴다.
         private static string Percent(float ratio) => (ratio * 100).ToString("0.###") + "%";
 
+        // 종류 줄의 한마디: 변환(요청의 몇 %가 다음 종류로), 특수 종류(부모 생성의 몇 %가 이 종류로).
+        private static string HowItAppears(EnemyDefinition kind, EnemyComposition composition)
+        {
+            if (kind.IsSpecial)
+                return $"{Percent(composition.SpecialChance)} of {kind.SpecialOf}";
+
+            return kind.UpgradesTo != null ? $"{Percent(composition.UpgradeRatio)} to {kind.UpgradesTo}" : string.Empty;
+        }
+
         // 가장 많이 나오는 색 등급(같으면 앞 번호). 형태 미리보기의 색으로 쓴다.
         private static int MostCommon(IReadOnlyList<float> ratios)
         {
@@ -358,7 +367,7 @@ namespace BlackHole.Unity
             public readonly Image Background;
             public readonly TMP_Text Label;
             public readonly EnemyDefinition Kind;
-            public bool Unlocked;
+            public string Note;
             public int ShownCount;
             public bool Shown;
 

@@ -99,7 +99,7 @@ namespace BlackHole.Core
         }
     }
 
-    // 적 종류 하나의 공유 정의: 이동 속도, 색 등급 표, Level별 색 비율, 질량 단계 표, 황금 배율, 행동, 사망 효과.
+    // 적 종류 하나의 공유 정의: 이동 속도, 색 등급 표, Level별 색 비율, 질량 단계 표, 황금 배율, 행동, 사망 효과, 변환 대상·부모 종류.
     // 종류는 계열(소행성·행성·별·달·혜성)이고 색은 종류 안에 둔다(BATTLE_COMPOSITION_PLAN 4.1). 색이 없는 종류는 색 등급이 한 줄이다.
     // 사망 효과는 종류에 붙는 특성이다(전기·폭발·처치 버프). HQ EXP는 색 등급마다 적는다(블랙홀 성장). 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
     public sealed class EnemyDefinition
@@ -119,8 +119,11 @@ namespace BlackHole.Core
         public EnemyBehaviorDefinition Behavior { get; }
         // 이 종류가 죽을 때의 효과. 없으면 null이다. 효과를 가진 적은 사망 효과의 피해를 받지 않는다.
         public DeathEffectDefinition DeathEffect { get; }
-        // 잠긴 채 시작하는가. 잠긴 종류는 해금 노드(EnemyUpgradeStats.Unlock)를 사야 판에 나온다(ENEMY_UNLOCK_PLAN 4.1).
-        public bool StartsLocked { get; }
+        // 이 종류의 생성 요청 중 변환 비율만큼이 나오는 다음 종류의 ID(소행성 → 행성 → 별). 없으면 null이다(BLACKHOLE_LEVEL_PLAN 4.3).
+        public string UpgradesTo { get; }
+        // 특수 종류이면 부모 종류의 ID. 부모로 정해진 생성 중 이 종류의 생성 확률만큼이 이 종류로 나온다. 없으면 null이다.
+        public string SpecialOf { get; }
+        public bool IsSpecial => SpecialOf != null;
 
         public EnemyDefinition(
             string id,
@@ -131,13 +134,20 @@ namespace BlackHole.Core
             float goldenMultiplier,
             EnemyBehaviorDefinition behavior,
             DeathEffectDefinition deathEffect = null,
-            bool startsLocked = false)
+            string upgradesTo = null,
+            string specialOf = null)
         {
             if (float.IsNaN(goldenMultiplier) || float.IsInfinity(goldenMultiplier) || goldenMultiplier < 0)
                 throw new ArgumentOutOfRangeException(nameof(goldenMultiplier), "0 이상의 유한한 값이 필요하다.");
 
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("ID가 비어 있다.", nameof(id));
+
+            if (upgradesTo == id)
+                throw new ArgumentException("자기 자신으로 변환할 수 없다.", nameof(upgradesTo));
+
+            if (specialOf == id)
+                throw new ArgumentException("자기 자신의 특수 종류일 수 없다.", nameof(specialOf));
 
             if (tiers == null || tiers.Count == 0)
                 throw new ArgumentException("색 등급이 하나 이상 필요하다.", nameof(tiers));
@@ -178,7 +188,8 @@ namespace BlackHole.Core
             GoldenMultiplier = goldenMultiplier;
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
             DeathEffect = deathEffect;
-            StartsLocked = startsLocked;
+            UpgradesTo = string.IsNullOrEmpty(upgradesTo) ? null : upgradesTo;
+            SpecialOf = string.IsNullOrEmpty(specialOf) ? null : specialOf;
         }
 
         // 블랙홀 Level이 level일 때의 색 비율: FromLevel ≤ level인 마지막 줄. level이 첫 줄보다 작으면 첫 줄이다.

@@ -16,7 +16,6 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsEnemyErrorsWithPath", ReportsEnemyErrorsWithPath);
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.SupplyNeedsPlacement", SupplyNeedsPlacement);
-            yield return new Contract("Content.UnlockDefaultsComeFromTheKind", UnlockDefaultsComeFromTheKind);
             yield return new Contract("Content.ReportsGrowthErrorsWithPath", ReportsGrowthErrorsWithPath);
             yield return new Contract("Content.ReportsLevelErrorsWithPath", ReportsLevelErrorsWithPath);
         }
@@ -80,29 +79,6 @@ namespace BlackHole.Core.Tests
             TestContent.HasDiagnostic(result, "EnemyPlacement", "배치");
         }
 
-        // 해금 기본값은 종류가 정한다: 잠긴 채 시작하지 않는 종류(기본)는 노드 없이 나오고, 잠긴 채 시작하는 종류는
-        // 해금 수치(enemy.<id>.unlock)를 1 이상으로 올리는 노드를 사야 나온다.
-        private static void UnlockDefaultsComeFromTheKind()
-        {
-            ContentData data = TestContent.Data();
-            data.Enemies.Add(TestContent.Enemy("open"));
-            EnemyData lockedData = TestContent.Enemy("locked");
-            lockedData.StartsLocked = true;
-            data.Enemies.Add(lockedData);
-            GameContent content = TestContent.Load(data);
-            content.TryGetEnemy("open", out EnemyDefinition open);
-            content.TryGetEnemy("locked", out EnemyDefinition locked);
-            Expect.True(!open.StartsLocked && locked.StartsLocked, "잠긴 채 시작하는가는 저작 데이터 그대로다.");
-
-            var state = new PlayerState(TestContent.First);
-            IReadOnlyDictionary<EnemyDefinition, EnemyComposition> plain = SessionAssembler.PreviewCompositions(content, state, null);
-            Expect.True(plain[open].Unlocked, "기본 종류는 노드 없이 해금돼 있다.");
-            Expect.True(!plain[locked].Unlocked, "잠긴 채 시작하는 종류는 노드 없이 잠겨 있다.");
-
-            NodeTree tree = TestContent.Owned(state, new Upgrade(EnemyUpgradeStats.Unlock(locked.Id), UpgradeOperation.Add, 1));
-            Expect.True(SessionAssembler.PreviewCompositions(content, state, tree)[locked].Unlocked, "해금 노드를 사면 해금된다.");
-        }
-
         // 샘플의 C# 부분(판 설정)은 [임시] 값이라 값 자체는 검사하지 않는다.
         // 적 종류는 Unity 에셋이 채우므로, C# 부분이 로드되는지만 본다.
         private static void SampleLoads()
@@ -161,7 +137,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(HqGrowthDefinition.StartLevel, TestContent.Load(data).Growth.MaxLevel);
         }
 
-        // Level별 색 비율의 오류: 시작 Level은 1 이상이고 앞 줄보다 커야 하며, 줄이 하나 이상 있어야 한다.
+        // Level별 색 비율과 종류 사이 연결의 오류: 시작 Level은 1 이상이고 앞 줄보다 커야 하며, 줄이 하나 이상 있어야 한다.
         // 색 등급과의 길이 맞춤은 ReportsEnemyErrorsWithPath가 본다.
         private static void ReportsLevelErrorsWithPath()
         {
@@ -182,6 +158,28 @@ namespace BlackHole.Core.Tests
             TestContent.HasDiagnostic(result, "Enemies[zero].LevelColors[0]", "fromLevel");
             TestContent.HasDiagnostic(result, "Enemies[backward]", "앞 줄");
             TestContent.HasDiagnostic(result, "Enemies[colorless]", "하나 이상");
+
+            // 종류 사이 연결: 변환 대상·부모는 콘텐츠에 있어야 하고, 부모는 특수 종류가 아니며, 변환 사슬은 돌지 않는다.
+            ContentData links = TestContent.Data();
+            EnemyData lost = TestContent.Enemy("lost");
+            lost.UpgradesTo = "ghost";
+            EnemyData parent = TestContent.Enemy("parent");
+            EnemyData child = TestContent.Enemy("child");
+            child.SpecialOf = "parent";
+            EnemyData grandchild = TestContent.Enemy("grandchild");
+            grandchild.SpecialOf = "child";
+            EnemyData ping = TestContent.Enemy("ping");
+            ping.UpgradesTo = "pong";
+            EnemyData pong = TestContent.Enemy("pong");
+            pong.UpgradesTo = "ping";
+            links.Enemies.AddRange(new[] { lost, parent, child, grandchild, ping, pong });
+
+            result = ContentLoader.Load(links);
+            Expect.Equal(4, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Enemies[lost].UpgradesTo", "ghost");
+            TestContent.HasDiagnostic(result, "Enemies[grandchild].SpecialOf", "특수 종류");
+            TestContent.HasDiagnostic(result, "Enemies[ping].UpgradesTo", "다시 돈다");
+            TestContent.HasDiagnostic(result, "Enemies[pong].UpgradesTo", "다시 돈다");
         }
 
         private static void ReportsEveryErrorWithPath()

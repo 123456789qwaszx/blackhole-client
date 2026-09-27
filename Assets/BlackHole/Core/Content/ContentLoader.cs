@@ -11,7 +11,7 @@ namespace BlackHole.Core
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
     // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·Level별 색 비율·질량 단계·사망 효과), 출현 배치, 블랙홀 성장의 Level 표.
-    // 2. 적 종류를 가리키는 것: 적 ID 유일, 공급, 전체 개체 수 상한.
+    // 2. 적 종류를 가리키는 것: 적 ID 유일, 종류 사이 연결(변환 대상·부모), 공급, 전체 개체 수 상한.
     // 3. 전체: 전투 시작 공급이 상한 안인가.
     // 업그레이드 노드는 여기서 읽지 않는다(NodeTreeLoader). 노드와 콘텐츠를 함께 보는 검사는 UpgradeContentCheck가 한다.
     public static class ContentLoader
@@ -37,6 +37,7 @@ namespace BlackHole.Core
                 return Fail(diagnostics);
 
             ContentInvariants.CollectEnemies(enemies, diagnostics, out Dictionary<string, EnemyDefinition> enemiesById);
+            ContentInvariants.CheckKindLinks(enemies, enemiesById, diagnostics);
             List<SupplyRequest> startSupply = LoadSupplyList(data.StartSupply, "StartSupply", enemiesById, diagnostics);
 
             if (startSupply.Count > 0 && placement == null)
@@ -118,7 +119,7 @@ namespace BlackHole.Core
                     continue;
 
                 EnemyDefinition enemy = Guard(at, into, () =>
-                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, levelColors, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.StartsLocked));
+                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, levelColors, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.UpgradesTo, item.SpecialOf));
 
                 if (enemy != null)
                     enemies.Add(enemy);

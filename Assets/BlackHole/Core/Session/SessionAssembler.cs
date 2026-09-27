@@ -16,9 +16,9 @@ namespace BlackHole.Core
     // 업그레이드: 노드 트리를 받으면 방장의 산 노드로 업그레이드 표(UpgradeTable)를 한 번 만들어 판에 둔다(GameSession.Upgrades).
     // 표는 판이 끝날 때까지 같다(전투 중에는 살 수 없다). 노드 트리가 없으면 빈 표다. 이 판의 값은 모두 여기서 한 번 계산한다:
     // - 참가자의 Breaker 수치(피해·주기·반지름·치명타 확률)는 이 표에서 계산한다(BreakerDefinition.Upgraded).
-    // - 적 종류의 판 구성(해금·질량 단계·황금 비율·황금 배율·더할 공급 수·성장 공급 수)은 이 표에서 계산한다(EnemyComposition.From).
+    // - 적 종류의 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수·성장 공급 수·변환 비율·특수 확률)은 이 표에서 계산한다(EnemyComposition.From).
     // - 블랙홀의 Level업마다 늘어나는 시간은 이 표에서 계산한다(HqUpgradeStats.GrowthTimeFrom). 블랙홀은 진행 상태의 누적 EXP에서 시작한다(Level은 판을 넘어 이어진다).
-    //   어떤 종류가 나오는가도 여기서 정해진다: 잠긴 종류는 이 판에 나오지 않는다(ENEMY_UNLOCK_PLAN).
+    //   어떤 종류가 나오는가도 여기서 정해진다: 요청한 종류에서 변환·특수 확률만큼 다른 종류로 나온다(BLACKHOLE_LEVEL_PLAN 4.3).
     // - 적 수치(Gold 포함)와 황금 비율은 판 구성으로, 색 비율은 판을 시작할 때의 블랙홀 Level로 적 수치 표(EnemyStatTable)에 옮겨 적는다.
     //
     // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·산 노드·seed·진행 시간이면 같은 결과가 나온다.
@@ -99,9 +99,9 @@ namespace BlackHole.Core
             return compositions;
         }
 
-        // 이 판의 전투 시작 공급: 콘텐츠의 공급 가운데 해금된 종류만 남기고, 판 구성의 더할 공급 수(산 공급 수 노드)를 더한다.
+        // 이 판의 전투 시작 공급: 콘텐츠의 공급에 판 구성의 더할 공급 수(산 공급 수 노드)를 더한다.
         // 종류가 콘텐츠 공급에 있으면 그 종류의 첫 요청에 더하고, 없으면 콘텐츠 종류 순서로 요청을 뒤에 붙인다.
-        // 잠긴 종류의 요청은 여기서 빠진다. 판 안의 생성 요청은 생성 여과 장치가 같은 규칙으로 거른다.
+        // 요청은 종류 × 수다. 실제로 어떤 종류로 나오는가는 공급 처리가 변환·특수 확률로 정한다.
         private static IReadOnlyList<SupplyRequest> StartSupplyOf(GameContent content, EnemyStatTable stats)
         {
             var supply = new List<SupplyRequest>();
@@ -109,12 +109,7 @@ namespace BlackHole.Core
 
             foreach (SupplyRequest request in content.StartSupply)
             {
-                EnemyComposition composition = stats.CompositionOf(request.Enemy);
-
-                if (!composition.Unlocked)
-                    continue;
-
-                int bonus = composition.StartSupplyBonus;
+                int bonus = stats.CompositionOf(request.Enemy).StartSupplyBonus;
 
                 if (bonus > 0 && bonused.Add(request.Enemy))
                     supply.Add(new SupplyRequest(request.Enemy, request.Count + bonus));
@@ -127,7 +122,7 @@ namespace BlackHole.Core
                 EnemyComposition composition = stats.CompositionOf(kind);
                 int bonus = composition.StartSupplyBonus;
 
-                if (composition.Unlocked && bonus > 0 && bonused.Add(kind))
+                if (bonus > 0 && bonused.Add(kind))
                     supply.Add(new SupplyRequest(kind, bonus));
             }
 

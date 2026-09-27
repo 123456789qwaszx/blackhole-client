@@ -20,7 +20,9 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.DeathEarnsItsGoldForTheBattleAtOnce", DeathEarnsItsGoldForTheBattleAtOnce);
             yield return new Contract("Enemy.EachBattleHasItsOwnEnemies", EachBattleHasItsOwnEnemies);
             yield return new Contract("Enemy.ForeignOrClearedEnemyTakesNoDamage", ForeignOrClearedEnemyTakesNoDamage);
-            yield return new Contract("Enemy.OnlyUnlockedKindsAppear", OnlyUnlockedKindsAppear);
+            yield return new Contract("Spawn.UpgradeTurnsTheRatioIntoTheNextKind", UpgradeTurnsTheRatioIntoTheNextKind);
+            yield return new Contract("Spawn.SpecialKindsNeedTheirChance", SpecialKindsNeedTheirChance);
+            yield return new Contract("Spawn.FilteredSpawnsUseNoKindQuota", FilteredSpawnsUseNoKindQuota);
             yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
             yield return new Contract("Composition.MassLevelScalesHealthAndGoldOnly", MassLevelScalesHealthAndGoldOnly);
             yield return new Contract("Composition.StartLevelChoosesTheColors", StartLevelChoosesTheColors);
@@ -477,42 +479,119 @@ namespace BlackHole.Core.Tests
             return TestContent.Session(data, seed);
         }
 
-        // 잠긴 종류는 판에 나오지 않는다: 전투 시작 공급에서 빠지고(더할 공급 수 노드를 사도), 판 안의 생성 요청은 버린다.
-        // 해금 노드를 사면 다음 판부터 나온다. 판의 해금은 조립 때 정해져, 판이 끝난 뒤 노드를 사도 그 판은 그대로다.
-        private static void OnlyUnlockedKindsAppear()
+        // 변환: 요청한 종류의 생성 중 변환 비율(%)만큼 다음 종류로 나오고, 다음 종류에서 다시 변환한다(사슬). 비율은 몫 방식으로 정확히 지킨다.
+        // 비율 0이면 바뀌지 않고, 100을 넘으면 100에서 멈춘다. 변환 대상이 없는 종류의 변환은 조립이 거부한다.
+        private static void UpgradeTurnsTheRatioIntoTheNextKind()
         {
-            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("open", 2), TestContent.Supply("locked", 3));
-            data.Enemies.Add(TestContent.Enemy("open"));
-            EnemyData lockedData = TestContent.Enemy("locked");
-            lockedData.StartsLocked = true;
-            data.Enemies.Add(lockedData);
-            GameContent content = TestContent.Load(data);
-            content.TryGetEnemy("locked", out EnemyDefinition locked);
+            GameContent content = TestContent.Load(ChainArena(20));
+            content.TryGetEnemy("rock", out EnemyDefinition rock);
+            content.TryGetEnemy("mid", out EnemyDefinition mid);
+            content.TryGetEnemy("top", out EnemyDefinition top);
+
+            GameSession plain = TestContent.Session(ChainArena(20));
+            Expect.Equal(20, plain.World.Enemies.Count);
+            foreach (Enemy enemy in plain.World.Enemies)
+                Expect.Equal("rock", enemy.Definition.Id);
+
+            GameSession chained = Upgraded(content, 0, Convert("rock", 50), Convert("mid", 50));
+            Expect.Equal(mid, chained.World.Stats.UpgradeTargetOf(rock));
+            Expect.Equal(10, chained.World.CountAlive(rock));
+            Expect.Equal(5, chained.World.CountAlive(mid));
+            Expect.Equal(5, chained.World.CountAlive(top));
+
+            GameSession all = Upgraded(content, 0, Convert("rock", 150));
+            Expect.Near(1, all.World.Stats.CompositionOf(rock).UpgradeRatio);
+            Expect.Equal(20, all.World.CountAlive(mid));
 
             var state = new PlayerState(TestContent.First);
-            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
-            Expect.True(!plain.World.Stats.CompositionOf(locked).Unlocked, "잠긴 채 시작하는 종류다.");
-            Expect.Equal(2, plain.World.Enemies.Count);
-            foreach (Enemy enemy in plain.World.Enemies)
-                Expect.Equal("open", enemy.Definition.Id);
-
-            plain.World.RequestSpawn(new SupplyRequest(locked, 1));
-            plain.Advance(0.1f);
-            Expect.Equal(0, plain.World.CountAlive(locked));
-            Expect.Equal(0, plain.World.PendingSpawns.Count);
-
-            GameSession bonused = Upgraded(content, 0,
-                new Upgrade(EnemyUpgradeStats.StartSupply(locked.Id), UpgradeOperation.Add, 2));
-            Expect.Equal(0, bonused.World.CountAlive(locked));
-
-            plain.RequestEnd();
-            NodeTree tree = TestContent.Owned(state, new Upgrade(EnemyUpgradeStats.Unlock(locked.Id), UpgradeOperation.Add, 1));
-            Expect.True(!plain.World.Stats.CompositionOf(locked).Unlocked, "끝난 판의 해금은 그대로다.");
-
-            GameSession unlocked = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
-            Expect.Equal(5, unlocked.World.Enemies.Count);
-            Expect.Equal(3, unlocked.World.CountAlive(locked));
+            NodeTree nowhere = TestContent.Owned(state, Convert("top", 10));
+            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, state, 0, nowhere));
         }
+
+        // 특수 종류: 확률 노드를 사기 전(기본 0)에는 나오지 않고, 확률(%)만큼 부모 대신 나온다.
+        // 한 부모의 특수 확률 합은 100%를 넘을 수 없고, 특수 종류가 아닌 종류의 확률은 올릴 수 없다(조립이 거부한다).
+        private static void SpecialKindsNeedTheirChance()
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("rock", 10));
+            data.Enemies.Add(TestContent.Enemy("rock"));
+            EnemyData spark = TestContent.Enemy("spark");
+            spark.SpecialOf = "rock";
+            EnemyData glow = TestContent.Enemy("glow");
+            glow.SpecialOf = "rock";
+            data.Enemies.Add(spark);
+            data.Enemies.Add(glow);
+            GameContent content = TestContent.Load(data);
+            content.TryGetEnemy("rock", out EnemyDefinition rock);
+            content.TryGetEnemy("spark", out EnemyDefinition sparkKind);
+            content.TryGetEnemy("glow", out EnemyDefinition glowKind);
+
+            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, new PlayerState(TestContent.First)));
+            Expect.Equal(10, plain.World.CountAlive(rock));
+            Expect.Equal(0, plain.World.CountAlive(sparkKind));
+
+            GameSession mixed = Upgraded(content, 0, Chance("spark", 30), Chance("glow", 20));
+            Expect.Equal(5, mixed.World.CountAlive(rock));
+            Expect.Equal(3, mixed.World.CountAlive(sparkKind));
+            Expect.Equal(2, mixed.World.CountAlive(glowKind));
+
+            var over = new PlayerState(TestContent.First);
+            NodeTree tooMuch = TestContent.Owned(over, Chance("spark", 60), Chance("glow", 50));
+            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, over, 0, tooMuch));
+            IReadOnlyList<ContentDiagnostic> check = UpgradeContentCheck.Check(content, tooMuch);
+            Expect.Equal(1, check.Count);
+            Expect.True(check[0].Message.Contains("100%"), "로드 검사가 특수 확률 합을 알려야 한다: " + check[0]);
+
+            var plainChance = new PlayerState(TestContent.First);
+            NodeTree notSpecial = TestContent.Owned(plainChance, Chance("rock", 10));
+            Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, plainChance, 0, notSpecial));
+            Expect.True(!over.InBattle && !plainChance.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
+        }
+
+        // 전체 상한에 걸려 버려진 요청은 변환 몫을 쓰지 않는다. 그래서 거른 요청이 섞여도 실제로 나온 적의 종류 순서는
+        // 걸러지는 일이 없던 판의 순서와 같다. 전체 상한 1인 판은 Step마다 한 마리를 치우고 세 마리를 요청한다(한 마리만 나온다).
+        private static void FilteredSpawnsUseNoKindQuota()
+        {
+            const int spawns = 8;
+            ContentData filteredData = ChainArena(1);
+            filteredData.MaxAliveEnemies = 1;
+            GameSession filtered = Upgraded(TestContent.Load(filteredData), 0, Convert("rock", 50));
+            GameSession roomy = Upgraded(TestContent.Load(ChainArena(spawns)), 0, Convert("rock", 50));
+            World world = filtered.World;
+            var seen = new List<string> { world.Enemies[0].Definition.Id };
+
+            for (int i = 1; i < spawns; i++)
+            {
+                EnemyDefinition requested = filtered.World.Stats.Kinds[0];
+                world.RequestDestroy(world.Enemies[0]);
+                world.RequestSpawn(new SupplyRequest(requested, 3));
+                filtered.Advance(0.01f);
+                Expect.Equal(1, world.Enemies.Count);
+                seen.Add(world.Enemies[0].Definition.Id);
+            }
+
+            for (int i = 0; i < spawns; i++)
+                Expect.Equal(roomy.World.Enemies[i].Definition.Id, seen[i]);
+        }
+
+        // rock → mid → top 사슬이 있는 판. rock을 count마리 공급한다.
+        private static ContentData ChainArena(int count)
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply("rock", count));
+            EnemyData rock = TestContent.Enemy("rock");
+            rock.UpgradesTo = "mid";
+            EnemyData mid = TestContent.Enemy("mid");
+            mid.UpgradesTo = "top";
+            data.Enemies.Add(rock);
+            data.Enemies.Add(mid);
+            data.Enemies.Add(TestContent.Enemy("top"));
+            return data;
+        }
+
+        private static Upgrade Convert(string kindId, float percent) =>
+            new Upgrade(EnemyUpgradeStats.Upgrade(kindId), UpgradeOperation.Add, percent);
+
+        private static Upgrade Chance(string kindId, float percent) =>
+            new Upgrade(EnemyUpgradeStats.Chance(kindId), UpgradeOperation.Add, percent);
 
         // 요청마다 정해진 수가 요청 순서대로 나온다. 모두 HQ로부터 띠 [2, 4] 안에 있고, 체력은 가득 차 있다.
         private static void StartSupplyPlacesEveryRequestInsideBand()

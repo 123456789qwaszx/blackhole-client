@@ -254,7 +254,7 @@ MonoBehaviour:
       - Stat: enemy.asteroid.golden-ratio
         Operation: 0
         Value: 0.0005
-    - Id: electric-asteroid-unlock
+    - Id: electric-asteroid-chance-1
       Price: 500
       Start: 0
       X: -5
@@ -262,10 +262,10 @@ MonoBehaviour:
       Links:
       - asteroid-mass-4
       Upgrades:
-      - Stat: enemy.electric-asteroid.unlock
+      - Stat: enemy.electric-asteroid.chance
         Operation: 0
-        Value: 1
-    - Id: planet-unlock
+        Value: 10
+    - Id: asteroid-to-planet-1
       Price: 30000
       Start: 0
       X: -9
@@ -273,19 +273,27 @@ MonoBehaviour:
       Links:
       - asteroid-mass-8
       Upgrades:
-      - Stat: enemy.planet.unlock
+      - Stat: enemy.asteroid.upgrade
         Operation: 0
-        Value: 1
-      - Stat: enemy.moon.unlock
+        Value: 52
+    - Id: moon-chance-1
+      Price: 40000
+      Start: 0
+      X: -8
+      Y: -1
+      Links:
+      - asteroid-to-planet-1
+      Upgrades:
+      - Stat: enemy.moon.chance
         Operation: 0
-        Value: 1
+        Value: 10
     - Id: planet-mass-1
       Price: 50000
       Start: 0
       X: -9
       Y: -2
       Links:
-      - planet-unlock
+      - asteroid-to-planet-1
       Upgrades:
       - Stat: enemy.planet.mass-level
         Operation: 0
@@ -323,7 +331,7 @@ MonoBehaviour:
       - Stat: enemy.planet.mass-level
         Operation: 0
         Value: 1
-    - Id: comet-unlock
+    - Id: comet-chance-1
       Price: 2000000
       Start: 0
       X: -6
@@ -331,9 +339,9 @@ MonoBehaviour:
       Links:
       - planet-mass-4
       Upgrades:
-      - Stat: enemy.comet.unlock
+      - Stat: enemy.comet.chance
         Operation: 0
-        Value: 1
+        Value: 10
     - Id: planet-mass-5
       Price: 4050000
       Start: 0
@@ -444,7 +452,7 @@ MonoBehaviour:
       - Stat: enemy.asteroid.golden-multiplier
         Operation: 0
         Value: 4150
-    - Id: star-unlock
+    - Id: planet-to-star-1
       Price: 200000000
       Start: 0
       X: -2
@@ -452,16 +460,16 @@ MonoBehaviour:
       Links:
       - planet-mass-8
       Upgrades:
-      - Stat: enemy.star.unlock
+      - Stat: enemy.planet.upgrade
         Operation: 0
-        Value: 1
+        Value: 10
     - Id: star-mass-1
       Price: 500000000
       Start: 0
       X: -2
       Y: -6
       Links:
-      - star-unlock
+      - planet-to-star-1
       Upgrades:
       - Stat: enemy.star.mass-level
         Operation: 0
@@ -499,7 +507,7 @@ MonoBehaviour:
       - Stat: enemy.star.mass-level
         Operation: 0
         Value: 1
-    - Id: supernova-unlock
+    - Id: supernova-chance-1
       Price: 20000000000
       Start: 0
       X: -5
@@ -507,9 +515,9 @@ MonoBehaviour:
       Links:
       - star-mass-4
       Upgrades:
-      - Stat: enemy.supernova.unlock
+      - Stat: enemy.supernova.chance
         Operation: 0
-        Value: 1
+        Value: 10
     - Id: star-mass-5
       Price: 40500000000
       Start: 0

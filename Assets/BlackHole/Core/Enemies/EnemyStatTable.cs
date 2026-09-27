@@ -15,6 +15,8 @@ namespace BlackHole.Core
     public sealed class EnemyStatTable
     {
         private readonly Dictionary<EnemyDefinition, Row> _rows = new Dictionary<EnemyDefinition, Row>();
+        private readonly Dictionary<EnemyDefinition, EnemyDefinition> _upgradeTargets = new Dictionary<EnemyDefinition, EnemyDefinition>();
+        private readonly Dictionary<EnemyDefinition, List<EnemyDefinition>> _specials = new Dictionary<EnemyDefinition, List<EnemyDefinition>>();
 
         // 이 판의 색 비율을 고른 블랙홀 Level(판을 시작할 때의 Level). 판 중에 Level이 올라도 그대로다.
         public int Level { get; }
@@ -65,9 +67,65 @@ namespace BlackHole.Core
             }
 
             Kinds = Array.AsReadOnly(kinds);
+            LinkKinds(kinds);
         }
 
-        // 이 판에서 이 종류의 판 구성(질량 단계·황금 비율·황금 배율).
+        // 이 종류의 생성 중 변환 비율만큼 나오는 다음 종류. 없으면 null이다.
+        public EnemyDefinition UpgradeTargetOf(EnemyDefinition kind)
+        {
+            Require(kind);
+            return _upgradeTargets.TryGetValue(kind, out EnemyDefinition target) ? target : null;
+        }
+
+        // 이 종류로 정해진 생성 중 생성 확률만큼 대신 나오는 특수 종류(콘텐츠 순서). 없으면 비어 있다.
+        public IReadOnlyList<EnemyDefinition> SpecialsOf(EnemyDefinition kind)
+        {
+            Require(kind);
+            return _specials.TryGetValue(kind, out List<EnemyDefinition> specials) ? specials : (IReadOnlyList<EnemyDefinition>)Array.Empty<EnemyDefinition>();
+        }
+
+        // 변환 대상과 부모 종류를 이 판의 종류로 잇는다. 없는 종류는 예외다(콘텐츠 로드가 먼저 막는다).
+        // 한 부모의 특수 종류 생성 확률 합은 1을 넘을 수 없다 — 부모 대신 나오는 몫이기 때문이다.
+        private void LinkKinds(EnemyDefinition[] kinds)
+        {
+            var byId = new Dictionary<string, EnemyDefinition>(StringComparer.Ordinal);
+
+            foreach (EnemyDefinition kind in kinds)
+                byId[kind.Id] = kind;
+
+            var chanceSums = new Dictionary<EnemyDefinition, float>();
+
+            foreach (EnemyDefinition kind in kinds)
+            {
+                if (kind.UpgradesTo != null)
+                    _upgradeTargets.Add(kind, Find(byId, kind.UpgradesTo, kind));
+
+                if (kind.SpecialOf == null)
+                    continue;
+
+                EnemyDefinition parent = Find(byId, kind.SpecialOf, kind);
+
+                if (!_specials.TryGetValue(parent, out List<EnemyDefinition> specials))
+                    _specials.Add(parent, specials = new List<EnemyDefinition>());
+
+                specials.Add(kind);
+                float sum = (chanceSums.TryGetValue(parent, out float before) ? before : 0) + CompositionOf(kind).SpecialChance;
+                chanceSums[parent] = sum;
+
+                if (sum > 1 + 1e-4f)
+                    throw new ArgumentException($"'{parent.Id}'의 특수 종류 생성 확률 합이 100%를 넘는다({sum * 100:0.##}%).");
+            }
+        }
+
+        private static EnemyDefinition Find(Dictionary<string, EnemyDefinition> byId, string id, EnemyDefinition from)
+        {
+            if (!byId.TryGetValue(id, out EnemyDefinition kind))
+                throw new ArgumentException($"'{from.Id}'가 가리키는 종류 '{id}'가 이 판에 없다.");
+
+            return kind;
+        }
+
+        // 이 판에서 이 종류의 판 구성(질량 단계·황금 비율·황금 배율·공급·변환·특수 확률).
         public EnemyComposition CompositionOf(EnemyDefinition kind) => RowOf(kind).Composition;
 
         // 이 판에서 이 종류의 색 비율(색 등급 표 순서). 판을 시작할 때의 블랙홀 Level로 고른 줄이다.

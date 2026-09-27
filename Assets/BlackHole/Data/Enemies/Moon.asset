@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: BlackHole.Unity::BlackHole.Unity.EnemyKind
   id: moon
   moveSpeed: 1.2
-  startsLocked: 1
+  upgradesTo: {fileID: 0}
+  specialOf: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
   tiers:
   - color: {r: 0.85, g: 0.86, b: 0.9, a: 1}
     maxHealth: 20
