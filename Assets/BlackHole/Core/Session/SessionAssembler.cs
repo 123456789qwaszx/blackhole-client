@@ -32,29 +32,33 @@ namespace BlackHole.Core
 
         public static GameSession CreateBattle(GameContent content, IReadOnlyList<PlayerState> states, int stage, int seed, NodeTree nodes = null)
         {
-            if (content == null)
-                throw new ArgumentNullException(nameof(content));
-
-            if (stage < FirstStage || stage > content.StageCount)
-                throw new ArgumentOutOfRangeException(
-                    nameof(stage), $"단계는 {FirstStage}부터 {content.StageCount}까지다. 받은 값: {stage}.");
-
-            VerifyParticipants(states);
-
             var players = new List<PlayerState>(states);
             var upgrades = new Dictionary<PlayerId, UpgradeTable>();
             var battlePlayers = new List<BattlePlayer>();
 
             foreach (PlayerState state in players)
             {
-                UpgradeTable table = nodes == null ? new UpgradeTable(Array.Empty<Upgrade>()) : NodePurchase.UpgradesFor(state, nodes);
+                UpgradeTable table = nodes == null 
+                    ? new UpgradeTable(Array.Empty<Upgrade>()) 
+                    : NodePurchase.UpgradesFor(state, nodes);
+                
                 upgrades.Add(state.Id, table);
                 // 판 안의 참가자: 콘텐츠의 스킬을 모두 받는다. Breaker 수치는 그 참가자의 표로 계산한다(레이저를 보정하는 노드는 아직 없다).
-                battlePlayers.Add(new BattlePlayer(state.Id, content.Breaker?.Upgraded(table), content.Laser, seed));
+                battlePlayers.Add(
+                    new BattlePlayer(
+                        state.Id, 
+                        content.Breaker?.Upgraded(table), 
+                        content.Laser, 
+                        seed));
             }
 
             // 적의 수치(Gold 포함)와 색·황금 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
-            var stats = new EnemyStatTable(content.Enemies, CompositionsOf(content, players.Count == 1 ? upgrades[players[0].Id] : null));
+            var stats = new EnemyStatTable(
+                content.Enemies, 
+                CompositionsOf(content, players.Count == 1 
+                    ? upgrades[players[0].Id] 
+                    : null));
+            
             var world = new World(
                 seed,
                 content.GetStage(stage).Pool,
@@ -62,6 +66,7 @@ namespace BlackHole.Core
                 content.EnemyPlacement,
                 content.MaxAliveEnemies,
                 battlePlayers);
+            
             var session = new GameSession(
                 world,
                 new TimeLimitRule(content.TimeLimit),
@@ -84,12 +89,8 @@ namespace BlackHole.Core
         public static IReadOnlyDictionary<EnemyDefinition, EnemyComposition> PreviewCompositions(
             GameContent content, IReadOnlyList<PlayerState> states, NodeTree nodes)
         {
-            if (content == null)
-                throw new ArgumentNullException(nameof(content));
-
-            UpgradeTable shared = states != null && states.Count == 1
-                ? (nodes == null ? new UpgradeTable(Array.Empty<Upgrade>()) : NodePurchase.UpgradesFor(states[0], nodes))
-                : null;
+            UpgradeTable shared = NodePurchase.UpgradesFor(states[0], nodes);
+            
             return CompositionsOf(content, shared);
         }
 
@@ -129,28 +130,6 @@ namespace BlackHole.Core
             }
 
             return supply.AsReadOnly();
-        }
-
-        private static void VerifyParticipants(IReadOnlyList<PlayerState> states)
-        {
-            if (states == null || states.Count == 0)
-                throw new ArgumentException(
-                    "참가 Player가 한 명 이상 필요하다.", nameof(states));
-
-            var ids = new HashSet<PlayerId>();
-
-            foreach (PlayerState state in states)
-            {
-                if (state == null)
-                    throw new ArgumentException("PlayerState가 비어 있다.", nameof(states));
-
-                if (!ids.Add(state.Id))
-                    throw new ArgumentException(
-                        $"{state.Id}가 두 번 참가했다.", nameof(states));
-
-                if (state.InBattle)
-                    throw new InvalidOperationException($"{state.Id}는 이미 진행 중인 전투에 들어가 있다.");
-            }
         }
     }
 }
