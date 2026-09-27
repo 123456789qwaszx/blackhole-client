@@ -28,6 +28,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.TierStatsComeFromTheMassLevel", TierStatsComeFromTheMassLevel);
             yield return new Contract("Enemy.TierRatioHoldsAtEveryCount", TierRatioHoldsAtEveryCount);
             yield return new Contract("Enemy.GoldenIsFixedAtSpawnAndMultipliesGold", GoldenIsFixedAtSpawnAndMultipliesGold);
+            yield return new Contract("Enemy.FilteredSpawnsUseNoTierGoldenOrPlacement", FilteredSpawnsUseNoTierGoldenOrPlacement);
             yield return new Contract("Enemy.TotalAliveNeverExceedsTheCap", TotalAliveNeverExceedsTheCap);
             yield return new Contract("Enemy.KillsAreTalliedByKind", KillsAreTalliedByKind);
             yield return new Contract("Enemy.SpawnRequestsWaitForTheNextStep", SpawnRequestsWaitForTheNextStep);
@@ -207,6 +208,62 @@ namespace BlackHole.Core.Tests
             NodeTree tooHeavy = TestContent.Owned(state, Mass(kind, 2));
             Expect.Throws<ArgumentOutOfRangeException>(() => SessionAssembler.CreateBattle(content, new[] { state }, 1, 0, tooHeavy));
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
+        }
+
+        // 풀 여과 장치가 거른 생성 요청은 색·황금 몫과 위치 난수를 쓰지 않는다. 그래서 거른 요청이 섞여도 실제로 나온 적의
+        // (색, 황금, 위치) 순서는 걸러지는 일이 없던 판의 순서와 같다. 최대 수 1인 판은 Step마다 한 마리를 치우고 세 마리를 요청한다
+        // (한 마리 나오고 두 마리는 걸러진다). 걸러진 요청이 몫을 썼다면 나온 순서가 1, 2, 5, 8…번째가 된다.
+        private static void FilteredSpawnsUseNoTierGoldenOrPlacement()
+        {
+            const int spawns = 7;
+            const int seed = 11;
+            GameSession filtered = QuotaSession(maxAlive: 1, startSupply: 1, seed);
+            GameSession roomy = QuotaSession(maxAlive: TestContent.RoomyMax, startSupply: 1 + 3 * (spawns - 1), seed);
+            World world = filtered.World;
+            // 나온 순간의 (색, 황금, 위치). 적은 치워지기 전 Step에도 움직이므로 위치는 나온 순간에 적어 둔다.
+            var seen = new List<(int Tier, bool Golden, Point2 Position)>();
+            seen.Add((world.Enemies[0].Tier, world.Enemies[0].IsGolden, world.Enemies[0].Position));
+
+            for (int i = 1; i < spawns; i++)
+            {
+                world.RequestDestroy(world.Enemies[0]);
+                world.RequestSpawn(new SupplyRequest(world.Enemies[0].Definition, 3));
+                filtered.Advance(0.01f);
+                Expect.Equal(1, world.Enemies.Count);
+                seen.Add((world.Enemies[0].Tier, world.Enemies[0].IsGolden, world.Enemies[0].Position));
+            }
+
+            bool consumingWouldDiffer = false;
+
+            for (int i = 0; i < spawns; i++)
+            {
+                Enemy expected = roomy.World.Enemies[i];
+                Expect.Equal(expected.Tier, seen[i].Tier);
+                Expect.Equal(expected.IsGolden, seen[i].Golden);
+                Expect.Equal(expected.Position, seen[i].Position);
+
+                Enemy consumed = roomy.World.Enemies[i == 0 ? 0 : 3 * i - 2];
+                consumingWouldDiffer |= consumed.Tier != expected.Tier || consumed.IsGolden != expected.IsGolden;
+            }
+
+            Expect.True(consumingWouldDiffer, "이 seed에서는 걸러진 요청이 몫을 썼을 때의 순서가 달라야 계약이 의미가 있다.");
+        }
+
+        // 색 셋(비율 0.2·0.3·0.5), 황금 비율 1/3인 종류가 나오는 판. 종류의 최대 수와 전투 시작 공급 수를 정한다.
+        private static GameSession QuotaSession(int maxAlive, int startSupply, int seed)
+        {
+            ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, startSupply));
+            EnemyData kindData = TestContent.Tiered(TestContent.EnemyId, 1, false,
+                TestContent.Tier(10, 0.2f, 1),
+                TestContent.Tier(10, 0.2f, 2),
+                TestContent.Tier(10, 0.2f, 3));
+            kindData.MassLevels.Add(TestContent.MassLevel(1, 1, 0.2f, 0.3f, 0.5f));
+            kindData.GoldenMultiplier = 50;
+            data.Enemies.Add(kindData);
+            TestContent.Allow(data, TestContent.EnemyId, maxAlive);
+            GameContent content = TestContent.Load(data);
+            content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
+            return Upgraded(content, seed, Golden(kind, 1f / 3));
         }
 
         // 이 종류의 질량 단계를 level만큼 올리는 업그레이드.
