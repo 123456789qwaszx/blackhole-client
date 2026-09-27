@@ -15,7 +15,8 @@ namespace BlackHole.Unity
     // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
     // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다. 업그레이드 화면은 같은 에셋의 격자 칸으로 노드를 놓는다.
     // 화면은 씬의 UI Canvas에 놓인 화면 프리팹(UpgradeScreen·BattleScreen·SettlementScreen)을 Root Layer와 Registered Views로 받는다.
-    // 세 화면과 Root/Panel Layer를 씬에서 연결해야 한다. 누락된 연결은 조립 전에 오류로 알린다.
+    // 업그레이드 화면 안의 트리 보기 페이지(NodeTreeView)도 Registered Views에 넣는다.
+    // 세 화면·트리 보기 페이지와 Root/Panel Layer를 씬에서 연결해야 한다. 누락된 연결은 조립 전에 오류로 알린다.
     // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed class GameBootstrap : MonoBehaviour
     {
@@ -40,6 +41,7 @@ namespace BlackHole.Unity
         [SerializeField] private UIPresentationSpec battlePresentation;
         [SerializeField] private UIPresentationSpec upgradePresentation;
         [SerializeField] private UIPresentationSpec settlementPresentation;
+        [SerializeField] private UIPresentationSpec nodeTreePresentation;
 
         [Header("UI Context")]
         [SerializeField] private string themeId = "Light";
@@ -61,7 +63,6 @@ namespace BlackHole.Unity
         private PlayerState _viewer;
         private AimInput _aim;
         private UIManager _ui;
-        private NodeTreeView _treeView;
         private ScreenFlow _screens;
         private ControlConsole _console;
         private BattleLifecycleConsole _lifecycleConsole;
@@ -137,7 +138,8 @@ namespace BlackHole.Unity
                 OrEmpty(battlePresentation, "Battle"),
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
-                _battle, _orchestrator, _nodeTree, BuildNodeItems(_nodeTree, _layout), _treeView, _viewer);
+                OrEmpty(nodeTreePresentation, "NodeTree"),
+                _battle, _orchestrator, _nodeTree, BuildNodeItems(_nodeTree, _layout), _viewer);
         }
 
         private void BootstrapDevelopmentConsoles()
@@ -185,27 +187,23 @@ namespace BlackHole.Unity
                 bool hasUpgrade = false;
                 bool hasBattle = false;
                 bool hasSettlement = false;
+                bool hasNodeTree = false;
 
                 foreach (UIBase view in views)
                 {
-                    if (view is UpgradeScreen upgrade)
-                    {
-                        hasUpgrade = true;
-                        // 트리 보기는 업그레이드 화면 프리팹 안에 있다. 화면 클래스는 모르고, ScreenFlow가 받아 쓴다.
-                        _treeView = upgrade.GetComponentInChildren<NodeTreeView>(true);
-                    }
-
+                    hasUpgrade |= view is UpgradeScreen;
                     hasBattle |= view is BattleScreen;
                     hasSettlement |= view is SettlementScreen;
+                    hasNodeTree |= view is NodeTreeView;
                 }
 
-                if (hasUpgrade && hasBattle && hasSettlement && _treeView != null)
+                if (hasUpgrade && hasBattle && hasSettlement && hasNodeTree)
                     return true;
             }
 
             Debug.LogError(
-                "[UI] GameBootstrap에 Root Layer, Panel Layer와 UpgradeScreen·BattleScreen·SettlementScreen을 Registered Views로 연결해야 한다. " +
-                "UpgradeScreen 프리팹 안에는 트리 보기(NodeTreeView)가 있어야 한다.",
+                "[UI] GameBootstrap에 Root Layer, Panel Layer와 UpgradeScreen·BattleScreen·SettlementScreen, " +
+                "업그레이드 화면 안의 트리 보기 페이지(NodeTreeView)를 Registered Views로 연결해야 한다.",
                 this);
             return false;
         }

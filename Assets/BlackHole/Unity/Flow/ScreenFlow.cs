@@ -11,30 +11,30 @@ namespace BlackHole.Unity
         private readonly UIPresentationSpec _battlePresentation;
         private readonly UIPresentationSpec _upgradePresentation;
         private readonly UIPresentationSpec _settlementPresentation;
+        private readonly UIPresentationSpec _nodeTreePresentation;
         private readonly BattleSystem _battle;
         private readonly BattleOrchestrator _orchestrator;
         private readonly NodeTree _tree;
         // 업그레이드 화면에 그릴 노드(칸·가격). 조립 때 저작 데이터의 격자 칸으로 만들어 받는다.
         private readonly IReadOnlyList<NodeTreeView.NodeItem> _nodes;
-        // 업그레이드 화면 프리팹 안의 트리 보기. 조립 때 찾아 받는다.
-        private readonly NodeTreeView _treeView;
         private readonly PlayerState _player;
         private readonly Dictionary<UIBase, List<Action>> _cleanupByScreen = new Dictionary<UIBase, List<Action>>();
 
         public ScreenFlow(UIManager ui, UIPresentationSpec battlePresentation,
             UIPresentationSpec upgradePresentation, UIPresentationSpec settlementPresentation,
+            UIPresentationSpec nodeTreePresentation,
             BattleSystem battle, BattleOrchestrator orchestrator, NodeTree tree,
-            IReadOnlyList<NodeTreeView.NodeItem> nodes, NodeTreeView treeView, PlayerState player)
+            IReadOnlyList<NodeTreeView.NodeItem> nodes, PlayerState player)
         {
             _ui = ui;
             _battlePresentation = battlePresentation;
             _upgradePresentation = upgradePresentation;
             _settlementPresentation = settlementPresentation;
+            _nodeTreePresentation = nodeTreePresentation;
             _battle = battle;
             _orchestrator = orchestrator;
             _tree = tree;
             _nodes = nodes;
-            _treeView = treeView;
             _player = player;
         }
 

@@ -15,9 +15,13 @@ namespace BlackHole.Unity
     // 좌표: 칸 (X, Y)의 노드는 트리 공간의 (X × 칸 크기, Y × 칸 크기)에 놓인다. X는 오른쪽, Y는 위쪽(노드 도구와 같다).
     // 보이기: 숨은 노드는 그리지 않는다(원작). 선은 양 끝이 모두 보일 때만 그리고, 양 끝을 모두 샀으면 밝게 칠한다.
     // 조작: 빈 곳이나 노드 위를 끌면 이동, 휠은 커서를 중심으로 확대·축소. 끌었으면 떼어도 누른 것이 아니다(uGUI가 클릭을 막는다).
-    // 이 컴포넌트는 트리 영역(보이는 창)에 붙는다. 영역은 가운데 기준(pivot 0.5)이어야 확대 계산이 맞는다.
-    public sealed class NodeTreeView : MonoBehaviour, IBeginDragHandler, IDragHandler, IScrollHandler
+    // 업그레이드 화면(UpgradeScreen)을 호스트로 두는 페이지(UIPage)다. ScreenFlow가 업그레이드 화면을 연 뒤 SwitchPage로 연다.
+    // 이 컴포넌트는 트리 영역(보이는 창)에 붙고, 그 영역은 호스트의 PageRoot 바로 아래 자식이다.
+    // 영역은 가운데 기준(pivot 0.5)이어야 확대 계산이 맞는다. 자식(노드·선)은 코드로 만들므로 Refs가 없다.
+    public sealed class NodeTreeView : UIPage<NodeTreeView.Refs>, IBeginDragHandler, IDragHandler, IScrollHandler
     {
+        public enum Refs { }
+
         // 노드 하나를 그리는 데 필요한 것.
         public readonly struct NodeItem
         {
@@ -61,7 +65,7 @@ namespace BlackHole.Unity
 
         public event Action<string> NodeClicked;
 
-        private void Awake()
+        protected override void OnInitialize()
         {
             _viewport = (RectTransform)transform;
 
