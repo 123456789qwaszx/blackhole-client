@@ -6,6 +6,8 @@
 
 기준 문서: [GAME_RULES_MVP](GAME_RULES_MVP.md) · [SYSTEM_CATALOG](SYSTEM_CATALOG.md) · [CONTENT_DEFINITION](CONTENT_DEFINITION.md) · [SKILL_TREE_PLAN](SKILL_TREE_PLAN.md) · [REFERENCE_ANALYSIS](REFERENCE_ANALYSIS.md) · [REFERENCE_ANALYSIS_ENEMY](REFERENCE_ANALYSIS_ENEMY.md)
 
+> **통합 뒤 (2026-09-27)**: `dev` 통합에서 이 계획의 노드 경로(Grant, `Loadout`, `UpgradeNodeDefinition`, `UpgradePurchase`, `UpgradeTree` 에셋)는 가져오지 않았다. 판 구성은 범용 업그레이드 표에서 `EnemyComposition.From`이 계산하고, 노드 35개는 `NodeCatalog`로 옮겼다(정하기 → 더하기). 판 구성·색·황금·Gold·결산 규칙은 그대로다. 지금 구조는 [INTEGRATED_GAMEPLAY_FLOW](INTEGRATED_GAMEPLAY_FLOW.md)를 본다. 아래 본문은 당시 기록이다.
+
 > 이 문서는 처치 보상(Gold)을 만들기 전의 계획이다. 원작의 보상은 사망할 때 굴리지 않고 **판에 들어갈 때 정해 둔 판 구성**에서 나온다. 그래서 보상과 생성을 한 계획으로 다룬다. 관련 시스템은 S03(Enemy 상태)·S05(사망 결과)·S08(공급·배치)과 후속 F01(업그레이드)·F04(Gold)다. GAME_RULES_MVP는 바꾸지 않는다. 새 규칙이 필요한 곳은 [미정]으로 두고 7절에 모았다.
 
 | 표기 | 의미 |

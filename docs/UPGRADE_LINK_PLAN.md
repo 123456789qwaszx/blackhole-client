@@ -6,6 +6,8 @@
 
 기준 문서: [SYSTEM_CATALOG](SYSTEM_CATALOG.md) F01·F02·F07 · [NODE_SYSTEM_SURVEY](NODE_SYSTEM_SURVEY.md) 9절 · `feature/노드트리`의 NODE_TREE_SCREEN_PLAN(업그레이드 화면과 콘솔, 플레이 확인 완료)
 
+> **통합 뒤 (2026-09-27)**: 판의 업그레이드 표를 읽는 시스템이 생겼다 — 판 조립이 표로 Breaker 수치(`BreakerDefinition.Upgraded`)와 적 종류의 판 구성(`EnemyComposition.From`)을 계산한다. 화면은 업그레이드 → 전투 → 결산 → 업그레이드 셋이고 씬의 프리팹을 쓴다. 지금 구조는 [INTEGRATED_GAMEPLAY_FLOW](INTEGRATED_GAMEPLAY_FLOW.md)를 본다. 아래 본문은 당시 기록이다.
+
 | 표기 | 뜻 |
 |---|---|
 | 사용자 | 사용자의 요구와 결정 |

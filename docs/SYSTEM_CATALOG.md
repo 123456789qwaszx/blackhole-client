@@ -21,6 +21,7 @@
 | SYSTEM_CATALOG | 시스템 책임, 접점, 인수 기준, 분담 후보 |
 | [REFERENCE_ANALYSIS](REFERENCE_ANALYSIS.md) | 원작에서 확인한 사실·관찰·설계 해석 |
 | [REFERENCE_ANALYSIS_ENEMY](REFERENCE_ANALYSIS_ENEMY.md) | 원작 천체(Enemy)의 생성·파괴 형식 분석 |
+| [INTEGRATED_GAMEPLAY_FLOW](INTEGRATED_GAMEPLAY_FLOW.md) | 통합 뒤 실제 코드의 한 루프: 휴식 → 판 조립 → 전투 Step → 보상 → 결산 → 휴식, 업그레이드 수치 이름, 화면 |
 | [NODE_SYSTEM_SURVEY](NODE_SYSTEM_SURVEY.md) | 기존 노드 트리·노드 편집기·스탯 보정 구현 조사 (F01·F02·F03·F07) |
 | [UPGRADE_LINK_PLAN](UPGRADE_LINK_PLAN.md) | 업그레이드 화면과 전투를 한 루프로 잇고, 판이 참가자별 업그레이드 표를 받게 하기 (UL-001~004) |
 | [SKILL_SYSTEM_PLAN](SKILL_SYSTEM_PLAN.md) | 스킬 샌드박스(별도 레포)와의 비교, 규칙 출처 가르기, 스킬·사망 효과·처치 버프를 전투에 들이는 방법 (SK-001~007) |
@@ -45,22 +46,22 @@
 | S01 | Battle 수명·시간 | 시작, Step 진행, 종료, 새 전투 생성 | MVP | Session, SessionLauncher 구현 있음 |
 | S02 | HQ 기준 공간·입력 | 원점 공유, 화면 좌표 변환, Aim Point 전달 | MVP | 조준 입력(AimInput: 마우스 → 로컬 참가자의 조준점)과 판 안의 참가자(BattlePlayer.AimPoint) 구현 있음 (SKILL_SYSTEM_PLAN) |
 | S03 | Enemy 상태·행동 | HP·위치·생존 상태, HQ 공전 | MVP | Enemies 구현 있음 |
-| S04 | Passive Attack | 공격 주기, 범위 대상 선택, 피해 요청 | MVP | Breaker(BreakerSkill) 구현 있음, World.Step 2 자리. 두 번째 스킬(관통 레이저)은 F05 (SKILL_SYSTEM_PLAN) |
-| S05 | Damage·Death Result | 사망 1회 확정, 대상 제외, HQ EXP와 사망 기록 | MVP | World.DealDamage 구현 있음 |
+| S04 | Passive Attack | 공격 주기, 범위 대상 선택, 피해 요청 | MVP | Breaker(BreakerSkill) 구현 있음, World.Step 2 자리. 수치는 판 조립 때 참가자의 업그레이드 표로 계산(BreakerDefinition.Upgraded). 두 번째 스킬(관통 레이저)은 F05 (SKILL_SYSTEM_PLAN) |
+| S05 | Damage·Death Result | 사망 1회 확정, 대상 제외, HQ EXP와 사망 기록 | MVP | World.DealDamage 구현 있음(이 판에 살아 있는 적만 받음). 사망 순간 그 적의 Gold가 판의 합계(World.EarnedGold)에 든다 |
 | S06 | Death Effect | Chain Lightning 대상·횟수·종료, 공통 피해 처리 | MVP 기준 효과 | 사망 효과 대기열과 연쇄 번개(DeathEffects) 구현 있음, World.Step 4 자리. 폭발·처치 버프는 F05 (SKILL_SYSTEM_PLAN) |
 | S07 | HQ 성장·Milestone | EXP·Level, 성장 구간별 시간 연장·공급 요청 | MVP | Hq, GrowthProgression 구현 있음 |
 | S08 | Enemy 공급·배치 | 요청 수량 관리, HQ 주변 생성 | MVP | Supply, Spawn 구현 있음 |
 | S09 | 전투 표현 | 천체·범위 표시, 피격·사망·흡수·번개·성장 표현 | MVP | 임시 표현 있음: 적 화면(EnemyView), 스킬 화면(SkillView: 범위·Tick·예고·발사선), 사망 효과 화면(DeathEffectView: 번개·폭발). 피격·흡수·성장 표현 없음 |
-| S10 | HUD·전투 화면 흐름 | 남은 시간·성장 정보, 종료·다시 시작 UI | MVP | Hud, SessionLauncher에 샘플 있음 |
+| S10 | HUD·전투 화면 흐름 | 남은 시간·성장 정보, 종료·다시 시작 UI | MVP | 전투 화면 프리팹(남은 시간·이 판의 Gold·일시정지·끝내기), 결산 화면 프리팹, 화면 흐름(ScreenFlow: 업그레이드 → 전투 → 결산 → 업그레이드). 성장 정보 표시는 S07과 함께 |
 | S11 | 콘텐츠 정의·검증 | 수치·종류 데이터, 참조 검사, 실행 구성 제공 | 지원 | Content, Sample 구현 있음 |
 | S12 | 디버깅·성능 검증 | 기준 상황 재현, 측정, 변경 전후 비교 | 지원 | CoreSmoke, CoreBench 출발점 있음 |
 | F01 | 노드 트리 | 그래프(노드·선·시작 노드·드러남·도달성)와 구매(가격·Gold·산 노드), 산 노드의 업그레이드를 F07에 넘기기 | 후속 | Core/Nodes 구현 있음(그래프 NodeGraph, 구매 NodePurchase), 개발용 노드 콘솔 |
-| F02 | 노드 트리 UI | 노드 배치·연결·상태·구매 피드백 | 후속 | 임시 업그레이드 화면 있음: 노드 도구의 격자 칸대로 노드·선, 네 상태(숨김은 그리지 않음), 확대·이동, 누르면 구매, 전투와 한 루프 (UPGRADE_LINK_PLAN) |
+| F02 | 노드 트리 UI | 노드 배치·연결·상태·구매 피드백 | 후속 | 업그레이드 화면 프리팹 있음: 노드 도구의 격자 칸대로 노드·선, 네 상태(숨김은 그리지 않음), 확대·이동, 누르면 구매, 전투와 한 루프 (UPGRADE_LINK_PLAN) |
 | F03 | 노드 저작 도구 | 노드·연결·배치 데이터 편집과 검증 | 후속 지원 | 1차 구현 있음: 메뉴 BlackHole > Node Tree (격자 편집·선 긋기·이웃끼리 잇기 명령·검사·구매 미리보기) |
-| F04 | Gold·장기 진행·저장 | 경제, 전투 간 유지, 영구 저장 | 후속 | Gold·구매 유지 샘플만 있음 |
+| F04 | Gold·장기 진행·저장 | 경제, 전투 간 유지, 영구 저장 | 후속 | 판의 Gold(사망 순간) → 결산 한 번(GameSession.Settle) → 진행 상태 Gold(long). 전투 사이 유지, 영구 저장 없음 |
 | F05 | 추가 전투 콘텐츠 | 추가 Enemy·Skill·Death Effect | 후속 | 관통 레이저, 폭발, 처치 버프 둘(달: Breaker 공격 주기 감소, 혜성: Breaker 확정 치명타)과 Breaker 치명타 구현 있음. 원작 근거와 [임시] 수치 (SKILL_SYSTEM_PLAN). 세 번째·네 번째 스킬은 명세 필요 |
 | F06 | Character·HQ HP·다인·Network | 새 플레이 규칙과 통신 | 후속 | MVP 제외, 정책과 범위 미정 |
-| F07 | 업그레이드 | 업그레이드(수치 이름·연산·값)를 수치별로 합성해 다른 시스템이 가져가게 한다 | 후속 | Core/Upgrades 구현 있음. 판 조립이 참가자마다 산 노드로 표를 만들어 판이 내준다(GameSession.UpgradesOf). 표를 읽는 시스템 연결은 그 시스템들이 완성된 뒤 |
+| F07 | 업그레이드 | 업그레이드(수치 이름·연산·값)를 수치별로 합성해 다른 시스템이 가져가게 한다 | 후속 | Core/Upgrades 구현 있음. 판 조립이 참가자마다 산 노드로 표를 만들어 판이 내준다(GameSession.UpgradesOf). 판 조립이 이 표로 Breaker 수치와 적 종류의 판 구성을 계산한다(INTEGRATED_GAMEPLAY_FLOW 4절) |
 
 ## 3. MVP 시스템 명세
 
@@ -167,7 +168,7 @@
   - 새 적은 공급 이전의 공격 대상으로 소급하여 들어가지 않는다.
   - 이전 Battle의 요청이 다음 Battle에 남지 않는다.
 - **남은 결정**: 위치 분포, 겹침. 사건 기반 공급만으로 전체 개체 수 상한이 증명되지는 않는다.
-- **정한 것 (2026-09-26, [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) 4.8)**: 전체 개체 수 상한은 적 공급 설정 에셋의 `MaxAliveEnemies`(값 200은 [임시], T-005 측정으로 확정). 상한에 닿은 뒤의 생성 요청은 버린다. 공급 수 노드를 모두 산 전투 시작 공급이 상한을 넘으면 콘텐츠 로드가 실패한다.
+- **정한 것 (2026-09-26, [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) 4.8)**: 전체 개체 수 상한은 적 공급 설정 에셋의 `MaxAliveEnemies`(값 200은 [임시], T-005 측정으로 확정). 상한에 닿은 뒤의 생성 요청은 버린다. 공급 수 노드를 모두 산 전투 시작 공급이 상한을 넘으면 노드 × 콘텐츠 로드 검사(UpgradeContentCheck)가 실패해 게임이 시작하지 않는다.
 - **구현 참고**: `Core/Supply/`, `Core/Spawn/`.
 
 ### S09. 전투 표현
@@ -190,7 +191,7 @@
 - **입력 → 출력**: 시간·EXP·Level·종료 상태 → 화면 표시 / 시작·재시작 요청.
 - **책임 경계**: 시간을 직접 줄이거나 종료 결과를 계산하지 않는다. 구매 화면은 F02의 후속 책임이다.
 - **인수 기준**: 실제 상태와 표시가 일치한다. 종료 후 재시작할 수 있고, 화면 전환 중 입력이 끝난 전투에 새 결과를 만들지 않는다.
-- **구현 참고**: `Unity/Hud.cs`, `Unity/SessionLauncher.cs`, `Unity/GameHost.cs`.
+- **구현 참고**: `Unity/Screens/BattleScreen.cs`, `Unity/Screens/SettlementScreen.cs`, `Unity/Flow/ScreenFlow*.cs`, `Assets/BlackHole/Prefabs/Screens/`, `Unity/GameHost.cs` (흐름은 INTEGRATED_GAMEPLAY_FLOW 5절).
 
 ### S11. 콘텐츠 정의·검증
 
@@ -270,7 +271,7 @@ S05의 사망 결과는 즉시 확정한다. 위 순서는 사망 결과를 연�
 | F04 | 경제와 전투 밖 상태·저장 | F01·S01 | 무엇이 유지되는지, 저장 시점·버전, 실패 처리 |
 | F05 | 새 콘텐츠 종류 | S03·S04·S06·S08·S11 | 기존 수치 변형인지 새 동작인지, 연쇄·공급 상한 |
 | F06 | 새 플레이/통신 규칙 | Player·World·Session 전반 | 참가자·보상 귀속·상태 권위·동기화·실패 조건 |
-| F07 | 업그레이드 합성 | 업그레이드를 주는 쪽(F01), 수치를 가져가는 시스템 | 정함: (기본값 + Σ더하기) × (1 + Σ비율) × Π곱하기, 받은 순서와 무관. 남음: 가져가는 시스템마다 수치 이름·기본값·한계와 적용 시점 |
+| F07 | 업그레이드 합성 | 업그레이드를 주는 쪽(F01), 수치를 가져가는 시스템 | 정함: (기본값 + Σ더하기) × (1 + Σ비율) × Π곱하기, 받은 순서와 무관. 정함(통합): Breaker와 적 판 구성은 판 조립 때 한 번 읽고, 수치 이름·기본값·한계는 가져가는 시스템이 공개한다(BreakerUpgradeStats, EnemyUpgradeStats). 남음: 레이저 등 다른 스킬의 수치 |
 
 F03은 플레이어 화면이 아니다. F02의 노드 좌표 편집과 F01의 구매 규칙도 별개다. F01(노드 트리)과 F07(업그레이드)도 별개다: 노드 트리는 업그레이드의 뜻을 모르고, 업그레이드는 노드를 모른다. 기존 샘플이 있다는 이유로 후속 정책을 이미 합의한 것으로 간주하지 않는다.
 
