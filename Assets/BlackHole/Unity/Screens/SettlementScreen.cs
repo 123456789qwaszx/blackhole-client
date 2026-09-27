@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text;
 using BlackHole.Core;
 using TMPro;
+using UnityEngine.EventSystems;
 
 namespace BlackHole.Unity
 {
@@ -40,8 +41,10 @@ namespace BlackHole.Unity
             _earned = View.Text(Refs.EarnedGoldText);
             _total = View.Text(Refs.TotalGoldText);
 
-            BindEvent(View.Button(Refs.ContinueBtn_Button), _ => ContinueClicked?.Invoke());
+            BindEvent(View.Button(Refs.ContinueBtn_Button), HandleContinueClicked);
         }
+
+        private void HandleContinueClicked(PointerEventData _) => ContinueClicked?.Invoke();
 
         public void ShowResult(SessionEndReason reason, float playedSeconds)
         {

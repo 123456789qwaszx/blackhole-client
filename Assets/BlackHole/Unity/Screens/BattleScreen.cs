@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace BlackHole.Unity
 {
@@ -37,9 +38,12 @@ namespace BlackHole.Unity
             _earned = View.Text(Refs.EarnedGoldText);
             _pauseLabel = View.Text(Refs.PauseBtn_Text);
 
-            BindEvent(View.Button(Refs.PauseBtn_Button), _ => PauseClicked?.Invoke());
-            BindEvent(View.Button(Refs.EndBtn_Button), _ => EndClicked?.Invoke());
+            BindEvent(View.Button(Refs.PauseBtn_Button), HandlePauseClicked);
+            BindEvent(View.Button(Refs.EndBtn_Button), HandleEndClicked);
         }
+
+        private void HandlePauseClicked(PointerEventData _) => PauseClicked?.Invoke();
+        private void HandleEndClicked(PointerEventData _) => EndClicked?.Invoke();
 
         // 진행 중인 판이 없을 때의 표시. 매 프레임 불러도 된다.
         public void ShowIdle()

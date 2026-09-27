@@ -4,6 +4,7 @@ using System.Globalization;
 using BlackHole.Core;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace BlackHole.Unity
 {
@@ -34,7 +35,7 @@ namespace BlackHole.Unity
             _gold = View.Text(Refs.GoldText);
             _progress = View.Text(Refs.ProgressText);
 
-            BindEvent(View.Button(Refs.StartBattleBtn_Button), _ => StartBattleClicked?.Invoke());
+            BindEvent(View.Button(Refs.StartBattleBtn_Button), HandleStartBattleClicked);
 
             RectTransform viewport = View.Rect(Refs.TreeViewport);
 
@@ -45,9 +46,12 @@ namespace BlackHole.Unity
                 if (_tree == null)
                     _tree = viewport.gameObject.AddComponent<NodeTreeView>();
 
-                _tree.NodeClicked += id => NodeClicked?.Invoke(id);
+                _tree.NodeClicked += HandleNodeClicked;
             }
         }
+
+        private void HandleStartBattleClicked(PointerEventData _) => StartBattleClicked?.Invoke();
+        private void HandleNodeClicked(string id) => NodeClicked?.Invoke(id);
 
         public void BuildTree(IReadOnlyList<NodeTreeView.NodeItem> nodes, IReadOnlyList<(string A, string B)> links) =>
             _tree?.Build(nodes, links);
