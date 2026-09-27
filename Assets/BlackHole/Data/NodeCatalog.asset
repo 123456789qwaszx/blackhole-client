@@ -47,6 +47,28 @@ MonoBehaviour:
       - Stat: breaker.speed
         Operation: 1
         Value: 0.25
+    - Id: growth-time
+      Price: 20
+      Start: 0
+      X: 0
+      Y: 1
+      Links:
+      - start
+      Upgrades:
+      - Stat: hq.growth-time
+        Operation: 0
+        Value: 3
+    - Id: asteroid-growth-supply
+      Price: 40
+      Start: 0
+      X: 1
+      Y: 1
+      Links:
+      - growth-time
+      Upgrades:
+      - Stat: enemy.asteroid.growth-supply
+        Operation: 0
+        Value: 4
     - Id: damage-1
       Price: 25
       Start: 0
