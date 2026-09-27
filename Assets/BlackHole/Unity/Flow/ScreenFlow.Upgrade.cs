@@ -13,22 +13,8 @@ namespace BlackHole.Unity
                 afterPresented: root =>
                 {
                     BindView(root, ApplyBindings);
-                    GoToNodeTree(root);
+                    SwitchToNodeTreePage(root);
                     RefreshUpgrade();
-                },
-                afterClosed: Unbind);
-        }
-
-        // 업그레이드 화면을 호스트로 트리 보기 페이지를 연다. 업그레이드 화면이 닫히면 페이지도 닫히고 연결이 풀린다.
-        private void GoToNodeTree(UpgradeScreen host)
-        {
-            _ui.SwitchPage<NodeTreeView>(
-                host,
-                _nodeTreePresentation,
-                afterPresented: page =>
-                {
-                    BindView(page, ApplyBindings);
-                    page.Build(_nodes, _tree.Graph.Links);
                 },
                 afterClosed: Unbind);
         }
@@ -38,19 +24,6 @@ namespace BlackHole.Unity
             AddBinding(root,
                 r => r.StartBattleClicked += HandleUpgradeStartBattleClicked,
                 r => r.StartBattleClicked -= HandleUpgradeStartBattleClicked);
-        }
-
-        private void ApplyBindings(NodeTreeView page)
-        {
-            AddBinding(page,
-                p => p.NodeClicked += HandleUpgradeNodeClicked,
-                p => p.NodeClicked -= HandleUpgradeNodeClicked);
-        }
-
-        private void HandleUpgradeNodeClicked(string id)
-        {
-            NodePurchase.TryPurchase(_player, _tree, id);
-            RefreshUpgrade();
         }
 
         private void HandleUpgradeStartBattleClicked()
