@@ -225,7 +225,10 @@ namespace BlackHole.Unity
             labelRect.offsetMin = new Vector2(4, 4);
             labelRect.offsetMax = new Vector2(-4, -4);
             var label = labelRect.gameObject.AddComponent<TextMeshProUGUI>();
-            label.fontSize = 18;
+            // 긴 ID도 가격 줄까지 보이도록 칸에 맞게 글자를 줄인다.
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 10;
+            label.fontSizeMax = 18;
             label.alignment = TextAlignmentOptions.Center;
             label.color = Color.white;
             label.textWrappingMode = TextWrappingModes.NoWrap;
