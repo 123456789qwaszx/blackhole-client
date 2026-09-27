@@ -156,7 +156,7 @@ namespace BlackHole.Unity
 
         private void BootstrapHost()
         {
-            _host = new GameHost(_ui, _battle, _orchestrator, _aim, _screens,
+            _host = new GameHost(_ui, _battle, _aim, _screens,
                 _enemyLooks, _enemyView, _skillView, _deathEffectView,
                 _console, _lifecycleConsole, _commandConsole, _upgradeConsole, _skillConsole);
         }

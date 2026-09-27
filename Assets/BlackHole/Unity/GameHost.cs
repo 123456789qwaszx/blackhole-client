@@ -8,7 +8,6 @@ namespace BlackHole.Unity
     {
         private readonly UIManager _ui;
         private readonly BattleSystem _battle;
-        private readonly BattleOrchestrator _orchestrator;
         private readonly AimInput _aim;
         private readonly ScreenFlow _screens;
         private readonly EnemyLooks _enemyLooks;
@@ -21,15 +20,14 @@ namespace BlackHole.Unity
         private readonly UpgradeConsole _upgradeConsole;
         private readonly SkillConsole _skillConsole;
 
-        public GameHost(UIManager ui, BattleSystem battle, BattleOrchestrator orchestrator,
-            AimInput aim, ScreenFlow screens, EnemyLooks enemyLooks, EnemyView enemyView,
+        public GameHost(UIManager ui, BattleSystem battle, AimInput aim, ScreenFlow screens,
+            EnemyLooks enemyLooks, EnemyView enemyView,
             SkillView skillView, DeathEffectView deathEffectView, ControlConsole console,
             BattleLifecycleConsole lifecycleConsole, EnemyCommandConsole commandConsole,
             UpgradeConsole upgradeConsole, SkillConsole skillConsole)
         {
             _ui = ui;
             _battle = battle;
-            _orchestrator = orchestrator;
             _aim = aim;
             _screens = screens;
             _enemyLooks = enemyLooks;
@@ -49,7 +47,8 @@ namespace BlackHole.Unity
         {
             _aim.Tick();
             _skillConsole?.Tick();
-            _battle.Tick(deltaTime);
+            if (_battle.Tick(deltaTime))
+                _screens.HandleBattleTimeExpired();
             RefreshBattleHud();
             _console?.Tick();
             _lifecycleConsole?.Tick();

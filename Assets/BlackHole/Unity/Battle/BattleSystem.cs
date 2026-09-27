@@ -10,7 +10,7 @@ namespace BlackHole.Unity
     // 스킬은 판의 일부다 — 판 조립 때 참가자마다 생기고 판과 함께 버려진다. 그래서 스킬 화면도 적 화면과 같이 정리한다.
     //
     // 스스로 시작하거나 끝내지 않는다. 상위 오케스트레이터(BattleOrchestrator)가 정해진 순서 안에서 부를 때만
-    // 시작(StartAsync)하고 정리(ShutdownAsync)한다. 시간이 끝나면 알릴 뿐(TimeExpired)이고, 정리는 오케스트레이터가 요청한다.
+    // 시작(StartAsync)하고 정리(ShutdownAsync)한다. 시간이 끝나면 Tick이 한 번 알리고, 정리는 오케스트레이터가 요청한다.
     // 사운드 같은 다른 시스템의 정리는 이 시스템의 일이 아니다.
     //
     // 시작 단계:
@@ -35,7 +35,7 @@ namespace BlackHole.Unity
         private readonly DeathEffectView _deathEffectView;
         private State _state = State.Idle;
         private IReadOnlyList<PlayerState> _players;
-        private bool _timeExpiredRaised;
+        private bool _timeExpiredReported;
 
         public Checklist StartSteps { get; } = new Checklist(
             "Receive upgraded stats",
@@ -59,9 +59,6 @@ namespace BlackHole.Unity
         // 정리를 요청할 수 있는가: 진행 중이거나, 앞선 정리가 실패해 멈춘 상태.
         public bool CanShutdown => _state == State.Running || _state == State.Faulted;
 
-        // 판의 시간이 끝났다. 정리하지 않고 알리기만 한다(한 판에 한 번).
-        public event Action TimeExpired;
-
         public BattleSystem(GameContent content, NodeTree nodes, EnemyView enemyView, SkillView skillView, DeathEffectView deathEffectView)
         {
             _content = content;
@@ -79,7 +76,7 @@ namespace BlackHole.Unity
 
             _state = State.Starting;
             _players = players;
-            _timeExpiredRaised = false;
+            _timeExpiredReported = false;
             StartSteps.Reset();
             EndSteps.Reset();
 
@@ -112,21 +109,24 @@ namespace BlackHole.Unity
             return Task.CompletedTask;
         }
 
-        public void Tick(float delta)
+        // 이번 프레임에 제한 시간이 끝났으면 true를 한 번만 반환한다. 화면 전환은 호출자가 처리한다.
+        public bool Tick(float delta)
         {
             if (_state != State.Running)
-                return;
+                return false;
 
             Session.Advance(delta);
             _enemyView.Synchronize(Session.World);
             _skillView.Synchronize(Session.World, delta);
             _deathEffectView.Synchronize(Session.World, delta);
 
-            if (Session.Phase == SessionPhase.Ended && !_timeExpiredRaised)
+            if (Session.Phase == SessionPhase.Ended && !_timeExpiredReported)
             {
-                _timeExpiredRaised = true;
-                TimeExpired?.Invoke();
+                _timeExpiredReported = true;
+                return true;
             }
+
+            return false;
         }
 
         public void TogglePause()
@@ -180,7 +180,7 @@ namespace BlackHole.Unity
                 Verify(6, PlayersReleased());
                 Session = null;
                 _players = null;
-                _timeExpiredRaised = false;
+                _timeExpiredReported = false;
                 _state = State.Idle;
                 return LastRawData;
             }

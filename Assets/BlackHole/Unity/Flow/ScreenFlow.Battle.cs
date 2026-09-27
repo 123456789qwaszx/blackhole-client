@@ -32,7 +32,7 @@ namespace BlackHole.Unity
         private void HandleBattlePauseClicked() => _battle.TogglePause();
         private void HandleBattleEndClicked() => RequestEnd();
 
-        private void HandleBattleTimeExpired() => RequestEnd();
+        internal void HandleBattleTimeExpired() => RequestEnd();
 
         // 화면 버튼, 시간 종료, 개발용 콘솔이 같은 전환 경로를 사용한다.
         public async void RequestStart()
