@@ -254,7 +254,38 @@ namespace BlackHole.Core
             if (item == null)
                 return HqGrowthDefinition.None;
 
-            return Guard("Growth.LevelExp", into, () => new HqGrowthDefinition(item.LevelExp ?? new List<long>()));
+            var milestones = new List<HqMilestone>();
+            int errors = into.Count;
+
+            for (int i = 0; item.Milestones != null && i < item.Milestones.Count; i++)
+            {
+                HqMilestoneData mark = item.Milestones[i];
+
+                if (mark == null)
+                {
+                    into.Add(new ContentDiagnostic($"Growth.Milestones[{i}]", "데이터가 없다."));
+                    continue;
+                }
+
+                HqMilestone milestone = Guard($"Growth.Milestones[{i}]", into, () => new HqMilestone(mark.Level, mark.Reward));
+
+                if (milestone != null)
+                    milestones.Add(milestone);
+            }
+
+            if (into.Count > errors)
+                return null;
+
+            // Level 표의 오류는 LevelExp에, 이정표가 표 밖·순서가 틀린 것은 Milestones에 붙인다.
+            try
+            {
+                return new HqGrowthDefinition(item.LevelExp ?? new List<long>(), milestones);
+            }
+            catch (ArgumentException error)
+            {
+                into.Add(new ContentDiagnostic(error.ParamName == "milestones" ? "Growth.Milestones" : "Growth.LevelExp", error.Message));
+                return null;
+            }
         }
 
         // 없으면 공급이 없다. 적 ID는 1단계의 색인으로 정의에 잇는다.

@@ -26,11 +26,15 @@ namespace BlackHole.Core
         // 전투 정리로 사라진 적은 처치가 아니므로 들지 않는다.
         public IReadOnlyList<EnemyKillCount> Kills { get; }
         public int TotalKills { get; }
-        // 이 판에서 번 Gold. 사망 순간마다 그 적의 Gold가 더해진 합계이며, 결산(GameSession.Settle)이 진행 상태에 더한 값과 같다.
+        // 이 판에서 번 Gold. 사망 순간마다 그 적의 Gold가 더해진 합계다. 이정표로 끝나지 않았으면 결산이 진행 상태에 더한 값(SettledGold)과 같다.
         public long EarnedGold { get; }
         // 이 판이 끝났을 때 블랙홀의 Level과 누적 EXP(이 판 앞의 EXP 포함). 결산이 누적 EXP를 진행 상태에 돌려놓는다.
         public int ReachedLevel { get; }
         public long Exp { get; }
+        // 이 판에서 닿은 이정표(없으면 비어 있다). 있으면 판은 그 Step에서 끝났다.
+        public IReadOnlyList<HqMilestone> Milestones { get; }
+        // 결산이 진행 상태에 더한 Gold: 이정표로 끝났으면 이정표의 보상, 아니면 번 Gold(EarnedGold).
+        public long SettledGold { get; }
 
         internal BattleRawData(
             int seed,
@@ -38,7 +42,9 @@ namespace BlackHole.Core
             IReadOnlyList<EnemyKillCount> kills,
             long earnedGold,
             int reachedLevel,
-            long exp)
+            long exp,
+            IReadOnlyList<HqMilestone> milestones,
+            long settledGold)
         {
             Seed = seed;
             PlayedSeconds = playedSeconds;
@@ -46,6 +52,8 @@ namespace BlackHole.Core
             EarnedGold = earnedGold;
             ReachedLevel = reachedLevel;
             Exp = exp;
+            Milestones = new List<HqMilestone>(milestones).AsReadOnly();
+            SettledGold = settledGold;
 
             foreach (EnemyKillCount kill in kills)
                 TotalKills += kill.Count;

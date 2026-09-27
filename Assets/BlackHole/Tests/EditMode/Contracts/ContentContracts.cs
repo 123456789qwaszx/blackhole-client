@@ -112,7 +112,7 @@ namespace BlackHole.Core.Tests
             TestContent.HasDiagnostic(result, "MaxAliveEnemies", "6마리");
         }
 
-        // 블랙홀 성장의 Level 표와 색 등급 EXP의 오류. Level 표는 누적 EXP라 양수이고 앞 줄보다 커야 한다.
+        // 블랙홀 성장의 Level 표·이정표와 색 등급 EXP의 오류. Level 표는 누적 EXP라 양수이고 앞 줄보다 커야 한다.
         // 표가 없으면 블랙홀이 Level 1에 머문다.
         private static void ReportsGrowthErrorsWithPath()
         {
@@ -132,6 +132,24 @@ namespace BlackHole.Core.Tests
             result = ContentLoader.Load(data);
             Expect.Equal(1, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Growth.LevelExp", "양수");
+
+            // 이정표: 보상은 0 이상, Level은 Level 표 안(2 ~ MaxLevel)이고 앞 이정표보다 커야 한다.
+            data.Growth = new HqGrowthData { LevelExp = new List<long> { 5, 10 } };
+            data.Growth.Milestones.Add(new HqMilestoneData { Level = 2, Reward = -1 });
+            result = ContentLoader.Load(data);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Growth.Milestones[0]", "reward");
+
+            data.Growth.Milestones[0].Reward = 10;
+            data.Growth.Milestones.Add(new HqMilestoneData { Level = 2, Reward = 10 });
+            result = ContentLoader.Load(data);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Growth.Milestones", "앞 이정표");
+
+            data.Growth.Milestones.RemoveAt(1);
+            data.Growth.Milestones[0].Level = 4;
+            result = ContentLoader.Load(data);
+            TestContent.HasDiagnostic(result, "Growth.Milestones", "Level 표 안");
 
             data.Growth = null;
             Expect.Equal(HqGrowthDefinition.StartLevel, TestContent.Load(data).Growth.MaxLevel);

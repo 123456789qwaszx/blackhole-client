@@ -23,3 +23,6 @@ MonoBehaviour:
   - 600
   - 950
   - 1500
+  milestones:
+  - level: 10
+    reward: 30000

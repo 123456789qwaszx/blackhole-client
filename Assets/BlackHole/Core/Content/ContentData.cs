@@ -152,6 +152,16 @@ namespace BlackHole.Core
     public sealed class HqGrowthData
     {
         public List<long> LevelExp = new List<long>();
+        // 이정표(Level이 커지는 순서). 판 중 그 Level에 닿으면 판이 끝나고 결산이 번 Gold 대신 보상을 준다.
+        public List<HqMilestoneData> Milestones = new List<HqMilestoneData>();
+    }
+
+    // 이정표 하나: Level(Level 표 안)과 고정 보상(Gold, 0 이상).
+    [Serializable]
+    public sealed class HqMilestoneData
+    {
+        public int Level;
+        public long Reward;
     }
 
     // 적 공급 한 건: 어떤 종류를 몇 마리.

@@ -94,6 +94,15 @@ namespace BlackHole.Core.Tests
         public static GameSession Session(ContentData data, int seed = SessionAssembler.DefaultSeed) =>
             Begun(SessionAssembler.CreateBattle(Load(data), new PlayerState(First), seed));
 
+        // 판 하나를 치르며 블랙홀에 EXP를 더하고 결산한다(개발용 전투 치트). 진행 상태의 블랙홀 EXP가 그만큼 는다. Gold는 늘지 않는다.
+        public static void GrowHq(GameContent content, PlayerState state, long exp)
+        {
+            GameSession battle = SessionAssembler.CreateBattle(content, state);
+            BattleCheats.AddHqExp(battle, exp);
+            battle.RequestEnd();
+            battle.Settle();
+        }
+
         public static GameSession Begun(GameSession session)
         {
             session.Begin();

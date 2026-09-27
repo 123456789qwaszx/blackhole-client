@@ -19,6 +19,10 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Growth.GrowthOnTheLastStepKeepsTheBattleGoing", GrowthOnTheLastStepKeepsTheBattleGoing);
             yield return new Contract("Hq.LevelCarriesOverBetweenBattles", LevelCarriesOverBetweenBattles);
             yield return new Contract("Hq.CleanupGivesNoExp", CleanupGivesNoExp);
+            yield return new Contract("Milestone.EndsTheBattleAtOnce", MilestoneEndsTheBattleAtOnce);
+            yield return new Contract("Milestone.PaysTheFixedRewardInsteadOfEarnedGold", MilestonePaysTheFixedRewardInsteadOfEarnedGold);
+            yield return new Contract("Milestone.IsReachedOnce", MilestoneIsReachedOnce);
+            yield return new Contract("Hq.BattleCheatAddsExpForTheNextStep", BattleCheatAddsExpForTheNextStep);
             yield return new Contract("Growth.StopsAtTheLastLevel", StopsAtTheLastLevel);
             yield return new Contract("Growth.EndedBattleDoesNotGrow", EndedBattleDoesNotGrow);
         }
@@ -237,6 +241,108 @@ namespace BlackHole.Core.Tests
 
             Expect.Equal(1, game.World.Hq.Level);
             Expect.Near(limit, game.TimeLimit.Limit);
+        }
+
+        // 이정표 Level에 닿은 Step에서 판이 끝난다: 남은 시간이 있어도, 그 Step의 성장 효과(시간 연장·성장 공급) 없이.
+        // 이정표가 아닌 Level업에서는 판이 이어진다.
+        private static void MilestoneEndsTheBattleAtOnce()
+        {
+            GameContent content = TestContent.Load(MilestoneArena());
+            GameSession game = Grown(content, GrowthTime(3), GrowthSupply(Rock, 2));
+            World world = game.World;
+            float limit = game.TimeLimit.Limit;
+
+            Kill(world, world.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(2, world.Hq.Level);
+            Expect.Equal(SessionPhase.Running, game.Phase);
+            Expect.True(!world.Hq.ReachedMilestone, "Level 2는 이정표가 아니다.");
+            Expect.Equal(2 + 2, world.Enemies.Count);
+
+            Kill(world, world.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(3, world.Hq.Level);
+            Expect.Equal(SessionPhase.Ended, game.Phase);
+            Expect.True(game.Remaining > 0, "남은 시간이 있어도 끝난다.");
+            Expect.Near(limit + 3, game.TimeLimit.Limit);
+            Expect.Equal(3, world.Enemies.Count);
+            Expect.Equal(0, world.PendingSpawns.Count);
+            Expect.Equal(1, world.Hq.ReachedMilestones.Count);
+            Expect.Equal(3, world.Hq.ReachedMilestones[0].Level);
+        }
+
+        // 이정표로 끝난 판의 결산은 번 Gold 대신 이정표의 고정 보상을 더한다. 확정된 사망의 EXP는 남는다.
+        private static void MilestonePaysTheFixedRewardInsteadOfEarnedGold()
+        {
+            GameContent content = TestContent.Load(MilestoneArena());
+            var state = new PlayerState(TestContent.First);
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+
+            Kill(game.World, game.World.Enemies[0]);
+            Kill(game.World, game.World.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(SessionPhase.Ended, game.Phase);
+            Expect.Equal(14L, game.World.EarnedGold);
+            Expect.Equal(1000L, game.SettledGold);
+
+            game.ClearRemainingEnemies();
+            BattleRawData raw = game.CreateRawData();
+            game.Settle();
+            game.Settle();
+
+            Expect.Equal(1000L, state.Gold);
+            Expect.Equal(10L, state.HqExp);
+            Expect.Equal(14L, raw.EarnedGold);
+            Expect.Equal(1000L, raw.SettledGold);
+            Expect.Equal(1, raw.Milestones.Count);
+            Expect.Equal(1, content.Growth.MilestonesReachedBy(raw.ReachedLevel));
+        }
+
+        // 이정표마다 한 번이다: Level은 줄지 않으므로, 다음 판은 이미 지난 이정표로 끝나거나 보상받지 않는다.
+        private static void MilestoneIsReachedOnce()
+        {
+            GameContent content = TestContent.Load(MilestoneArena());
+            var state = new PlayerState(TestContent.First);
+            TestContent.GrowHq(content, state, 10);
+
+            GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+            Expect.Equal(3, next.World.Hq.Level);
+            Kill(next.World, next.World.Enemies[0]);
+            next.Advance(0.1f);
+            Expect.Equal(SessionPhase.Running, next.Phase);
+            Expect.True(!next.World.Hq.ReachedMilestone, "이미 지난 이정표다.");
+
+            next.RequestEnd();
+            next.Settle();
+            Expect.Equal(7L, state.Gold);
+        }
+
+        // 개발용 전투 치트: 판의 블랙홀에 EXP를 더하면 다음 Step에서 평소처럼 Level이 오르고 이정표도 판정된다. 끝난 판은 거부한다.
+        private static void BattleCheatAddsExpForTheNextStep()
+        {
+            GameContent content = TestContent.Load(MilestoneArena());
+            var state = new PlayerState(TestContent.First);
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+
+            BattleCheats.AddHqExp(game, 10);
+            Expect.Equal(1, game.World.Hq.Level);
+            game.Advance(0.1f);
+            Expect.Equal(3, game.World.Hq.Level);
+            Expect.Equal(SessionPhase.Ended, game.Phase);
+            Expect.Throws<InvalidOperationException>(() => BattleCheats.AddHqExp(game, 1));
+
+            game.Settle();
+            Expect.Equal(10L, state.HqExp);
+            Expect.Equal(1000L, state.Gold);
+        }
+
+        // Level 표 5·10·20(Level 2·3·4), Level 3이 이정표(보상 1000). 적은 EXP 5, Gold 7.
+        private static ContentData MilestoneArena()
+        {
+            ContentData data = Arena(exp: 5, 5, 10, 20);
+            data.Enemies[0].Tiers[0].Gold = 7;
+            data.Growth.Milestones.Add(new HqMilestoneData { Level = 3, Reward = 1000 });
+            return data;
         }
 
         // 소행성 격인 종류(체력 1, 색 하나, 이 EXP) 셋이 나오는 판과 Level 표.

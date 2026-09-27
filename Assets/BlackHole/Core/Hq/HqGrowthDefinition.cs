@@ -6,6 +6,7 @@ namespace BlackHole.Core
     // 블랙홀 성장의 공유 정의: Level 표(BLACKHOLE_GROWTH_PLAN 4.2).
     // 새 진행은 Level 1(누적 EXP 0)이다. LevelExp[i]는 Level (i + 2)에 닿는 누적 EXP이며, 앞 줄보다 커야 한다. Level은 판을 넘어 이어진다.
     // 성장 효과(시간·공급)는 표에 두지 않는다 — 산 노드가 정하고 Level업마다 같은 값이 온다(4.3).
+    // 이정표(BLACKHOLE_LEVEL_PLAN 4.4): 정해진 Level과 그 고정 보상(Gold). 판 중 그 Level에 닿으면 판이 바로 끝나고 결산이 번 Gold 대신 보상을 준다.
     public sealed class HqGrowthDefinition
     {
         public const int StartLevel = 1;
@@ -14,8 +15,10 @@ namespace BlackHole.Core
 
         public IReadOnlyList<long> LevelExp { get; }
         public int MaxLevel => StartLevel + LevelExp.Count;
+        // 이정표(Level이 커지는 순서). 한 Level에 하나다.
+        public IReadOnlyList<HqMilestone> Milestones { get; }
 
-        public HqGrowthDefinition(IReadOnlyList<long> levelExp)
+        public HqGrowthDefinition(IReadOnlyList<long> levelExp, IReadOnlyList<HqMilestone> milestones = null)
         {
             if (levelExp == null)
                 throw new ArgumentNullException(nameof(levelExp));
@@ -37,6 +40,37 @@ namespace BlackHole.Core
             }
 
             LevelExp = Array.AsReadOnly(copy);
+
+            var marks = milestones != null ? new HqMilestone[milestones.Count] : Array.Empty<HqMilestone>();
+
+            for (int i = 0; i < marks.Length; i++)
+            {
+                HqMilestone mark = milestones[i] ?? throw new ArgumentException($"이정표 {i}가 null이다.", nameof(milestones));
+
+                if (mark.Level <= StartLevel || mark.Level > MaxLevel)
+                    throw new ArgumentOutOfRangeException(nameof(milestones), $"이정표 {i}의 Level {mark.Level}은 {StartLevel + 1}부터 {MaxLevel}까지(Level 표 안)여야 한다.");
+
+                if (i > 0 && mark.Level <= marks[i - 1].Level)
+                    throw new ArgumentOutOfRangeException(nameof(milestones), $"이정표 {i}의 Level {mark.Level}은 앞 이정표의 {marks[i - 1].Level}보다 커야 한다.");
+
+                marks[i] = mark;
+            }
+
+            Milestones = Array.AsReadOnly(marks);
+        }
+
+        // 이 Level 이하인 이정표의 수(이정표 진행도 n / Milestones.Count).
+        public int MilestonesReachedBy(int level)
+        {
+            int reached = 0;
+
+            foreach (HqMilestone mark in Milestones)
+            {
+                if (mark.Level <= level)
+                    reached++;
+            }
+
+            return reached;
         }
 
         // 이 누적 EXP가 닿는 Level. 판 밖(진행 상태의 EXP)에서 Level을 볼 때와 판을 시작할 때 쓴다.
@@ -58,6 +92,19 @@ namespace BlackHole.Core
 
             int index = level - StartLevel - 1;
             return index >= 0 && index < LevelExp.Count ? LevelExp[index] : (long?)null;
+        }
+    }
+
+    // 이정표 하나: 이 Level에 닿으면 판이 끝나고, 결산이 그 판에서 번 Gold 대신 이 보상을 준다. 금액은 기획자가 정한다 [사용자].
+    public sealed class HqMilestone
+    {
+        public int Level { get; }
+        public long Reward { get; }
+
+        public HqMilestone(int level, long reward)
+        {
+            Level = level;
+            Reward = DefinitionGuard.NotNegative(reward, nameof(reward));
         }
     }
 

@@ -22,8 +22,9 @@ namespace BlackHole.Core
     // 판 안의 대상과 한 단계의 처리 순서는 World가, 종료 판정은 TimeLimitRule이 가진다.
     // 재시작은 같은 객체의 부분 초기화가 아니라 새 조립이다(SessionAssembler).
     //
-    // 수명: 조립(Preparing) → Begin(전투 시작 공급, Running) → 끝(Ended: 시간 종료 또는 종료 요청)
+    // 수명: 조립(Preparing) → Begin(전투 시작 공급, Running) → 끝(Ended: 시간 종료, 종료 요청, 이정표)
     //      → 남은 적 정리(처치 아님) → 원자료 만들기 → 결산. 이 순서를 누가 언제 부를지는 판 바깥(오케스트레이터)이 정한다.
+    //      이정표에 닿으면 남은 시간과 관계없이 그 Step에서 끝나고, 결산은 번 Gold 대신 이정표의 보상을 준다.
     // 진행 상태(Gold·블랙홀 EXP)를 바꾸는 것은 결산뿐이다. 전투 중에는 진행 상태가 바뀌지 않으므로 저장은 전투 밖에서만 하면 된다.
     public sealed class GameSession
     {
@@ -94,6 +95,13 @@ namespace BlackHole.Core
             int raised = World.Step(step);
             Elapsed += step;
 
+            // 이정표에 닿았으면 남은 시간과 관계없이 이 Step에서 판이 끝난다. 시간 연장은 하지 않는다(BLACKHOLE_LEVEL_PLAN 4.4).
+            if (World.Hq.ReachedMilestone)
+            {
+                End();
+                return;
+            }
+
             // 6. Growth의 시간 연장: 오른 Level마다 이 판의 제한 시간을 늘린다. 종료 판정보다 먼저다(GAME_RULES 13·14절).
             TimeLimit.Extend(raised * World.Hq.GrowthTime);
 
@@ -125,13 +133,17 @@ namespace BlackHole.Core
         public BattleRawData CreateRawData()
         {
             RequireEnded();
-            return new BattleRawData(Seed, Result.PlayedSeconds, World.Kills(), World.EarnedGold, World.Hq.Level, World.Hq.Exp);
+            return new BattleRawData(Seed, Result.PlayedSeconds, World.Kills(), World.EarnedGold, World.Hq.Level, World.Hq.Exp,
+                World.Hq.ReachedMilestones, SettledGold);
         }
 
         // 결산을 마쳤는가.
         public bool IsSettled => _settled;
 
-        // 결산: 끝난 판이 번 Gold를 진행 상태(방장의 것)에 더하고, 블랙홀의 누적 EXP를 돌려놓는다. 한 판에 한 번만 하고, 다시 불러도 아무 일도 없다.
+        // 결산이 더하는 Gold: 이정표에 닿아 끝난 판은 번 Gold 대신 이정표의 고정 보상, 아니면 번 Gold(BLACKHOLE_LEVEL_PLAN 4.4).
+        public long SettledGold => World.Hq.ReachedMilestone ? World.Hq.MilestoneReward : World.EarnedGold;
+
+        // 결산: 끝난 판의 Gold(SettledGold)를 진행 상태(방장의 것)에 더하고, 블랙홀의 누적 EXP를 돌려놓는다. 한 판에 한 번만 하고, 다시 불러도 아무 일도 없다.
         // Gold를 더한 뒤에야 결산을 마친 것으로 기록한다. 더하기가 실패하면(Gold 넘침) 예외가 나가고 결산하지 않은 상태로 남는다.
         public void Settle()
         {
@@ -140,7 +152,7 @@ namespace BlackHole.Core
             if (_settled)
                 return;
 
-            _progress.EarnGold(World.EarnedGold);
+            _progress.EarnGold(SettledGold);
             _progress.KeepHqExp(World.Hq.Exp);
             _settled = true;
         }

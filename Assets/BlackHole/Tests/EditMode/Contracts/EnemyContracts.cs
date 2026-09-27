@@ -222,7 +222,7 @@ namespace BlackHole.Core.Tests
             foreach ((long exp, int level, int tier) in new[] { (0L, 1, 0), (5L, 2, 0), (10L, 3, 0), (15L, 4, 1), (99L, 4, 1) })
             {
                 var state = new PlayerState(TestContent.First);
-                ProgressCheats.AddHqExp(state, exp);
+                TestContent.GrowHq(content, state, exp);
                 GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
 
                 Expect.Equal(level, game.World.Stats.Level);

@@ -15,6 +15,7 @@ namespace BlackHole.Unity
     // 시작·일시정지·종료 버튼은 조립 때 받은 ScreenFlow의 콘솔 핸들(ScreenFlow.Editor)을 부른다.
     // 그 핸들은 같은 일을 하는 화면 버튼의 핸들로 가므로, 화면 버튼을 누른 것과 같은 길이다.
     // 일시정지 버튼은 판이 없거나 끝났으면 누를 수 없다.
+    // 블랙홀 EXP 버튼(+100·+1K·+10K)은 진행 중인 판의 블랙홀에 EXP를 더한다(BattleCheats). Level·이정표 시험용이며 판 중에만 누를 수 있다.
     // 버튼 아래에는 진행 중인 판의 업그레이드 표, Gold와 마지막 판의 원자료가 나온다.
     // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
     // 진행 중인 판의 업그레이드 표(방장의 산 노드) 중 산 노드가 바꾼 수치만 나온다:
@@ -25,6 +26,9 @@ namespace BlackHole.Unity
     {
         // 버튼 너비. 창의 너비도 이것으로 정해진다(업그레이드 표와 원자료는 이 너비 안에서 줄을 나눠 쓴다).
         private const float ButtonWidth = 344;
+        // 블랙홀 EXP 버튼(한 줄에 셋): 판을 치르며 Level·이정표를 시험한다. 진행 중이거나 정지한 판에서만 누를 수 있다.
+        private const float ExpButtonWidth = 110;
+        private static readonly (string Label, long Amount)[] ExpSteps = { ("100", 100L), ("1K", 1_000L), ("10K", 10_000L) };
 
         private readonly BattleOrchestrator _orchestrator;
         private readonly BattleSystem _battle;
@@ -37,6 +41,7 @@ namespace BlackHole.Unity
         private readonly TMP_Text _pauseLabel;
         private readonly Button _endButton;
         private readonly TMP_Text _goldText;
+        private readonly List<Button> _expButtons = new List<Button>();
         private readonly TMP_Text _rawDataText;
         private readonly TMP_Text _upgradesText;
         private readonly SortedSet<string> _stats = new SortedSet<string>(StringComparer.Ordinal);
@@ -79,6 +84,13 @@ namespace BlackHole.Unity
             _pauseLabel = _pauseButton.GetComponentInChildren<TMP_Text>();
             _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth, _endClicked);
             _goldText = Text(panel, "Gold", string.Empty, 20);
+
+            RectTransform exp = Child(panel, "HqExp");
+            HorizontalLayout(exp, 7);
+
+            foreach ((string label, long amount) in ExpSteps)
+                _expButtons.Add(ButtonOf(exp, "HqExp" + label, "EXP +" + label, ExpButtonWidth, () => AddHqExp(amount)));
+
             _rawDataText = Text(panel, "RawData", string.Empty, 20);
 
             Refresh();
@@ -95,6 +107,15 @@ namespace BlackHole.Unity
 
         public void Dispose() => Object.Destroy(_canvas);
 
+        // 진행 중인 판의 블랙홀에 EXP를 더한다(개발용 전투 치트). Level은 다음 Step에서 오른다.
+        private void AddHqExp(long amount)
+        {
+            GameSession session = _battle.IsRunning ? _battle.Session : null;
+
+            if (session != null && session.Phase != SessionPhase.Ended)
+                BattleCheats.AddHqExp(session, amount);
+        }
+
         private void Refresh()
         {
             SetInteractable(_startButton, _orchestrator.CanStart);
@@ -103,6 +124,9 @@ namespace BlackHole.Unity
             GameSession session = _battle.IsRunning ? _battle.Session : null;
             bool paused = session != null && session.Phase == SessionPhase.Paused;
             SetInteractable(_pauseButton, session != null && session.Phase != SessionPhase.Ended);
+
+            foreach (Button button in _expButtons)
+                SetInteractable(button, session != null && session.Phase != SessionPhase.Ended);
 
             if (paused != _shownPaused)
             {
@@ -204,6 +228,10 @@ namespace BlackHole.Unity
             _builder.Append("\n  Seed<pos=6em>").Append(raw.Seed);
             _builder.Append("\n  Time<pos=6em>").Append(Number(raw.PlayedSeconds)).Append('s');
             _builder.Append("\n  Gold<pos=6em>+").Append(raw.EarnedGold);
+
+            if (raw.Milestones.Count > 0)
+                _builder.Append("\n  Milestone<pos=6em>Lv ").Append(raw.Milestones[raw.Milestones.Count - 1].Level)
+                    .Append("  settled +").Append(raw.SettledGold);
             _builder.Append("\n  Hq<pos=6em>Lv ").Append(raw.ReachedLevel).Append("  EXP ").Append(raw.Exp);
             _builder.Append("\n  Kills<pos=6em>").Append(raw.TotalKills);
 

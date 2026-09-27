@@ -36,20 +36,6 @@ namespace BlackHole.Core
                 state.Own(node.Id);
         }
 
-        // 블랙홀의 누적 EXP를 더한다(줄이지는 못한다). 판을 치르지 않고 Level·이정표를 시험할 때 쓴다.
-        public static void AddHqExp(PlayerState state, long exp)
-        {
-            if (state == null)
-                throw new ArgumentNullException(nameof(state));
-
-            RefuseDuringBattle(state);
-
-            if (exp < 0)
-                throw new ArgumentOutOfRangeException(nameof(exp), "0 이상이어야 한다.");
-
-            state.KeepHqExp(checked(state.HqExp + exp));
-        }
-
         // 산 노드를 모두 지운다. Gold는 돌려주지 않는다.
         public static void LockAllNodes(PlayerState state)
         {
