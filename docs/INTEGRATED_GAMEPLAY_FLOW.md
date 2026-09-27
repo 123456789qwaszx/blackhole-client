@@ -94,7 +94,7 @@
 |---|---|---|---|
 | 업그레이드 | `Assets/BlackHole/Prefabs/Screens/UpgradeScreen.prefab` | Gold, 산 노드 수 / 전체, 노드 트리(격자 칸 배치, 선은 `NodeGraph.Links`, 네 상태) | 노드 ID 클릭, Start battle |
 | 전투 | `BattleScreen.prefab` (배경 없음, 위쪽 띠) | 남은 시간, 이 판이 번 Gold, Pause/Resume | Pause, End battle |
-| 결산 | `SettlementScreen.prefab` | 끝난 사유, 시간, 처치 수(종류별), 번 Gold, 결산 뒤 Gold | Continue |
+| 결산 | `SettlementScreen.prefab` | 진행 시간, 처치 수(종류별), 번 Gold, 결산 뒤 Gold | Continue |
 
 - 씬(`SampleScene`)의 `UI > UI Canvas > RootLayer`에 세 화면이 있고 GameBootstrap의 Root Layer·Panel Layer·Registered Views에 연결돼 있다. 자식 이름은 각 화면의 `Refs`와 같다(`UIRoot<TRefs>`).
 - 세 화면과 UI Layer 연결이 없으면 GameBootstrap이 오류를 알리고 실행을 중단한다.
@@ -111,7 +111,7 @@
 - 황금 배율 노드: 옛 구조의 "정하기 4200"을 범용 표에서 "더하기 4150"(기본 50 + 4150)으로 옮겼다. 노드 모양(곱하기인지, 몇 단계인지)은 BATTLE_COMPOSITION_PLAN의 미정 그대로다.
 - 적 종류 노드 35개의 격자 칸은 Breaker 노드 왼쪽에 계열별로 둔 [임시] 배치다. `asteroid-mass-1`은 선행 노드가 없던 노드라 두 번째 시작 노드가 됐다.
 - 참가자가 둘 이상이면 적 판 구성은 보정 없이 기본값이고 결산은 아무도 받지 않는다(보상·공유 대상 귀속은 F06 미정).
-- 판이 끝난 사유는 시간 종료 하나다. End battle 버튼도 같은 사유로 끝낸다(결산 화면은 "Battle over"로만 적는다).
+- 제한 시간이 끝나거나 End battle 버튼을 누르면 같은 종료 절차를 실행한다(결산 화면에는 "Battle over"로 표시한다).
 - HQ EXP·성장 이정표(Step 5·6), 저장, 노드 표시 이름·아이콘, 한글 글꼴은 없다(화면 글자는 영문).
 
 ---

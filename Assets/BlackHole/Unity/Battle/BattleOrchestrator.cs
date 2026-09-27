@@ -69,7 +69,7 @@ namespace BlackHole.Unity
             }
         }
 
-        public async Task<BattleRawData> EndBattleAsync(SessionEndReason reason)
+        public async Task<BattleRawData> EndBattleAsync()
         {
             if (!CanEnd)
                 return null;
@@ -78,7 +78,7 @@ namespace BlackHole.Unity
 
             try
             {
-                return await _battle.ShutdownAsync(reason);
+                return await _battle.ShutdownAsync();
             }
             finally
             {

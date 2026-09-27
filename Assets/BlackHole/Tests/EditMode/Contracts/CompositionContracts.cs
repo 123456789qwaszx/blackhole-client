@@ -97,7 +97,7 @@ namespace BlackHole.Core.Tests
             GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }, SessionAssembler.FirstStage, 0, tree));
             Expect.Equal(2, plain.World.CountAlive(rock));
             Expect.Equal(0, plain.World.CountAlive(pebble));
-            plain.RequestEnd(SessionEndReason.TimeExpired);
+            plain.RequestEnd();
 
             state.EarnGold(2);
             NodePurchase.TryPurchase(state, tree, "more-rocks");
@@ -141,7 +141,7 @@ namespace BlackHole.Core.Tests
         {
             GameSession game = SessionAssembler.CreateBattle(content, states, SessionAssembler.FirstStage, 0, tree);
             EnemyComposition composition = game.World.Stats.CompositionOf(kind);
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
             return composition;
         }
 

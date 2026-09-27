@@ -90,7 +90,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(2, upgraded.TickCount);
             Expect.Equal(1, plain.TickCount);
 
-            battle.RequestEnd(SessionEndReason.TimeExpired);
+            battle.RequestEnd();
             ProgressCheats.LockAllNodes(buyer);
             Expect.Near(4, upgraded.Definition.Damage);
 
@@ -305,7 +305,7 @@ namespace BlackHole.Core.Tests
             BreakerSkill ended = first.World.Players[0].Breaker;
             Expect.Equal(1, ended.TickCount);
 
-            first.RequestEnd(SessionEndReason.TimeExpired);
+            first.RequestEnd();
             first.Advance(2);
             Expect.Equal(1, ended.TickCount);
 
@@ -386,7 +386,7 @@ namespace BlackHole.Core.Tests
             game.Advance(0.5f);
             Expect.Equal(1, laser.PendingShots.Count);
 
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
             game.Advance(1);
             Expect.Equal(0, laser.FireCount);
 

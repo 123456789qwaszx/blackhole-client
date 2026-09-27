@@ -31,7 +31,7 @@ namespace BlackHole.Core.Tests
             GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(TestContent.Load(data), new[] { state }));
 
             game.World.DealDamage(game.World.Enemies[0], new Damage(1, TestContent.First));
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
 
             Expect.Throws<OverflowException>(() => game.Settle());
             Expect.True(!game.IsSettled, "실패한 결산을 마친 것으로 기록하면 안 된다.");
@@ -61,7 +61,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(50L, state.Gold);
             Expect.Equal(0, state.OwnedNodes.Count);
 
-            battle.RequestEnd(SessionEndReason.TimeExpired);
+            battle.RequestEnd();
             Expect.Equal(10L, ProgressCheats.TakeGold(state, 10));
         }
 
@@ -109,7 +109,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(20L, state.Gold);
             Expect.Throws<InvalidOperationException>(() => game.Settle());
 
-            game.RequestEnd(SessionEndReason.TimeExpired);
+            game.RequestEnd();
             Expect.True(!game.IsSettled, "끝났다고 결산된 것은 아니다.");
             game.Settle();
             game.Settle();
@@ -127,7 +127,7 @@ namespace BlackHole.Core.Tests
             Expect.True(state.InBattle, "전투에 들어가 있어야 한다.");
             Expect.Throws<InvalidOperationException>(() => SessionAssembler.CreateBattle(content, new[] { state }));
 
-            battle.RequestEnd(SessionEndReason.TimeExpired);
+            battle.RequestEnd();
             Expect.True(!state.InBattle, "전투가 끝나면 풀려야 한다.");
             SessionAssembler.CreateBattle(content, new[] { state });
         }
@@ -141,7 +141,6 @@ namespace BlackHole.Core.Tests
 
             GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, new[] { state }));
             first.Advance(2);
-            Expect.Equal(SessionEndReason.TimeExpired, first.Result.Reason);
             Expect.True(!state.InBattle, "시간이 끝나도 풀려야 한다.");
 
             SessionAssembler.CreateBattle(content, new[] { state });

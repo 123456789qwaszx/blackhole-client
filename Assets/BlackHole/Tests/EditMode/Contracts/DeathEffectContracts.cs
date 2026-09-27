@@ -132,7 +132,7 @@ namespace BlackHole.Core.Tests
 
             destroyed.World.DealDamage(explosives[1], Kill);
             Expect.True(destroyed.World.HasPendingDeathProcessing, "Step 밖에서 죽은 효과 보유 적의 효과는 다음 Step까지 남는다.");
-            destroyed.RequestEnd(SessionEndReason.TimeExpired);
+            destroyed.RequestEnd();
             destroyed.ClearRemainingEnemies();
             Expect.True(!destroyed.World.HasPendingDeathProcessing, "판 정리가 처리되지 않은 효과를 버린다.");
         }

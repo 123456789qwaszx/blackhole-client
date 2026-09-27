@@ -18,7 +18,6 @@ namespace BlackHole.Unity
     // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
     // 시작 체크리스트 아래에는 진행 중인 판의 업그레이드 표(보는 참가자의 것) 중 산 노드가 바꾼 수치만 나온다:
     // 수치마다 기본값 0과 1일 때의 값이다(실제 기본값은 가져가는 시스템이 가진다).
-    // 종료 사유는 지금 시간 종료로 통일한다.
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
     internal sealed class BattleLifecycleConsole : IDisposable
@@ -238,7 +237,6 @@ namespace BlackHole.Unity
             _builder.Append("Last battle");
             _builder.Append("\n  Stage<pos=6em>").Append(raw.Stage);
             _builder.Append("\n  Seed<pos=6em>").Append(raw.Seed);
-            _builder.Append("\n  Reason<pos=6em>").Append(raw.EndReason);
             _builder.Append("\n  Time<pos=6em>").Append(Number(raw.PlayedSeconds)).Append('s');
             _builder.Append("\n  Gold<pos=6em>+").Append(raw.EarnedGold);
             _builder.Append("\n  Kills<pos=6em>").Append(raw.TotalKills);

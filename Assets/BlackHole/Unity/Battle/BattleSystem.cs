@@ -18,7 +18,7 @@ namespace BlackHole.Unity
     //      이 판의 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수)과 적 수치·색 비율을 확정한다.
     //   2. 적 소환 단계 진입 — 전투 시작 공급을 내보내고 판을 진행 단계로 넣는다.
     // 종료 단계:
-    //   1. 종료 요청(사유)             2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
+    //   1. 종료 요청                   2. 화면에서 관리하던 적의 수가 0(남은 적·요청 정리 — 처치 아님)
     //   3. 죽은 적의 처리 완료          4. 처치 집계와 번 Gold를 계산해 보관(원자료)
     //   5. 결산(번 Gold를 진행 상태에)   6. 화면의 연출 정리
     //   7. 모두 끝났으면 완전 초기화
@@ -141,7 +141,7 @@ namespace BlackHole.Unity
 
         // 전투 종료 뒤 자신의 모든 것을 정리한다. 오케스트레이터만 부른다.
         // 단계 하나라도 확인에 실패하면 멈추고(Faulted) 완전 초기화하지 않는다. 다시 부르면 처음부터 확인한다.
-        public async Task<BattleRawData> ShutdownAsync(SessionEndReason reason)
+        public async Task<BattleRawData> ShutdownAsync()
         {
             if (!CanShutdown)
                 throw new InvalidOperationException($"진행 중인 판이 없다. 지금: {_state}.");
@@ -151,9 +151,9 @@ namespace BlackHole.Unity
 
             try
             {
-                // 1. 종료 요청. 시간이 끝나 이미 끝난 판이면 처음 사유가 남는다.
-                Session.RequestEnd(reason);
-                EndSteps.Rename(0, $"End requested: {Session.Result.Reason}");
+                // 1. 종료 요청. 시간이 끝나 이미 끝난 판이면 기존 결과를 유지한다.
+                Session.RequestEnd();
+                EndSteps.Rename(0, "End requested");
                 EndSteps.Mark(0, StepState.Done);
 
                 // 2. 화면에서 관리하던 적의 수가 0. 남은 적은 처치가 아니라 정리다.

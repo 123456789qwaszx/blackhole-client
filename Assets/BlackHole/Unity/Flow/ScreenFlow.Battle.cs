@@ -30,9 +30,9 @@ namespace BlackHole.Unity
         }
 
         private void HandleBattlePauseClicked() => _battle.TogglePause();
-        private void HandleBattleEndClicked() => RequestEnd(SessionEndReason.TimeExpired);
+        private void HandleBattleEndClicked() => RequestEnd();
 
-        private void HandleBattleTimeExpired() => RequestEnd(SessionEndReason.TimeExpired);
+        private void HandleBattleTimeExpired() => RequestEnd();
 
         // 화면 버튼, 시간 종료, 개발용 콘솔이 같은 전환 경로를 사용한다.
         public async void RequestStart()
@@ -45,13 +45,13 @@ namespace BlackHole.Unity
             catch (Exception error) { Debug.LogException(error); }
         }
 
-        public async void RequestEnd(SessionEndReason reason)
+        public async void RequestEnd()
         {
             try
             {
-                BattleRawData raw = await _orchestrator.EndBattleAsync(reason);
+                BattleRawData raw = await _orchestrator.EndBattleAsync();
                 if (raw != null)
-                    GoToSettlement(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
+                    GoToSettlement(raw.PlayedSeconds, raw.TotalKills,
                         raw.Kills, raw.EarnedGold, _player.Gold);
             }
             catch (Exception error) { Debug.LogException(error); }

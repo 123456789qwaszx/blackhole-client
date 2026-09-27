@@ -43,7 +43,7 @@ namespace BlackHole.Core.Tests
             Expect.Equal(0L, state.Gold);
             Expect.Equal(PurchaseResult.InBattle, NodePurchase.TryPurchase(state, tree, "power"));
 
-            first.RequestEnd(SessionEndReason.TimeExpired);
+            first.RequestEnd();
             first.ClearRemainingEnemies();
             BattleRawData raw = first.CreateRawData();
             first.Settle();
