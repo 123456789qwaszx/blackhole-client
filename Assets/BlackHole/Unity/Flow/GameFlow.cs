@@ -4,7 +4,7 @@ using BlackHole.Core;
 
 namespace BlackHole.Unity
 {
-    // 한 판의 화면 전환 조건과 UI 명령을 소유한다. ScreenFlow에는 표시 값과 클릭만 전달한다.
+    // 한 판의 상태에 맞는 화면을 선택한다. 버튼 명령은 ScreenFlow가 필요한 시스템에 직접 전달한다.
     internal sealed class GameFlow : IDisposable
     {
         private readonly ScreenFlow _screens;
@@ -12,19 +12,18 @@ namespace BlackHole.Unity
         private readonly BattleOrchestrator _orchestrator;
         private readonly NodeTree _tree;
         private readonly PlayerState _player;
+        private readonly SettlementState _settlement;
         private readonly IReadOnlyList<NodeTreeView.NodeItem> _nodes;
-        private BattleRawData _pendingSettlement;
-        private long _shownGold;
-        private int _shownOwned;
 
         public GameFlow(ScreenFlow screens, BattleSystem battle, BattleOrchestrator orchestrator,
-            NodeTree tree, NodeTreeData layout, PlayerState player)
+            NodeTree tree, NodeTreeData layout, PlayerState player, SettlementState settlement)
         {
             _screens = screens;
             _battle = battle;
             _orchestrator = orchestrator;
             _tree = tree;
             _player = player;
+            _settlement = settlement;
 
             var cells = new Dictionary<string, (int X, int Y)>(StringComparer.Ordinal);
             foreach (NodeData node in layout.Nodes)
@@ -42,18 +41,13 @@ namespace BlackHole.Unity
             _nodes = nodes;
 
             _orchestrator.BattleCompleted += OnBattleCompleted;
-            _screens.PauseClicked += HandleBattlePauseClicked;
-            _screens.EndClicked += HandleBattleEndClicked;
-            _screens.NodeClicked += HandleUpgradeNodeClicked;
-            _screens.StartBattleClicked += HandleUpgradeStartBattleClicked;
-            _screens.ContinueClicked += HandleSettlementContinueClicked;
         }
 
         public void Tick()
         {
             FollowBattle();
             ShowBattle();
-            TickUpgrade();
+            _screens.RefreshUpgrade();
         }
 
         // 시작·정리 중에는 기존 화면을 유지한다. 실패 시에도 기존 화면을 유지한다.
@@ -65,15 +59,15 @@ namespace BlackHole.Unity
 
             if (_battle.IsRunning)
             {
-                _pendingSettlement = null;
+                _settlement.Clear();
                 if (!_screens.IsBattleOpen)
                     _screens.GoToBattle();
             }
-            else if (_pendingSettlement != null)
+            else if (_settlement.Pending != null)
             {
                 if (!_screens.IsSettlementOpen)
                 {
-                    BattleRawData raw = _pendingSettlement;
+                    BattleRawData raw = _settlement.Pending;
                     _screens.GoToSettlement(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
                         raw.Kills, raw.EarnedGold, _player.Gold);
                 }
@@ -81,7 +75,6 @@ namespace BlackHole.Unity
             else if (_battle.IsIdle && !_screens.IsUpgradeOpen)
             {
                 _screens.GoToUpgrade(_nodes, _tree.Graph.Links);
-                ShowUpgrade();
             }
         }
 
@@ -97,43 +90,19 @@ namespace BlackHole.Unity
                 _screens.ShowBattle(session.Remaining, session.World.EarnedGold, session.Phase == SessionPhase.Paused);
         }
 
-        private void TickUpgrade()
-        {
-            if (_screens.IsUpgradeOpen && (_player.Gold != _shownGold || _player.OwnedNodes.Count != _shownOwned))
-                ShowUpgrade();
-        }
-
-        private void ShowUpgrade()
-        {
-            if (!_screens.IsUpgradeOpen)
-                return;
-
-            _shownGold = _player.Gold;
-            _shownOwned = _player.OwnedNodes.Count;
-            _screens.ShowUpgrade(_shownGold, _shownOwned, _tree.Nodes.Count,
-                id => NodePurchase.StateOf(_player, _tree, id));
-        }
-
-        private void OnBattleCompleted(BattleRawData raw) => _pendingSettlement = raw;
-        private void HandleBattlePauseClicked() => _battle.TogglePause();
-        private void HandleBattleEndClicked() => _orchestrator.RequestEnd(SessionEndReason.TimeExpired);
-        private void HandleUpgradeStartBattleClicked() => _orchestrator.RequestStart();
-        private void HandleSettlementContinueClicked() => _pendingSettlement = null;
-
-        private void HandleUpgradeNodeClicked(string id)
-        {
-            NodePurchase.TryPurchase(_player, _tree, id);
-            ShowUpgrade();
-        }
+        private void OnBattleCompleted(BattleRawData raw) => _settlement.Set(raw);
 
         public void Dispose()
         {
             _orchestrator.BattleCompleted -= OnBattleCompleted;
-            _screens.PauseClicked -= HandleBattlePauseClicked;
-            _screens.EndClicked -= HandleBattleEndClicked;
-            _screens.NodeClicked -= HandleUpgradeNodeClicked;
-            _screens.StartBattleClicked -= HandleUpgradeStartBattleClicked;
-            _screens.ContinueClicked -= HandleSettlementContinueClicked;
         }
+    }
+
+    // 결산 확인 상태를 화면 선택과 Continue 버튼이 공유한다. 결산 계산은 BattleSystem이 끝낸다.
+    internal sealed class SettlementState
+    {
+        public BattleRawData Pending { get; private set; }
+        public void Set(BattleRawData raw) => Pending = raw;
+        public void Clear() => Pending = null;
     }
 }

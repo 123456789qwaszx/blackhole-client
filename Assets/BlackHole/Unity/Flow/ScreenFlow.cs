@@ -1,30 +1,37 @@
 using System;
 using System.Collections.Generic;
+using BlackHole.Core;
 
 namespace BlackHole.Unity
 {
-    // 화면 프리팹과 UIManager를 연결한다. 게임 상태, 화면 전환 판단, 게임 명령은 GameFlow가 가진다.
+    // 화면과 UIManager를 연결한다. 버튼 명령은 필요한 시스템에 직접 전달하고, 화면 선택은 GameFlow가 결정한다.
     internal sealed partial class ScreenFlow : IDisposable
     {
         private readonly UIManager _ui;
         private readonly UIPresentationSpec _battlePresentation;
         private readonly UIPresentationSpec _upgradePresentation;
         private readonly UIPresentationSpec _settlementPresentation;
+        private readonly BattleSystem _battle;
+        private readonly BattleOrchestrator _orchestrator;
+        private readonly NodeTree _tree;
+        private readonly PlayerState _player;
+        private readonly SettlementState _settlement;
         private readonly Dictionary<UIBase, List<Action>> _cleanupByScreen = new Dictionary<UIBase, List<Action>>();
 
-        public event Action PauseClicked;
-        public event Action EndClicked;
-        public event Action<string> NodeClicked;
-        public event Action StartBattleClicked;
-        public event Action ContinueClicked;
-
         public ScreenFlow(UIManager ui, UIPresentationSpec battlePresentation,
-            UIPresentationSpec upgradePresentation, UIPresentationSpec settlementPresentation)
+            UIPresentationSpec upgradePresentation, UIPresentationSpec settlementPresentation,
+            BattleSystem battle, BattleOrchestrator orchestrator, NodeTree tree,
+            PlayerState player, SettlementState settlement)
         {
             _ui = ui;
             _battlePresentation = battlePresentation;
             _upgradePresentation = upgradePresentation;
             _settlementPresentation = settlementPresentation;
+            _battle = battle;
+            _orchestrator = orchestrator;
+            _tree = tree;
+            _player = player;
+            _settlement = settlement;
         }
 
         private void BindView<T>(T screen, Action<T> apply) where T : UIBase

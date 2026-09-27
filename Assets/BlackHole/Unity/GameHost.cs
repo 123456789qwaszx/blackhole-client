@@ -112,12 +112,14 @@ namespace BlackHole.Unity
                 ui.Register(view);
             }
 
+            var settlement = new SettlementState();
             _screens = new ScreenFlow(
                 ui,
                 OrEmpty(battlePresentation, "Battle"),
                 OrEmpty(upgradePresentation, "Upgrade"),
-                OrEmpty(settlementPresentation, "Settlement"));
-            _flow = new GameFlow(_screens, _battle, _orchestrator, nodeTree, layout, viewer);
+                OrEmpty(settlementPresentation, "Settlement"),
+                _battle, _orchestrator, nodeTree, viewer, settlement);
+            _flow = new GameFlow(_screens, _battle, _orchestrator, nodeTree, layout, viewer, settlement);
 
             if (displayRefreshDriver != null)
                 displayRefreshDriver.Initialize(ui);

@@ -33,6 +33,6 @@ namespace BlackHole.Unity
                 r => r.ContinueClicked -= HandleSettlementContinueClicked);
         }
 
-        private void HandleSettlementContinueClicked() => ContinueClicked?.Invoke();
+        private void HandleSettlementContinueClicked() => _settlement.Clear();
     }
 }

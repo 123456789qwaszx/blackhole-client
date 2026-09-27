@@ -1,3 +1,5 @@
+using BlackHole.Core;
+
 namespace BlackHole.Unity
 {
     internal sealed partial class ScreenFlow
@@ -31,8 +33,8 @@ namespace BlackHole.Unity
                 r => r.EndClicked -= HandleBattleEndClicked);
         }
 
-        private void HandleBattlePauseClicked() => PauseClicked?.Invoke();
-        private void HandleBattleEndClicked() => EndClicked?.Invoke();
+        private void HandleBattlePauseClicked() => _battle.TogglePause();
+        private void HandleBattleEndClicked() => _orchestrator.RequestEnd(SessionEndReason.TimeExpired);
 
         public void ShowBattle(float remaining, long earnedGold, bool paused) =>
             _battleScreen?.Show(remaining, earnedGold, paused);
