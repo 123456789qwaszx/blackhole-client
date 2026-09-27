@@ -9,7 +9,7 @@ namespace BlackHole.Unity
     // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면, 적·전투 시스템, 오케스트레이터, 조준 입력,
     //   UI(UIManager와 업그레이드·전투·결산 화면), 화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔·스킬 콘솔(개발용) 조립.
     // - Start: 업그레이드 화면을 연다. 전투는 업그레이드 화면의 Start battle(또는 전투 시작·종료 콘솔)로 오케스트레이터에 요청한다.
-    //   그 뒤로 화면은 전투 시스템과 결산 대기를 따른다(ScreenFlow): 전투 → 결산 → 업그레이드.
+    //   그 뒤로 GameFlow가 전투 상태와 결산 대기를 따라 화면을 고른다: 전투 → 결산 → 업그레이드.
     // - Update: 조준 입력·스킬 콘솔 → 적·전투 시스템 → 화면 → 다른 콘솔 순서로 한 프레임을 넘긴다.
     //   스킬 콘솔은 판에 스킬 켜짐을 맞추므로 판이 진행하기 전에 부른다.
     //
@@ -58,7 +58,8 @@ namespace BlackHole.Unity
         private BattleSystem _battle;
         private BattleOrchestrator _orchestrator;
         private AimInput _aim;
-        private ScreenFlow _flow;
+        private ScreenFlow _screens;
+        private GameFlow _flow;
         private ControlConsole _console;
         private BattleLifecycleConsole _lifecycleConsole;
         private EnemyCommandConsole _commandConsole;
@@ -111,16 +112,12 @@ namespace BlackHole.Unity
                 ui.Register(view);
             }
 
-            _flow = new ScreenFlow(
+            _screens = new ScreenFlow(
                 ui,
-                _battle,
-                _orchestrator,
-                nodeTree,
-                layout,
-                viewer,
                 OrEmpty(battlePresentation, "Battle"),
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"));
+            _flow = new GameFlow(_screens, _battle, _orchestrator, nodeTree, layout, viewer);
 
             if (displayRefreshDriver != null)
                 displayRefreshDriver.Initialize(ui);
@@ -136,7 +133,7 @@ namespace BlackHole.Unity
             }
         }
 
-        private void Start() => _flow.OpenUpgradeScreen();
+        private void Start() => _flow.Tick();
 
         private void Update()
         {
@@ -158,6 +155,7 @@ namespace BlackHole.Unity
             _lifecycleConsole?.Dispose();
             _console?.Dispose();
             _flow?.Dispose();
+            _screens?.Dispose();
             _orchestrator?.Dispose();
             _deathEffectView?.Dispose();
             _skillView?.Dispose();

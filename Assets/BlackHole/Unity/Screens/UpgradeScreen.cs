@@ -8,7 +8,7 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // 업그레이드 화면(플레이어가 보는 노드 트리, F02의 임시 모양). Gold, 산 노드 수, 트리 보기, 전투 시작 버튼을 가진다.
-    // 노드 트리의 규칙을 모른다 — 표시 값은 ScreenFlow가 넘기고, 눌린 노드는 노드 ID로, 전투 시작은 사건으로 알린다.
+    // 노드 트리의 규칙을 모른다 — GameFlow가 ScreenFlow를 통해 표시 값을 넘기고, 눌린 노드는 노드 ID로, 전투 시작은 사건으로 알린다.
     // 트리 영역(TreeViewport)에 트리 보기(NodeTreeView)가 없으면 붙인다. 사용자가 만든 프리팹도 자식 이름만 맞으면 된다.
     public sealed class UpgradeScreen : UIRoot<UpgradeScreen.Refs>
     {
