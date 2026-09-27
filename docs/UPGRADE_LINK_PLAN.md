@@ -87,7 +87,7 @@
 | Unity | `Flow/ScreenFlow` | 전투 시스템 상태를 따라 두 화면을 바꾼다 |
 | Unity | `Battle/BattleSystem`, `Battle/BattleOrchestrator` | 노드 트리를 받아 조립에 넘긴다 |
 | Unity | `Console/BattleLifecycleConsole` | 이 판의 업그레이드 표를 보인다 |
-| Unity | `Screens/PlaceholderScreens`, `GameHost` | 두 화면을 만들고, 시작 화면을 업그레이드 화면으로 |
+| Unity | `Prefabs/Screens`, `GameBootstrap`, `GameHost` | 씬의 화면 프리팹을 등록하고, 시작 화면을 업그레이드 화면으로 |
 | Unity | `Console/NodeConsole` | 지운다(업그레이드 화면이 대신한다) |
 
 ## 8. 계약

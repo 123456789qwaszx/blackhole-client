@@ -14,7 +14,7 @@ namespace BlackHole.Unity
     // 출현 배치와 전투 시작 공급은 적 공급 설정 에셋, 진행도(단계)와 적 풀은 단계 표 에셋이 채운다.
     // 노드 트리는 판 조립 콘텐츠와 따로 노드 목록 에셋에서 읽는다. 업그레이드 화면은 같은 에셋의 격자 칸으로 노드를 놓는다.
     // 화면은 씬의 UI Canvas에 놓인 화면 프리팹(UpgradeScreen·BattleScreen·SettlementScreen)을 Root Layer와 Registered Views로 받는다.
-    // 연결하지 않으면(Root Layer가 비어 있으면) 코드로 만든 임시 화면을 쓴다(PlaceholderScreens, 개발용 대체).
+    // 세 화면과 Root/Panel Layer를 씬에서 연결해야 한다. 누락된 연결은 조립 전에 오류로 알린다.
     // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
     public sealed class GameBootstrap : MonoBehaviour
     {
@@ -28,7 +28,7 @@ namespace BlackHole.Unity
         [SerializeField] private NodeCatalog nodeCatalog;
         [SerializeField] private SkillSetup skillSetup;
 
-        [Header("UI Layers (비우면 임시 화면을 만든다)")]
+        [Header("UI Layers")]
         [SerializeField] private RectTransform rootLayer;
         [SerializeField] private RectTransform panelLayer;
 
@@ -75,7 +75,8 @@ namespace BlackHole.Unity
         {
             if (!TryLoadContent(out _content)
                 || !TryLoadNodeTree(out _layout, out _nodeTree)
-                || !NodesFitContent(_content, _nodeTree))
+                || !NodesFitContent(_content, _nodeTree)
+                || !HasConfiguredUI())
             {
                 enabled = false;
                 return;
@@ -109,21 +110,13 @@ namespace BlackHole.Unity
 
         private void BootstrapUI()
         {
-            if (rootLayer == null)
-            {
-                PlaceholderScreens.Result placeholder = PlaceholderScreens.Build(transform);
-                rootLayer = placeholder.RootLayer;
-                panelLayer = placeholder.PanelLayer;
-                views = placeholder.Views;
-            }
-
             _ui = new UIManager(
                 rootLayer,
                 panelLayer,
                 new UIResolver(new UIContext(themeId, localeId)),
                 new UIPresentationApplier());
 
-            foreach (UIBase view in views ?? new UIBase[0])
+            foreach (UIBase view in views)
             {
                 if (view == null)
                     continue;
@@ -182,6 +175,31 @@ namespace BlackHole.Unity
         #endregion
 
         #region 조립
+
+        private bool HasConfiguredUI()
+        {
+            if (rootLayer != null && panelLayer != null && views != null)
+            {
+                bool hasUpgrade = false;
+                bool hasBattle = false;
+                bool hasSettlement = false;
+
+                foreach (UIBase view in views)
+                {
+                    hasUpgrade |= view is UpgradeScreen;
+                    hasBattle |= view is BattleScreen;
+                    hasSettlement |= view is SettlementScreen;
+                }
+
+                if (hasUpgrade && hasBattle && hasSettlement)
+                    return true;
+            }
+
+            Debug.LogError(
+                "[UI] GameBootstrap에 Root Layer, Panel Layer와 UpgradeScreen·BattleScreen·SettlementScreen을 Registered Views로 연결해야 한다.",
+                this);
+            return false;
+        }
 
         // 오류가 있는 콘텐츠로는 시작하지 않는다. 모든 진단을 위치와 함께 남긴다.
         private bool TryLoadContent(out GameContent content)

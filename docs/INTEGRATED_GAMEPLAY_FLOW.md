@@ -96,8 +96,8 @@
 | 전투 | `BattleScreen.prefab` (배경 없음, 위쪽 띠) | 남은 시간, 이 판이 번 Gold, Pause/Resume | Pause, End battle |
 | 결산 | `SettlementScreen.prefab` | 끝난 사유, 시간, 처치 수(종류별), 번 Gold, 결산 뒤 Gold | Continue |
 
-- 씬(`SampleScene`)의 `UI > UI Canvas > RootLayer`에 세 화면이 있고 GameHost의 Root Layer·Panel Layer·Registered Views에 연결돼 있다. 자식 이름은 각 화면의 `Refs`와 같다(`UIRoot<TRefs>`).
-- 연결을 비우면 코드로 만든 임시 화면(`PlaceholderScreens`)을 쓴다. 개발용 대체일 뿐 정상 실행 경로가 아니다.
+- 씬(`SampleScene`)의 `UI > UI Canvas > RootLayer`에 세 화면이 있고 GameBootstrap의 Root Layer·Panel Layer·Registered Views에 연결돼 있다. 자식 이름은 각 화면의 `Refs`와 같다(`UIRoot<TRefs>`).
+- 세 화면과 UI Layer 연결이 없으면 GameBootstrap이 오류를 알리고 실행을 중단한다.
 - 화면은 규칙을 계산하지 않는다. 가격·구매 가능 여부는 `NodePurchase`, 번 Gold는 `World.EarnedGold`, 결산은 `GameSession.Settle`이 가진다.
 - `ScreenFlow`는 버튼 명령을 시스템에 연결하고 시작 성공·종료 완료·Continue 사건에서 화면을 전환한다. `UpgradePresenter`는 화면 진입·구매·개발 콘솔 변경 때 Gold·소유 수·노드별 상태를 계산해 넘긴다. 전투 HUD의 남은 시간과 번 Gold는 전투 Step 뒤에 갱신한다. 화면 전환을 위한 프레임별 상태 확인은 없다.
 - 적·스킬·사망 효과 표현(EnemyView, SkillView, DeathEffectView)은 Core 기록을 읽어 그린다. 결산 화면으로 넘어가기 전에 셋 다 비었는지 확인한다(정리 6단계).
