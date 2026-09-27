@@ -13,7 +13,7 @@ namespace BlackHole.Unity
                 afterPresented: root =>
                 {
                     BindView(root, ApplyBindings);
-                    root.BuildTree(_nodes, _tree.Graph.Links);
+                    _treeView.Build(_nodes, _tree.Graph.Links);
                     RefreshUpgrade();
                 },
                 afterClosed: Unbind);
@@ -21,9 +21,10 @@ namespace BlackHole.Unity
 
         private void ApplyBindings(UpgradeScreen root)
         {
+            // 트리 보기는 업그레이드 화면 프리팹 안에 있다. 연결은 그 화면의 수명과 함께 풀린다.
             AddBinding(root,
-                r => r.NodeClicked += HandleUpgradeNodeClicked,
-                r => r.NodeClicked -= HandleUpgradeNodeClicked);
+                _ => _treeView.NodeClicked += HandleUpgradeNodeClicked,
+                _ => _treeView.NodeClicked -= HandleUpgradeNodeClicked);
 
             AddBinding(root,
                 r => r.StartBattleClicked += HandleUpgradeStartBattleClicked,
@@ -54,7 +55,7 @@ namespace BlackHole.Unity
             foreach (NodeDefinition node in _tree.Nodes)
                 states.Add(node.Id, NodePurchase.StateOf(_player, _tree, node.Id));
 
-            root.ShowNodes(states);
+            _treeView.Show(states);
         }
     }
 }

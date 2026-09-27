@@ -1,32 +1,26 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using BlackHole.Core;
 using TMPro;
-using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace BlackHole.Unity
 {
-    // 업그레이드 화면(플레이어가 보는 노드 트리, F02의 임시 모양). Gold, 산 노드 수, 트리 보기, 전투 시작 버튼을 가진다.
-    // 노드 트리의 규칙을 모른다 — ScreenFlow가 표시 값을 넘기고, 눌린 노드는 노드 ID로, 전투 시작은 사건으로 알린다.
-    // 트리 영역(TreeViewport)에 트리 보기(NodeTreeView)가 없으면 붙인다. 사용자가 만든 프리팹도 자식 이름만 맞으면 된다.
+    // 업그레이드 화면(플레이어가 보는 노드 트리, F02의 임시 모양). Gold, 산 노드 수, 전투 시작 버튼을 가진다.
+    // 노드 트리의 규칙을 모른다 — ScreenFlow가 표시 값을 넘기고, 전투 시작은 사건으로 알린다.
+    // 트리 보기(NodeTreeView)는 이 화면의 프리팹 안에 있지만 화면 클래스는 모른다. GameBootstrap이 찾아 ScreenFlow에 넘긴다.
     public sealed class UpgradeScreen : UIRoot<UpgradeScreen.Refs>
     {
         public enum Refs
         {
             GoldText,
             ProgressText,
-            TreeViewport,
             StartBattleBtn_Button,
         }
 
-        public event Action<string> NodeClicked;
         public event Action StartBattleClicked;
 
         private TMP_Text _gold;
         private TMP_Text _progress;
-        private NodeTreeView _tree;
 
         protected override void OnInitialize()
         {
@@ -36,27 +30,9 @@ namespace BlackHole.Unity
             _progress = View.Text(Refs.ProgressText);
 
             BindEvent(View.Button(Refs.StartBattleBtn_Button), HandleStartBattleClicked);
-
-            RectTransform viewport = View.Rect(Refs.TreeViewport);
-
-            if (viewport != null)
-            {
-                _tree = viewport.GetComponent<NodeTreeView>();
-
-                if (_tree == null)
-                    _tree = viewport.gameObject.AddComponent<NodeTreeView>();
-
-                _tree.NodeClicked += HandleNodeClicked;
-            }
         }
 
         private void HandleStartBattleClicked(PointerEventData _) => StartBattleClicked?.Invoke();
-        private void HandleNodeClicked(string id) => NodeClicked?.Invoke(id);
-
-        public void BuildTree(IReadOnlyList<NodeTreeView.NodeItem> nodes, IReadOnlyList<(string A, string B)> links) =>
-            _tree?.Build(nodes, links);
-
-        public void ShowNodes(IReadOnlyDictionary<string, NodeState> states) => _tree?.Show(states);
 
         public void ShowGold(long gold)
         {

@@ -98,6 +98,7 @@
 
 - 씬(`SampleScene`)의 `UI > UI Canvas > RootLayer`에 세 화면이 있고 GameBootstrap의 Root Layer·Panel Layer·Registered Views에 연결돼 있다. 자식 이름은 각 화면의 `Refs`와 같다(`UIRoot<TRefs>`).
 - 세 화면과 UI Layer 연결이 없으면 GameBootstrap이 오류를 알리고 실행을 중단한다.
+- 트리 보기(`NodeTreeView`)는 업그레이드 화면 프리팹 안에 있지만 `UpgradeScreen`은 모른다. GameBootstrap이 찾아 `ScreenFlow`에 넘기고, `ScreenFlow`가 트리를 짓고 상태를 칠하고 노드 클릭을 연결한다. 없으면 GameBootstrap이 오류를 알린다.
 - 화면은 규칙을 계산하지 않는다. 가격·구매 가능 여부는 `NodePurchase`, 번 Gold는 `World.EarnedGold`, 결산은 `GameSession.Settle`이 가진다.
 - `BattleSystem.Tick`은 제한 시간이 끝난 프레임에만 `true`를 한 번 반환한다. `GameHost`는 그때 `ScreenFlow.HandleBattleTimeExpired()`를 직접 호출한다. `ScreenFlow`는 버튼·시간 만료·개발 콘솔의 요청을 한곳으로 모으고, 오케스트레이터의 성공 결과를 받아 화면을 전환한다. 업그레이드 화면의 Gold·소유 수·노드별 상태도 `ScreenFlow.RefreshUpgrade`가 계산해 넘긴다. 화면 진입·구매·개발용 업그레이드 콘솔이 부르고, 업그레이드 화면이 열려 있을 때만 그린다(콘솔은 결산 화면 위에서도 누를 수 있다). 개발용 콘솔은 `ScreenFlow.Editor`의 콘솔 핸들만 받고, 그 핸들은 같은 일을 하는 화면 버튼의 핸들로 간다. 전투 HUD의 남은 시간과 번 Gold는 전투 Step 뒤에 갱신한다. 화면 전환을 위한 프레임별 상태 확인은 없다.
 - 적·스킬·사망 효과 표현(EnemyView, SkillView, DeathEffectView)은 Core 기록을 읽어 그린다. 결산 화면으로 넘어가기 전에 셋 다 비었는지 확인한다(정리 6단계).

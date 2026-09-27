@@ -61,6 +61,7 @@ namespace BlackHole.Unity
         private PlayerState _viewer;
         private AimInput _aim;
         private UIManager _ui;
+        private NodeTreeView _treeView;
         private ScreenFlow _screens;
         private ControlConsole _console;
         private BattleLifecycleConsole _lifecycleConsole;
@@ -136,7 +137,7 @@ namespace BlackHole.Unity
                 OrEmpty(battlePresentation, "Battle"),
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
-                _battle, _orchestrator, _nodeTree, BuildNodeItems(_nodeTree, _layout), _viewer);
+                _battle, _orchestrator, _nodeTree, BuildNodeItems(_nodeTree, _layout), _treeView, _viewer);
         }
 
         private void BootstrapDevelopmentConsoles()
@@ -187,17 +188,24 @@ namespace BlackHole.Unity
 
                 foreach (UIBase view in views)
                 {
-                    hasUpgrade |= view is UpgradeScreen;
+                    if (view is UpgradeScreen upgrade)
+                    {
+                        hasUpgrade = true;
+                        // 트리 보기는 업그레이드 화면 프리팹 안에 있다. 화면 클래스는 모르고, ScreenFlow가 받아 쓴다.
+                        _treeView = upgrade.GetComponentInChildren<NodeTreeView>(true);
+                    }
+
                     hasBattle |= view is BattleScreen;
                     hasSettlement |= view is SettlementScreen;
                 }
 
-                if (hasUpgrade && hasBattle && hasSettlement)
+                if (hasUpgrade && hasBattle && hasSettlement && _treeView != null)
                     return true;
             }
 
             Debug.LogError(
-                "[UI] GameBootstrap에 Root Layer, Panel Layer와 UpgradeScreen·BattleScreen·SettlementScreen을 Registered Views로 연결해야 한다.",
+                "[UI] GameBootstrap에 Root Layer, Panel Layer와 UpgradeScreen·BattleScreen·SettlementScreen을 Registered Views로 연결해야 한다. " +
+                "UpgradeScreen 프리팹 안에는 트리 보기(NodeTreeView)가 있어야 한다.",
                 this);
             return false;
         }
