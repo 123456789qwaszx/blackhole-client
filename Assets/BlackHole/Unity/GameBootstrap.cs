@@ -8,7 +8,7 @@ namespace BlackHole.Unity
 {
     // 씬의 직렬화 설정으로 게임을 조립하는 Unity 진입점.
     // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면, 적·전투 시스템, 오케스트레이터, 조준 입력,
-    //   UI(UIManager와 업그레이드·전투·결산 화면), 화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔·스킬 콘솔(개발용) 조립.
+    //   UI(UIManager와 업그레이드·전투·결산 화면), 화면 흐름, GameHost 조립. 개발용 콘솔 조립은 GameBootstrap.Editor에 있다.
     // - Start/Update: 조립한 GameHost에 Unity 수명을 전달한다.
     //
     // 콘텐츠: 판 설정은 SampleContent(C#), 스킬은 스킬 설정 에셋, 적 종류는 적 종류 목록 에셋,
@@ -18,7 +18,7 @@ namespace BlackHole.Unity
     // 업그레이드 화면 안의 트리 보기 페이지(NodeTreeView)도 Registered Views에 넣는다.
     // 세 화면·트리 보기 페이지와 Root/Panel Layer를 씬에서 연결해야 한다. 누락된 연결은 조립 전에 오류로 알린다.
     // Presentation을 비워 두면 아무것도 바꾸지 않는 빈 Presentation을 쓴다.
-    public sealed class GameBootstrap : MonoBehaviour
+    public sealed partial class GameBootstrap : MonoBehaviour
     {
         // 판에 참가하는 로컬 Player. 지금은 1명이다(Players.Count == 1일 뿐 전역 Player가 아니다).
         private static readonly PlayerId[] LocalPlayers = { new PlayerId(1) };
@@ -64,11 +64,6 @@ namespace BlackHole.Unity
         private AimInput _aim;
         private UIManager _ui;
         private ScreenFlow _screens;
-        private ControlConsole _console;
-        private BattleLifecycleConsole _lifecycleConsole;
-        private EnemyCommandConsole _commandConsole;
-        private UpgradeConsole _upgradeConsole;
-        private SkillConsole _skillConsole;
         private GameHost _host;
 
         #region Unity 수명
@@ -88,8 +83,8 @@ namespace BlackHole.Unity
             BootstrapBattle();
             BootstrapUI();
             BootstrapScreenFlow();
-            BootstrapDevelopmentConsoles();
             BootstrapHost();
+            BootstrapDevelopmentConsoles();
         }
 
         private void BootstrapBattleViews()
@@ -142,26 +137,10 @@ namespace BlackHole.Unity
                 _battle, _orchestrator, _nodeTree, BuildNodeItems(_nodeTree, _layout), _viewer);
         }
 
-        private void BootstrapDevelopmentConsoles()
-        {
-            if (!Debug.isDebugBuild)
-                return;
-
-            // 스킬 콘솔은 GameHost가 전투 Step보다 먼저 갱신한다.
-            _console = new ControlConsole(transform, _orchestrator, _battle, _content, _nodeTree, _enemyLooks);
-            _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, _nodeTree,
-                _viewer.Id, _screens.HandleLifecycleStartBattleClicked,
-                _screens.HandleLifecyclePauseClicked, _screens.HandleLifecycleEndBattleClicked);
-            _commandConsole = new EnemyCommandConsole(transform, _battle, _content.Enemies);
-            _upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _screens.HandleUpgradeConsoleProgressChanged);
-            _skillConsole = new SkillConsole(transform, _content, _battle, _viewer.Id);
-        }
-
         private void BootstrapHost()
         {
             _host = new GameHost(_ui, _battle, _aim, _screens,
-                _enemyLooks, _enemyView, _skillView, _deathEffectView,
-                _console, _lifecycleConsole, _commandConsole, _upgradeConsole, _skillConsole);
+                _enemyLooks, _enemyView, _skillView, _deathEffectView);
         }
 
         private void Start() => _host?.Start();

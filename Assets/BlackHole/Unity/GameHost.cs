@@ -4,7 +4,8 @@ using BlackHole.Core;
 namespace BlackHole.Unity
 {
     // 조립된 한 판의 실행 수명. Unity의 Awake에서 만들고 Start/Update/OnDestroy에서 호출한다.
-    internal sealed class GameHost : IDisposable
+    // 개발용 콘솔은 GameHost.Editor에 있다.
+    internal sealed partial class GameHost : IDisposable
     {
         private readonly UIManager _ui;
         private readonly BattleSystem _battle;
@@ -14,17 +15,10 @@ namespace BlackHole.Unity
         private readonly EnemyView _enemyView;
         private readonly SkillView _skillView;
         private readonly DeathEffectView _deathEffectView;
-        private readonly ControlConsole _console;
-        private readonly BattleLifecycleConsole _lifecycleConsole;
-        private readonly EnemyCommandConsole _commandConsole;
-        private readonly UpgradeConsole _upgradeConsole;
-        private readonly SkillConsole _skillConsole;
 
         public GameHost(UIManager ui, BattleSystem battle, AimInput aim, ScreenFlow screens,
             EnemyLooks enemyLooks, EnemyView enemyView,
-            SkillView skillView, DeathEffectView deathEffectView, ControlConsole console,
-            BattleLifecycleConsole lifecycleConsole, EnemyCommandConsole commandConsole,
-            UpgradeConsole upgradeConsole, SkillConsole skillConsole)
+            SkillView skillView, DeathEffectView deathEffectView)
         {
             _ui = ui;
             _battle = battle;
@@ -34,11 +28,6 @@ namespace BlackHole.Unity
             _enemyView = enemyView;
             _skillView = skillView;
             _deathEffectView = deathEffectView;
-            _console = console;
-            _lifecycleConsole = lifecycleConsole;
-            _commandConsole = commandConsole;
-            _upgradeConsole = upgradeConsole;
-            _skillConsole = skillConsole;
         }
 
         public void Start() => _screens.GoToUpgrade();
@@ -46,14 +35,11 @@ namespace BlackHole.Unity
         public void Tick(float deltaTime)
         {
             _aim.Tick();
-            _skillConsole?.Tick();
+            TickConsolesBeforeBattle();
             if (_battle.Tick(deltaTime))
                 _screens.HandleBattleTimeExpired();
             RefreshBattleHud();
-            _console?.Tick();
-            _lifecycleConsole?.Tick();
-            _commandConsole?.Tick();
-            _upgradeConsole?.Tick();
+            TickConsolesAfterBattle();
         }
 
         private void RefreshBattleHud()
@@ -70,11 +56,7 @@ namespace BlackHole.Unity
 
         public void Dispose()
         {
-            _skillConsole?.Dispose();
-            _upgradeConsole?.Dispose();
-            _commandConsole?.Dispose();
-            _lifecycleConsole?.Dispose();
-            _console?.Dispose();
+            DisposeConsoles();
             _screens.Dispose();
             _deathEffectView.Dispose();
             _skillView.Dispose();
