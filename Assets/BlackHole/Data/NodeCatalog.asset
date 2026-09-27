@@ -386,28 +386,6 @@ MonoBehaviour:
       - Stat: enemy.planet.mass-level
         Operation: 0
         Value: 1
-    - Id: planet-supply-1
-      Price: 100000
-      Start: 0
-      X: -9
-      Y: -3
-      Links:
-      - planet-mass-1
-      Upgrades:
-      - Stat: enemy.planet.start-supply
-        Operation: 0
-        Value: 2
-    - Id: planet-supply-2
-      Price: 1000000
-      Start: 0
-      X: -9
-      Y: -4
-      Links:
-      - planet-supply-1
-      Upgrades:
-      - Stat: enemy.planet.start-supply
-        Operation: 0
-        Value: 2
     - Id: golden-digits-1
       Price: 200000
       Start: 0
@@ -560,16 +538,5 @@ MonoBehaviour:
       - star-mass-7
       Upgrades:
       - Stat: enemy.star.mass-level
-        Operation: 0
-        Value: 1
-    - Id: star-supply-1
-      Price: 1000000000
-      Start: 0
-      X: -2
-      Y: -7
-      Links:
-      - star-mass-1
-      Upgrades:
-      - Stat: enemy.star.start-supply
         Operation: 0
         Value: 1
