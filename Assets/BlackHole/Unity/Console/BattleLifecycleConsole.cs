@@ -14,15 +14,15 @@ namespace BlackHole.Unity
     //
     // 시작·종료 버튼은 조립 시 받은 요청을 부른다. 전투 순서는 오케스트레이터가, 화면 전환은 ScreenFlow가 맡는다.
     // 일시정지 버튼은 진행 중인 판을 멈추고 다시 돌린다(전투 시스템). 판이 없거나 끝났으면 누를 수 없다.
-    // 버튼 아래에는 적·전투 시스템의 시작·종료 체크리스트가, 그 아래에는 Gold와 마지막 판의 원자료가 나온다.
+    // 버튼 아래에는 진행 중인 판의 업그레이드 표, Gold와 마지막 판의 원자료가 나온다.
     // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
-    // 시작 체크리스트 아래에는 진행 중인 판의 업그레이드 표(보는 참가자의 것) 중 산 노드가 바꾼 수치만 나온다:
+    // 진행 중인 판의 업그레이드 표(보는 참가자의 것) 중 산 노드가 바꾼 수치만 나온다:
     // 수치마다 기본값 0과 1일 때의 값이다(실제 기본값은 가져가는 시스템이 가진다).
     //
     // ` 키로 다른 콘솔 창과 함께 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
     internal sealed class BattleLifecycleConsole : IDisposable
     {
-        // 버튼 너비. 창의 너비도 이것으로 정해진다(체크리스트와 원자료는 이 너비 안에서 줄을 나눠 쓴다).
+        // 버튼 너비. 창의 너비도 이것으로 정해진다(업그레이드 표와 원자료는 이 너비 안에서 줄을 나눠 쓴다).
         private const float ButtonWidth = 344;
 
         private readonly BattleOrchestrator _orchestrator;
@@ -34,8 +34,6 @@ namespace BlackHole.Unity
         private readonly Button _pauseButton;
         private readonly TMP_Text _pauseLabel;
         private readonly Button _endButton;
-        private readonly TMP_Text _startStepsText;
-        private readonly TMP_Text _endStepsText;
         private readonly TMP_Text _goldText;
         private readonly TMP_Text _rawDataText;
         private readonly TMP_Text _upgradesText;
@@ -44,8 +42,6 @@ namespace BlackHole.Unity
         private readonly StringBuilder _builder = new StringBuilder();
 
         private bool? _shownPaused;
-        private int _shownStartVersion = -1;
-        private int _shownEndVersion = -1;
         private long[] _shownGold;
         private long _shownEarned = -1;
         private BattleRawData _shownRawData;
@@ -75,12 +71,10 @@ namespace BlackHole.Unity
             Text(panel, "Title", "BATTLE START / END  ( ` )", 22);
 
             _startButton = ButtonOf(panel, "StartBattle", "Start battle", ButtonWidth, _requestStart);
-            _startStepsText = Text(panel, "StartSteps", string.Empty, 20);
             _upgradesText = Text(panel, "Upgrades", string.Empty, 20);
             _pauseButton = ButtonOf(panel, "PauseBattle", "Pause", ButtonWidth, () => _battle.TogglePause());
             _pauseLabel = _pauseButton.GetComponentInChildren<TMP_Text>();
             _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth, _requestEnd);
-            _endStepsText = Text(panel, "EndSteps", string.Empty, 20);
             _goldText = Text(panel, "Gold", string.Empty, 20);
             _rawDataText = Text(panel, "RawData", string.Empty, 20);
 
@@ -111,18 +105,6 @@ namespace BlackHole.Unity
             {
                 _shownPaused = paused;
                 _pauseLabel.text = paused ? "Resume" : "Pause";
-            }
-
-            if (_battle.StartSteps.Version != _shownStartVersion)
-            {
-                _shownStartVersion = _battle.StartSteps.Version;
-                _startStepsText.text = Describe(_battle.StartSteps);
-            }
-
-            if (_battle.EndSteps.Version != _shownEndVersion)
-            {
-                _shownEndVersion = _battle.EndSteps.Version;
-                _endStepsText.text = Describe(_battle.EndSteps);
             }
 
             if (!_upgradesShown || _battle.Session != _shownSession)
@@ -173,28 +155,6 @@ namespace BlackHole.Unity
                 _builder.Append("\n  This battle<pos=7em>+").Append(earned);
 
             _goldText.text = _builder.ToString();
-        }
-
-        private string Describe(Checklist steps)
-        {
-            _builder.Clear();
-
-            for (int i = 0; i < steps.Count; i++)
-            {
-                if (i > 0)
-                    _builder.Append('\n');
-
-                switch (steps.StateOf(i))
-                {
-                    case StepState.Done: _builder.Append("  <color=#7CFC7C>[x]</color> "); break;
-                    case StepState.Failed: _builder.Append("  <color=#FF6B6B>[!]</color> "); break;
-                    default: _builder.Append("  <color=#808080>[ ]</color> "); break;
-                }
-
-                _builder.Append(steps.NameOf(i));
-            }
-
-            return _builder.ToString();
         }
 
         // 진행 중인 판이 보는 참가자에게 준 업그레이드 표. 산 노드가 바꾼 수치마다 "기본값 0일 때 / 1일 때"다.
