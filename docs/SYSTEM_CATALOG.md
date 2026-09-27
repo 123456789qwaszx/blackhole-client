@@ -26,6 +26,7 @@
 | [UPGRADE_LINK_PLAN](UPGRADE_LINK_PLAN.md) | 업그레이드 화면과 전투를 한 루프로 잇고, 판이 참가자별 업그레이드 표를 받게 하기 (UL-001~004) |
 | [SKILL_SYSTEM_PLAN](SKILL_SYSTEM_PLAN.md) | 스킬 샌드박스(별도 레포)와의 비교, 규칙 출처 가르기, 스킬·사망 효과·처치 버프를 전투에 들이는 방법 (SK-001~007) |
 | [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) | 판 조립 때 정하는 판 구성(생성)과 처치 보상(Gold)의 계획과 티켓 (BC-001~006) |
+| [ENEMY_UNLOCK_PLAN](ENEMY_UNLOCK_PLAN.md) | 단계·풀을 지우고 나오는 적 종류를 노드(해금 수치)가 정하게 하기 (EU-001~004) |
 | [CONTENT_AUTHORING_PLAN](CONTENT_AUTHORING_PLAN.md) | 콘텐츠 제작 흐름의 검증 절차와 티켓 (CA-001~006) |
 | [CONTENT_DEFINITION](CONTENT_DEFINITION.md) | 이번 Vertical Slice에서 만들 대표 콘텐츠의 명세 (CA-001) |
 | [AUTHORING_PAIN](AUTHORING_PAIN.md) | 현재 형식의 저작 시험 결과와 Authoring Pain 목록 (CA-002~, CA-006의 입력) |
