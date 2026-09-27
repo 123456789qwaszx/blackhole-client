@@ -10,8 +10,9 @@ namespace BlackHole.Unity
     // 화면은 업그레이드 화면, 전투 화면, 결산 화면 셋이다. 원작의 트리 → 전투 → 트리 루프 사이에 결과 확인을 둔다:
     //   업그레이드 → (전투 시작) → 전투 → (시간 종료·전투 끝내기 → 정리·결산) → 결산 → (계속하기) → 업그레이드.
     // 어느 화면을 열지는 이 순서로 정한다(한 프레임에 한 번):
-    //   1. 결산을 기다리는 판의 원자료가 있으면 결산 화면.
-    //   2. 판이 돌고 있으면 전투 화면.
+    //   1. 판이 돌고 있으면 전투 화면. 결산 화면을 보는 중에 새 판이 시작되면(개발용 콘솔) 보지 않은 결산 표시는 넘긴다
+    //      — 결산은 이미 끝났고, 도는 판을 가리면 안 된다.
+    //   2. 결산을 기다리는 판의 원자료가 있으면 결산 화면.
     //   3. 판이 없으면(정리까지 끝나면) 업그레이드 화면.
     // 시작·정리 중(오케스트레이터가 순서를 처리하는 중)에는 지금 화면을 그대로 둔다. 정리가 끝나 판이 없어진 순간과
     // 완료 알림 사이에 업그레이드 화면이 끼지 않게 하기 위해서다. 정리 실패(Faulted)에도 화면을 바꾸지 않는다.
@@ -68,22 +69,24 @@ namespace BlackHole.Unity
             TickUpgrade();
         }
 
-        // 1. 결산을 기다리는 판 → 결산 화면, 2. 도는 판 → 전투 화면, 3. 판 없음 → 업그레이드 화면.
+        // 1. 도는 판 → 전투 화면, 2. 결산을 기다리는 판 → 결산 화면, 3. 판 없음 → 업그레이드 화면.
         // 시작·정리 중(Busy)과 정리 실패(Faulted)에는 지금 화면을 그대로 둔다.
         private void FollowBattle()
         {
             if (_orchestrator.Busy)
                 return;
 
-            if (_pendingSettlement != null)
+            if (_battle.IsRunning)
+            {
+                _pendingSettlement = null;
+
+                if (_battleScreen == null)
+                    OpenBattleScreen();
+            }
+            else if (_pendingSettlement != null)
             {
                 if (_settlementScreen == null)
                     OpenSettlementScreen();
-            }
-            else if (_battle.IsRunning)
-            {
-                if (_battleScreen == null)
-                    OpenBattleScreen();
             }
             else if (_battle.IsIdle && _upgradeScreen == null)
             {

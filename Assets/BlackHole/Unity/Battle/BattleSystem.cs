@@ -88,8 +88,20 @@ namespace BlackHole.Unity
             EndSteps.Reset();
 
             // 1. 업그레이드에서 바뀐 수치 받기: 조립이 참가자마다 산 노드로 업그레이드 표를 만들고,
-            //    그 표로 이 판의 판 구성과 적 수치 표를 확정한다. 판이 끝날 때까지 바뀌지 않는다.
-            Session = SessionAssembler.CreateBattle(_content, players, stage, seed, _nodes);
+            //    그 표로 이 판의 Breaker 수치, 판 구성과 적 수치 표를 확정한다. 판이 끝날 때까지 바뀌지 않는다.
+            //    조립이 실패하면(산 노드 조합이 한계 밖 등) 판도, 전투에 묶인 진행 상태도 없으므로 준비된 상태로 돌아간다.
+            try
+            {
+                Session = SessionAssembler.CreateBattle(_content, players, stage, seed, _nodes);
+            }
+            catch
+            {
+                StartSteps.Mark(0, StepState.Failed);
+                _players = null;
+                _state = State.Idle;
+                throw;
+            }
+
             StartSteps.Mark(0, StepState.Done);
 
             // 2. 적 소환 단계 진입.
