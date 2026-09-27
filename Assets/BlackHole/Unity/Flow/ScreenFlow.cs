@@ -33,7 +33,6 @@ namespace BlackHole.Unity
             _player = player;
             _upgradePresenter = upgradePresenter;
             _nodes = BuildNodeItems(tree, layout);
-            _orchestrator.BattleStarted += HandleBattleStarted;
             _orchestrator.BattleCompleted += HandleBattleCompleted;
         }
 
@@ -77,7 +76,6 @@ namespace BlackHole.Unity
 
         public void Dispose()
         {
-            _orchestrator.BattleStarted -= HandleBattleStarted;
             _orchestrator.BattleCompleted -= HandleBattleCompleted;
 
             foreach (List<Action> cleanups in _cleanupByScreen.Values)

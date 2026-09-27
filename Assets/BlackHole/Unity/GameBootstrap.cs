@@ -138,6 +138,7 @@ namespace BlackHole.Unity
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
                 _battle, _orchestrator, _nodeTree, _layout, _viewer, _upgradePresenter);
+            _orchestrator.SetScreenFlow(_screens);
         }
 
         private void BootstrapDevelopmentConsoles()

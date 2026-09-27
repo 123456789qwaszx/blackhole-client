@@ -16,7 +16,7 @@ namespace BlackHole.Unity
     // 진행 상태(PlayerState: Gold, 산 노드)와 다음 전투의 진행도(적의 강도 단계)를 가진다.
     // 진행 상태는 전투 밖에서만 바뀐다: 노드 구매(업그레이드 화면, 전투 중에는 살 수 없다)와
     // 판의 결산(GameSession.Settle — 적·전투 시스템의 정리 순서 안에서 한 번). 그래서 저장은 전투 밖(휴식 공간)에서만 하면 된다.
-    // 콘솔·전투 화면의 버튼과 판의 시간 종료는 모두 여기로 요청한다. 시작 성공과 종료 완료를 화면 흐름에 알린다.
+    // 콘솔·전투 화면의 버튼과 판의 시간 종료는 모두 여기로 요청한다. 시작 성공 시 화면 흐름을 직접 연다.
     // 종료 순서가 끝까지 성공하면(정리·결산·연출 정리·완전 초기화) 그 판의 원자료로 BattleCompleted를 한 번 알린다.
     // 정리가 실패하면 알리지 않는다 — 결산 화면은 결산을 마친 판만 보여 준다.
     internal sealed class BattleOrchestrator : IDisposable
@@ -24,6 +24,7 @@ namespace BlackHole.Unity
         private readonly GameContent _content;
         private readonly BattleSystem _battle;
         private readonly PlayerId[] _participants;
+        private ScreenFlow _screens;
         // 진행 상태는 오케스트레이터를 만들 때 만들고, 전투 사이에 이어진다(저장은 없다). 첫 전투 전의 구매(노드 콘솔)도 이것을 쓴다.
         private readonly PlayerState[] _progress;
         private int _stage = SessionAssembler.FirstStage;
@@ -41,8 +42,6 @@ namespace BlackHole.Unity
         public bool CanStart => !Busy && _battle.IsIdle;
         public bool CanEnd => !Busy && _battle.CanShutdown;
 
-        // 시작 순서가 성공해 판이 실행 가능한 상태가 되었다.
-        public event Action BattleStarted;
         // 판의 종료 순서가 끝까지 성공했다(결산 포함). 원자료는 결산 전 판 결과의 스냅샷이다.
         // 종료 순서의 마지막에 같은 호출 안에서 알리므로, 알리기 전까지 Busy가 풀리지 않는다.
         public event Action<BattleRawData> BattleCompleted;
@@ -55,6 +54,9 @@ namespace BlackHole.Unity
             _progress = NewProgress();
             _battle.TimeExpired += OnTimeExpired;
         }
+
+        // 조립이 끝나고 전투 시작 요청을 받기 전에 화면 흐름을 연결한다.
+        public void SetScreenFlow(ScreenFlow screens) => _screens = screens;
 
         // 진행도를 바꾼다. 범위 밖의 값은 가장 가까운 단계가 된다. 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
         public void SetStage(int stage) =>
@@ -71,7 +73,7 @@ namespace BlackHole.Unity
             {
                 // 전투마다 seed를 새로 정한다. 쓴 seed는 판과 원자료에 남는다.
                 await _battle.StartAsync(_progress, _stage, Environment.TickCount);
-                BattleStarted?.Invoke();
+                _screens.GoToBattle();
             }
             finally
             {
