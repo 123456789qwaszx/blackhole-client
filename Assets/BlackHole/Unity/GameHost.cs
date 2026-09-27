@@ -8,9 +8,8 @@ namespace BlackHole.Unity
     // Unity 수명과 한 프레임을 가진 진입점(조립 루트).
     // - Awake: 콘텐츠·노드 트리 로드·검증, 적 화면·스킬 화면·사망 효과 화면, 적·전투 시스템, 오케스트레이터, 조준 입력,
     //   UI(UIManager와 업그레이드·전투·결산 화면), 화면 흐름, 조종 콘솔·전투 시작·종료 콘솔·적 명령 콘솔·업그레이드 콘솔·스킬 콘솔(개발용) 조립.
-    // - Start: 업그레이드 화면을 연다. 전투는 업그레이드 화면의 Start battle(또는 전투 시작·종료 콘솔)로 오케스트레이터에 요청한다.
-    //   그 뒤로 GameFlow가 전투 상태와 결산 대기를 따라 화면을 고른다: 전투 → 결산 → 업그레이드.
-    // - Update: 조준 입력·스킬 콘솔 → 적·전투 시스템 → 화면 → 다른 콘솔 순서로 한 프레임을 넘긴다.
+    // - Start: 업그레이드 화면을 연다. 이후 시작 성공·종료 완료·Continue 사건에서 ScreenFlow가 화면을 전환한다.
+    // - Update: 조준 입력·스킬 콘솔 → 적·전투 시스템 → 전투 HUD → 다른 콘솔 순서로 한 프레임을 넘긴다.
     //   스킬 콘솔은 판에 스킬 켜짐을 맞추므로 판이 진행하기 전에 부른다.
     //
     // 콘텐츠: 판 설정은 SampleContent(C#), 스킬은 스킬 설정 에셋, 적 종류는 적 종류 목록 에셋,
@@ -58,8 +57,9 @@ namespace BlackHole.Unity
         private BattleSystem _battle;
         private BattleOrchestrator _orchestrator;
         private AimInput _aim;
+        private UIManager _ui;
         private ScreenFlow _screens;
-        private GameFlow _flow;
+        private UpgradePresenter _upgradePresenter;
         private ControlConsole _console;
         private BattleLifecycleConsole _lifecycleConsole;
         private EnemyCommandConsole _commandConsole;
@@ -97,7 +97,7 @@ namespace BlackHole.Unity
                 views = placeholder.Views;
             }
 
-            var ui = new UIManager(
+            _ui = new UIManager(
                 rootLayer,
                 panelLayer,
                 new UIResolver(new UIContext(themeId, localeId)),
@@ -109,20 +109,19 @@ namespace BlackHole.Unity
                     continue;
 
                 view.gameObject.SetActive(false);
-                ui.Register(view);
+                _ui.Register(view);
             }
 
-            var settlement = new SettlementState();
+            _upgradePresenter = new UpgradePresenter(_ui, viewer, nodeTree);
             _screens = new ScreenFlow(
-                ui,
+                _ui,
                 OrEmpty(battlePresentation, "Battle"),
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
-                _battle, _orchestrator, nodeTree, viewer, settlement);
-            _flow = new GameFlow(_screens, ui, _battle, _orchestrator, nodeTree, layout, viewer, settlement);
+                _battle, _orchestrator, nodeTree, layout, viewer, _upgradePresenter);
 
             if (displayRefreshDriver != null)
-                displayRefreshDriver.Initialize(ui);
+                displayRefreshDriver.Initialize(_ui);
 
             // 조종 콘솔, 전투 시작·종료 콘솔, 적 명령 콘솔, 업그레이드 콘솔, 스킬 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
             if (Debug.isDebugBuild)
@@ -130,19 +129,19 @@ namespace BlackHole.Unity
                 _console = new ControlConsole(transform, _orchestrator, _battle, _enemyLooks);
                 _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, nodeTree, viewer.Id);
                 _commandConsole = new EnemyCommandConsole(transform, _battle, content.Enemies);
-                _upgradeConsole = new UpgradeConsole(transform, viewer, nodeTree);
+                _upgradeConsole = new UpgradeConsole(transform, viewer, nodeTree, _upgradePresenter.PresentCurrent);
                 _skillConsole = new SkillConsole(transform, content, _battle, viewer.Id);
             }
         }
 
-        private void Start() => _flow.Tick();
+        private void Start() => _screens.GoToUpgrade();
 
         private void Update()
         {
             _aim.Tick();
             _skillConsole?.Tick();
             _battle.Tick(Time.deltaTime);
-            _flow.Tick();
+            RefreshBattleHud();
             _console?.Tick();
             _lifecycleConsole?.Tick();
             _commandConsole?.Tick();
@@ -156,7 +155,6 @@ namespace BlackHole.Unity
             _commandConsole?.Dispose();
             _lifecycleConsole?.Dispose();
             _console?.Dispose();
-            _flow?.Dispose();
             _screens?.Dispose();
             _orchestrator?.Dispose();
             _deathEffectView?.Dispose();
@@ -169,6 +167,18 @@ namespace BlackHole.Unity
         }
 
         #endregion
+
+        private void RefreshBattleHud()
+        {
+            if (!(_ui.CurrentRoot is BattleScreen screen))
+                return;
+
+            GameSession session = _battle.Session;
+            if (session == null)
+                screen.ShowIdle();
+            else
+                screen.Show(session.Remaining, session.World.EarnedGold, session.Phase == SessionPhase.Paused);
+        }
 
         #region 조립
 

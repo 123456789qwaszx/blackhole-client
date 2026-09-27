@@ -52,7 +52,7 @@
 | 전투 | 피해·사망 | 이 판에 살아 있는 적만 받는다. 사망은 한 번, 즉시 판에서 빠진다 | `Core/Enemies/EnemyRoster.cs` (`Holds`, `RecordDeath`), `World.DealDamage` |
 | 보상 | 판의 Gold | 사망 확정 순간 그 적의 Gold(생성 때 색·황금으로 정해짐)를 더한다. 정리된 적은 없다 | `EnemyRoster.RecordDeath`, `World.EarnedGold` |
 | 종료 | 정리·원자료·결산 | 결산은 Gold를 더한 뒤에야 마친 것으로 기록. 다시 불러도 한 번 | `Unity/Battle/BattleSystem.cs` (`ShutdownAsync`), `Core/Session/GameSession.cs` (`Settle`) |
-| 화면 | 전환 | 판 진행 → 전투 화면, 결산 대기 → 결산 화면, 판 없음 → 업그레이드 화면. 시작·정리 중에는 그대로. 결산 화면 중 새 판이 시작되면(개발용 콘솔) 결산 표시를 넘긴다 | `Unity/Flow/GameFlow.cs`, `Unity/Battle/BattleOrchestrator.cs` (`BattleCompleted`) |
+| 화면 | 전환 | 시작 성공 → 전투 화면, 정리·결산 완료 → 결산 화면, Continue → 업그레이드 화면. 개발용 콘솔의 시작·종료도 같은 완료 사건을 사용한다 | `Unity/Flow/ScreenFlow*.cs`, `Unity/Battle/BattleOrchestrator.cs` (`BattleStarted`, `BattleCompleted`) |
 
 ---
 
@@ -99,7 +99,7 @@
 - 씬(`SampleScene`)의 `UI > UI Canvas > RootLayer`에 세 화면이 있고 GameHost의 Root Layer·Panel Layer·Registered Views에 연결돼 있다. 자식 이름은 각 화면의 `Refs`와 같다(`UIRoot<TRefs>`).
 - 연결을 비우면 코드로 만든 임시 화면(`PlaceholderScreens`)을 쓴다. 개발용 대체일 뿐 정상 실행 경로가 아니다.
 - 화면은 규칙을 계산하지 않는다. 가격·구매 가능 여부는 `NodePurchase`, 번 Gold는 `World.EarnedGold`, 결산은 `GameSession.Settle`이 가진다.
-- `GameFlow`는 판 상태와 결산 대기를 보고 화면을 선택한다. `UIManager.CurrentRoot`에서 현재 화면을 받아 표시 값(Gold, 소유 수, 노드별 상태)을 계산해 넘긴다. `ScreenFlow`는 화면을 열고 클릭 이벤트를 필요한 시스템에 직접 연결한다. 결산 대기 상태는 두 흐름이 공유하며 Continue에서 비운다.
+- `ScreenFlow`는 버튼 명령을 시스템에 연결하고 시작 성공·종료 완료·Continue 사건에서 화면을 전환한다. `UpgradePresenter`는 화면 진입·구매·개발 콘솔 변경 때 Gold·소유 수·노드별 상태를 계산해 넘긴다. 전투 HUD의 남은 시간과 번 Gold는 전투 Step 뒤에 갱신한다. 화면 전환을 위한 프레임별 상태 확인은 없다.
 - 적·스킬·사망 효과 표현(EnemyView, SkillView, DeathEffectView)은 Core 기록을 읽어 그린다. 결산 화면으로 넘어가기 전에 셋 다 비었는지 확인한다(정리 6단계).
 - 개발용 콘솔(` 키)은 그대로 있다. 루프의 어떤 단계도 콘솔 없이 된다.
 

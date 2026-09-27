@@ -13,7 +13,7 @@ namespace BlackHole.Unity
     // 업그레이드 콘솔(개발용, 오른쪽 아래). 구매 규칙을 거치지 않고 진행 상태를 바꾼다(ProgressCheats).
     // - Gold 더하기·빼기: 100, 1K(1,000), 10K(1만), 1M(100만), 100M(1억), 10B(100억), 1T(1조). 빼기는 0에서 멈춘다.
     // - Unlock all: 모든 노드를 산 것으로 한다(Gold를 쓰지 않는다). Lock all: 산 노드를 모두 지운다(Gold는 돌려주지 않는다).
-    // GameFlow가 진행 상태의 변경을 감지해 화면 표시를 갱신한다.
+    // 버튼으로 진행 상태를 바꾸면 업그레이드 화면 갱신을 알린다.
     // 진행 상태는 전투 밖에서만 바뀌므로, 전투 중에는 모든 버튼이 꺼진다(치트도 전투 중에는 거부한다).
     //
     // ` 키로 숨고 보인다. GameHost가 에디터와 개발 빌드에서만 만든다.
@@ -35,6 +35,7 @@ namespace BlackHole.Unity
 
         private readonly PlayerState _player;
         private readonly NodeTree _tree;
+        private readonly Action _onProgressChanged;
         private readonly GameObject _canvas;
         private readonly TMP_Text _goldText;
         private readonly List<Button> _buttons = new List<Button>();
@@ -42,10 +43,11 @@ namespace BlackHole.Unity
         private long _shownGold = -1;
         private bool? _shownInBattle;
 
-        public UpgradeConsole(Transform parent, PlayerState player, NodeTree tree)
+        public UpgradeConsole(Transform parent, PlayerState player, NodeTree tree, Action onProgressChanged)
         {
             _player = player;
             _tree = tree;
+            _onProgressChanged = onProgressChanged;
 
             RectTransform canvas = CreateCanvas(parent, "Upgrade Console");
             _canvas = canvas.gameObject;
@@ -61,14 +63,18 @@ namespace BlackHole.Unity
 
             foreach ((string label, long amount) in GoldSteps)
             {
-                _buttons.Add(ButtonOf(earn, "Earn" + label, "+" + label, GoldButtonWidth, () => _player.EarnGold(amount)));
-                _buttons.Add(ButtonOf(take, "Take" + label, "-" + label, GoldButtonWidth, () => ProgressCheats.TakeGold(_player, amount)));
+                _buttons.Add(ButtonOf(earn, "Earn" + label, "+" + label, GoldButtonWidth,
+                    () => ChangeProgress(() => _player.EarnGold(amount))));
+                _buttons.Add(ButtonOf(take, "Take" + label, "-" + label, GoldButtonWidth,
+                    () => ChangeProgress(() => ProgressCheats.TakeGold(_player, amount))));
             }
 
             RectTransform nodes = Child(panel, "Nodes");
             HorizontalLayout(nodes, 8);
-            _buttons.Add(ButtonOf(nodes, "UnlockAll", "Unlock all", NodeButtonWidth, () => ProgressCheats.UnlockAllNodes(_player, _tree)));
-            _buttons.Add(ButtonOf(nodes, "LockAll", "Lock all", NodeButtonWidth, () => ProgressCheats.LockAllNodes(_player)));
+            _buttons.Add(ButtonOf(nodes, "UnlockAll", "Unlock all", NodeButtonWidth,
+                () => ChangeProgress(() => ProgressCheats.UnlockAllNodes(_player, _tree))));
+            _buttons.Add(ButtonOf(nodes, "LockAll", "Lock all", NodeButtonWidth,
+                () => ChangeProgress(() => ProgressCheats.LockAllNodes(_player))));
 
             Refresh();
         }
@@ -82,6 +88,13 @@ namespace BlackHole.Unity
         }
 
         public void Dispose() => Object.Destroy(_canvas);
+
+        private void ChangeProgress(Action change)
+        {
+            change();
+            _onProgressChanged?.Invoke();
+            Refresh();
+        }
 
         private void Refresh()
         {

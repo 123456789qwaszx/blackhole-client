@@ -4,7 +4,7 @@ using BlackHole.Core;
 
 namespace BlackHole.Unity
 {
-    // 화면과 UIManager를 연결한다. 버튼 명령은 필요한 시스템에 직접 전달하고, 화면 선택은 GameFlow가 결정한다.
+    // 화면 연결과 전환. 버튼은 시스템에 직접 요청하고, 성공한 전투 수명 사건에서 다음 화면을 연다.
     internal sealed partial class ScreenFlow : IDisposable
     {
         private readonly UIManager _ui;
@@ -15,13 +15,13 @@ namespace BlackHole.Unity
         private readonly BattleOrchestrator _orchestrator;
         private readonly NodeTree _tree;
         private readonly PlayerState _player;
-        private readonly SettlementState _settlement;
+        private readonly UpgradePresenter _upgradePresenter;
         private readonly Dictionary<UIBase, List<Action>> _cleanupByScreen = new Dictionary<UIBase, List<Action>>();
 
         public ScreenFlow(UIManager ui, UIPresentationSpec battlePresentation,
             UIPresentationSpec upgradePresentation, UIPresentationSpec settlementPresentation,
             BattleSystem battle, BattleOrchestrator orchestrator, NodeTree tree,
-            PlayerState player, SettlementState settlement)
+            NodeTreeData layout, PlayerState player, UpgradePresenter upgradePresenter)
         {
             _ui = ui;
             _battlePresentation = battlePresentation;
@@ -31,7 +31,10 @@ namespace BlackHole.Unity
             _orchestrator = orchestrator;
             _tree = tree;
             _player = player;
-            _settlement = settlement;
+            _upgradePresenter = upgradePresenter;
+            _nodes = BuildNodeItems(tree, layout);
+            _orchestrator.BattleStarted += HandleBattleStarted;
+            _orchestrator.BattleCompleted += HandleBattleCompleted;
         }
 
         private void BindView<T>(T screen, Action<T> apply) where T : UIBase
@@ -74,6 +77,9 @@ namespace BlackHole.Unity
 
         public void Dispose()
         {
+            _orchestrator.BattleStarted -= HandleBattleStarted;
+            _orchestrator.BattleCompleted -= HandleBattleCompleted;
+
             foreach (List<Action> cleanups in _cleanupByScreen.Values)
                 RunCleanups(cleanups);
 

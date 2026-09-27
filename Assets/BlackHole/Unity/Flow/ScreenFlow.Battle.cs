@@ -4,6 +4,8 @@ namespace BlackHole.Unity
 {
     internal sealed partial class ScreenFlow
     {
+        private void HandleBattleStarted() => GoToBattle();
+
         public void GoToBattle()
         {
             _ui.SwitchRoot<BattleScreen>(

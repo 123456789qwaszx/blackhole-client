@@ -5,6 +5,10 @@ namespace BlackHole.Unity
 {
     internal sealed partial class ScreenFlow
     {
+        private void HandleBattleCompleted(BattleRawData raw) =>
+            GoToSettlement(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
+                raw.Kills, raw.EarnedGold, _player.Gold);
+
         public void GoToSettlement(SessionEndReason reason, float seconds, int totalKills,
             IReadOnlyList<EnemyKillCount> kills, long earnedGold, long totalGold)
         {
@@ -27,6 +31,6 @@ namespace BlackHole.Unity
                 r => r.ContinueClicked -= HandleSettlementContinueClicked);
         }
 
-        private void HandleSettlementContinueClicked() => _settlement.Clear();
+        private void HandleSettlementContinueClicked() => GoToUpgrade();
     }
 }
