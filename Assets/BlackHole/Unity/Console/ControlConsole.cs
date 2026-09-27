@@ -32,6 +32,8 @@ namespace BlackHole.Unity
 
         private readonly BattleOrchestrator _orchestrator;
         private readonly BattleSystem _battle;
+        private readonly GameContent _content;
+        private readonly NodeTree _nodes;
         private readonly EnemyLooks _looks;
         private readonly GameObject _canvas;
         private readonly TMP_Text _stageText;
@@ -62,10 +64,13 @@ namespace BlackHole.Unity
         // 설명창이 마지막으로 본 산 노드 수. 노드를 사면 다음 전투의 판 구성이 바뀌므로 다시 쓴다.
         private int _shownOwnedNodes = -1;
 
-        public ControlConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle, EnemyLooks looks)
+        public ControlConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle,
+            GameContent content, NodeTree nodes, EnemyLooks looks)
         {
             _orchestrator = orchestrator;
             _battle = battle;
+            _content = content;
+            _nodes = nodes;
             _looks = looks;
 
             RectTransform canvas = CreateCanvas(parent, "Control Console");
@@ -159,7 +164,7 @@ namespace BlackHole.Unity
             }
             else
             {
-                StageDefinition selected = _orchestrator.SelectedStage;
+                StageDefinition selected = _content.GetStage(_orchestrator.Stage);
                 pool = selected.Pool;
                 stage = selected.Number;
             }
@@ -262,7 +267,8 @@ namespace BlackHole.Unity
                 return;
 
             EnemyDefinition kind = _selected;
-            EnemyComposition next = _orchestrator.NextCompositions[kind];
+            EnemyComposition next = SessionAssembler.PreviewCompositions(
+                _content, _orchestrator.Progress, _nodes)[kind];
             EnemyComposition composition = battle != null ? battle.World.Stats.CompositionOf(kind) : next;
             int level = composition.MassLevel;
             IReadOnlyList<float> ratios = kind.MassLevels[level].TierRatios;

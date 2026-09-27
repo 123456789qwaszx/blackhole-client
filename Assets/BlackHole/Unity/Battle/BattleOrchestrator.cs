@@ -27,12 +27,8 @@ namespace BlackHole.Unity
 
         // 참가자마다의 진행 상태(Gold, 산 노드). 참가자 순서다.
         public IReadOnlyList<PlayerState> Progress => _progress;
-        // 다음 전투의 판 구성: 지금 산 노드로 계산한다(판 조립과 같은 계산). 콘솔이 다음 판을 미리 보여 줄 때 쓴다.
-        public IReadOnlyDictionary<EnemyDefinition, EnemyComposition> NextCompositions => _battle.PreviewCompositions(_progress);
         public int Stage => _stage;
         public int StageCount => _content.StageCount;
-        // 지금 진행도의 단계 정의(쓰는 적 풀 포함).
-        public StageDefinition SelectedStage => _content.GetStage(_stage);
         // 시작 또는 종료 순서를 처리하는 중인가. 이 동안 들어온 요청은 무시한다.
         public bool Busy { get; private set; }
         public bool CanStart => !Busy && _battle.IsIdle;

@@ -71,10 +71,6 @@ namespace BlackHole.Unity
             _deathEffectView = deathEffectView;
         }
 
-        // 지금 산 노드로 조립하면 받을 적 종류의 판 구성(조립과 같은 계산). 콘솔이 다음 판을 미리 보여 줄 때 쓴다.
-        public IReadOnlyDictionary<EnemyDefinition, EnemyComposition> PreviewCompositions(IReadOnlyList<PlayerState> players) =>
-            SessionAssembler.PreviewCompositions(_content, players, _nodes);
-
         // 전투 진입을 위한 초기화. 오케스트레이터만 부른다.
         public Task StartAsync(IReadOnlyList<PlayerState> players, int stage, int seed)
         {
