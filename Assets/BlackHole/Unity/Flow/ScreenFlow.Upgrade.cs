@@ -38,7 +38,7 @@ namespace BlackHole.Unity
             _upgradePresenter.PresentCurrent();
         }
 
-        private void HandleUpgradeStartBattleClicked() => _orchestrator.RequestStart();
+        private void HandleUpgradeStartBattleClicked() => RequestStart();
 
         // 격자 칸은 화면 배치용 데이터다. 규칙 트리와 같은 저작 데이터에서 한 번 읽는다.
         private static IReadOnlyList<NodeTreeView.NodeItem> BuildNodeItems(NodeTree tree, NodeTreeData layout)

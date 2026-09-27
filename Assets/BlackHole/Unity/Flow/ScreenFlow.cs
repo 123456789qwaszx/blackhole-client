@@ -4,7 +4,7 @@ using BlackHole.Core;
 
 namespace BlackHole.Unity
 {
-    // 화면 연결과 전환. 버튼은 시스템에 직접 요청하고, 성공한 전투 수명 사건에서 다음 화면을 연다.
+    // 화면 연결과 전환. 버튼과 시간 종료에서 전투 수명을 요청하고, 성공 결과로 다음 화면을 연다.
     internal sealed partial class ScreenFlow : IDisposable
     {
         private readonly UIManager _ui;
@@ -33,6 +33,7 @@ namespace BlackHole.Unity
             _player = player;
             _upgradePresenter = upgradePresenter;
             _nodes = BuildNodeItems(tree, layout);
+            _battle.TimeExpired += HandleBattleTimeExpired;
         }
 
         private void BindView<T>(T screen, Action<T> apply) where T : UIBase
@@ -75,6 +76,8 @@ namespace BlackHole.Unity
 
         public void Dispose()
         {
+            _battle.TimeExpired -= HandleBattleTimeExpired;
+
             foreach (List<Action> cleanups in _cleanupByScreen.Values)
                 RunCleanups(cleanups);
 

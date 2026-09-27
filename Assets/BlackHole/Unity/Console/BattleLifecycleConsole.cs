@@ -12,7 +12,7 @@ namespace BlackHole.Unity
 {
     // 전투 시작·종료 콘솔(개발용). 조종 콘솔과 다른 창이다(왼쪽 위).
     //
-    // 시작·종료 버튼은 오케스트레이터(BattleOrchestrator)에 요청할 뿐이다. 순서와 책임은 오케스트레이터에 있다.
+    // 시작·종료 버튼은 조립 시 받은 요청을 부른다. 전투 순서는 오케스트레이터가, 화면 전환은 ScreenFlow가 맡는다.
     // 일시정지 버튼은 진행 중인 판을 멈추고 다시 돌린다(전투 시스템). 판이 없거나 끝났으면 누를 수 없다.
     // 버튼 아래에는 적·전투 시스템의 시작·종료 체크리스트가, 그 아래에는 Gold와 마지막 판의 원자료가 나온다.
     // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
@@ -28,6 +28,8 @@ namespace BlackHole.Unity
 
         private readonly BattleOrchestrator _orchestrator;
         private readonly BattleSystem _battle;
+        private readonly Action _requestStart;
+        private readonly Action _requestEnd;
         private readonly GameObject _canvas;
         private readonly Button _startButton;
         private readonly Button _pauseButton;
@@ -52,10 +54,13 @@ namespace BlackHole.Unity
         private GameSession _shownSession;
         private bool _upgradesShown;
 
-        public BattleLifecycleConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle, NodeTree nodes, PlayerId viewer)
+        public BattleLifecycleConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle,
+            NodeTree nodes, PlayerId viewer, Action requestStart, Action requestEnd)
         {
             _orchestrator = orchestrator;
             _battle = battle;
+            _requestStart = requestStart;
+            _requestEnd = requestEnd;
             _viewer = viewer;
 
             foreach (NodeDefinition node in nodes.Nodes)
@@ -70,13 +75,12 @@ namespace BlackHole.Unity
             RectTransform panel = Panel(Stack(canvas, new Vector2(0, 1)), "Panel", PanelColor);
             Text(panel, "Title", "BATTLE START / END  ( ` )", 22);
 
-            _startButton = ButtonOf(panel, "StartBattle", "Start battle", ButtonWidth, () => _orchestrator.RequestStart());
+            _startButton = ButtonOf(panel, "StartBattle", "Start battle", ButtonWidth, _requestStart);
             _startStepsText = Text(panel, "StartSteps", string.Empty, 20);
             _upgradesText = Text(panel, "Upgrades", string.Empty, 20);
             _pauseButton = ButtonOf(panel, "PauseBattle", "Pause", ButtonWidth, () => _battle.TogglePause());
             _pauseLabel = _pauseButton.GetComponentInChildren<TMP_Text>();
-            _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth,
-                () => _orchestrator.RequestEnd(SessionEndReason.TimeExpired));
+            _endButton = ButtonOf(panel, "EndBattle", "End battle", ButtonWidth, _requestEnd);
             _endStepsText = Text(panel, "EndSteps", string.Empty, 20);
             _goldText = Text(panel, "Gold", string.Empty, 20);
             _rawDataText = Text(panel, "RawData", string.Empty, 20);

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BlackHole.Core;
-using UnityEngine;
 
 namespace BlackHole.Unity
 {
@@ -16,15 +15,12 @@ namespace BlackHole.Unity
     // 진행 상태(PlayerState: Gold, 산 노드)와 다음 전투의 진행도(적의 강도 단계)를 가진다.
     // 진행 상태는 전투 밖에서만 바뀐다: 노드 구매(업그레이드 화면, 전투 중에는 살 수 없다)와
     // 판의 결산(GameSession.Settle — 적·전투 시스템의 정리 순서 안에서 한 번). 그래서 저장은 전투 밖(휴식 공간)에서만 하면 된다.
-    // 콘솔·전투 화면의 버튼과 판의 시간 종료는 모두 여기로 요청한다. 시작 성공 시 화면 흐름을 직접 연다.
-    // 종료 순서가 끝까지 성공하면(정리·결산·연출 정리·완전 초기화) 결산 화면을 연다.
-    // 정리가 실패하면 화면을 바꾸지 않는다 — 결산 화면은 결산을 마친 판만 보여 준다.
-    internal sealed class BattleOrchestrator : IDisposable
+    // 시작·종료 요청의 성공 결과만 돌려준다. 화면 전환은 요청한 흐름이 결정한다.
+    internal sealed class BattleOrchestrator
     {
         private readonly GameContent _content;
         private readonly BattleSystem _battle;
         private readonly PlayerId[] _participants;
-        private ScreenFlow _screens;
         // 진행 상태는 오케스트레이터를 만들 때 만들고, 전투 사이에 이어진다(저장은 없다). 첫 전투 전의 구매(노드 콘솔)도 이것을 쓴다.
         private readonly PlayerState[] _progress;
         private int _stage = SessionAssembler.FirstStage;
@@ -48,20 +44,16 @@ namespace BlackHole.Unity
             _battle = battle;
             _participants = participants;
             _progress = NewProgress();
-            _battle.TimeExpired += OnTimeExpired;
         }
-
-        // 조립이 끝나고 전투 시작 요청을 받기 전에 화면 흐름을 연결한다.
-        public void SetScreenFlow(ScreenFlow screens) => _screens = screens;
 
         // 진행도를 바꾼다. 범위 밖의 값은 가장 가까운 단계가 된다. 진행 중인 전투는 바뀌지 않고 다음 전투부터 쓴다.
         public void SetStage(int stage) =>
             _stage = Math.Max(SessionAssembler.FirstStage, Math.Min(StageCount, stage));
 
-        public async Task StartBattleAsync()
+        public async Task<bool> StartBattleAsync()
         {
             if (!CanStart)
-                return;
+                return false;
 
             Busy = true;
 
@@ -69,7 +61,7 @@ namespace BlackHole.Unity
             {
                 // 전투마다 seed를 새로 정한다. 쓴 seed는 판과 원자료에 남는다.
                 await _battle.StartAsync(_progress, _stage, Environment.TickCount);
-                _screens.GoToBattle();
+                return true;
             }
             finally
             {
@@ -77,41 +69,22 @@ namespace BlackHole.Unity
             }
         }
 
-        public async Task EndBattleAsync(SessionEndReason reason)
+        public async Task<BattleRawData> EndBattleAsync(SessionEndReason reason)
         {
             if (!CanEnd)
-                return;
+                return null;
 
             Busy = true;
 
             try
             {
-                BattleRawData raw = await _battle.ShutdownAsync(reason);
-                _screens.GoToSettlement(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
-                    raw.Kills, raw.EarnedGold, _progress[0].Gold);
+                return await _battle.ShutdownAsync(reason);
             }
             finally
             {
                 Busy = false;
             }
         }
-
-        // 버튼·사건에서 부르는 입구. 순서 처리 중 난 예외는 로그로 남긴다.
-        public async void RequestStart()
-        {
-            try { await StartBattleAsync(); }
-            catch (Exception error) { Debug.LogException(error); }
-        }
-
-        public async void RequestEnd(SessionEndReason reason)
-        {
-            try { await EndBattleAsync(reason); }
-            catch (Exception error) { Debug.LogException(error); }
-        }
-
-        public void Dispose() => _battle.TimeExpired -= OnTimeExpired;
-
-        private void OnTimeExpired() => RequestEnd(SessionEndReason.TimeExpired);
 
         private PlayerState[] NewProgress()
         {

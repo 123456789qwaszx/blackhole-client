@@ -77,7 +77,6 @@ namespace BlackHole.Unity
             _lifecycleConsole?.Dispose();
             _console?.Dispose();
             _screens.Dispose();
-            _orchestrator.Dispose();
             _deathEffectView.Dispose();
             _skillView.Dispose();
             _enemyView.Dispose();

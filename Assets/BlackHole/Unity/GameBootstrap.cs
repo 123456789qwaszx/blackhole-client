@@ -138,7 +138,6 @@ namespace BlackHole.Unity
                 OrEmpty(upgradePresentation, "Upgrade"),
                 OrEmpty(settlementPresentation, "Settlement"),
                 _battle, _orchestrator, _nodeTree, _layout, _viewer, _upgradePresenter);
-            _orchestrator.SetScreenFlow(_screens);
         }
 
         private void BootstrapDevelopmentConsoles()
@@ -148,7 +147,8 @@ namespace BlackHole.Unity
 
             // 스킬 콘솔은 GameHost가 전투 Step보다 먼저 갱신한다.
             _console = new ControlConsole(transform, _orchestrator, _battle, _enemyLooks);
-            _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, _nodeTree, _viewer.Id);
+            _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, _nodeTree,
+                _viewer.Id, _screens.RequestStart, () => _screens.RequestEnd(SessionEndReason.TimeExpired));
             _commandConsole = new EnemyCommandConsole(transform, _battle, _content.Enemies);
             _upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _upgradePresenter.PresentCurrent);
             _skillConsole = new SkillConsole(transform, _content, _battle, _viewer.Id);
