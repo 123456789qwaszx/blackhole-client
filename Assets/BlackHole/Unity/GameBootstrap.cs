@@ -147,10 +147,10 @@ namespace BlackHole.Unity
             // 스킬 콘솔은 GameHost가 전투 Step보다 먼저 갱신한다.
             _console = new ControlConsole(transform, _orchestrator, _battle, _content, _nodeTree, _enemyLooks);
             _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, _nodeTree,
-                _viewer.Id, _screens.HandleUpgradeStartBattleClicked,
-                _screens.HandleBattlePauseClicked, _screens.HandleBattleEndClicked);
+                _viewer.Id, _screens.HandleLifecycleStartBattleClicked,
+                _screens.HandleLifecyclePauseClicked, _screens.HandleLifecycleEndBattleClicked);
             _commandConsole = new EnemyCommandConsole(transform, _battle, _content.Enemies);
-            _upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _screens.RefreshUpgrade);
+            _upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _screens.HandleUpgradeConsoleProgressChanged);
             _skillConsole = new SkillConsole(transform, _content, _battle, _viewer.Id);
         }
 

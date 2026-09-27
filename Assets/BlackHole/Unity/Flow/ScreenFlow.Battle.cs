@@ -29,9 +29,8 @@ namespace BlackHole.Unity
                 r => r.EndClicked -= HandleBattleEndClicked);
         }
 
-        // 개발용 전투 시작·종료 콘솔의 Pause·End battle도 이 핸들을 쓴다.
-        internal void HandleBattlePauseClicked() => _battle.TogglePause();
-        internal void HandleBattleEndClicked() => RequestEnd();
+        private void HandleBattlePauseClicked() => _battle.TogglePause();
+        private void HandleBattleEndClicked() => RequestEnd();
 
         internal void HandleBattleTimeExpired() => RequestEnd();
 
