@@ -42,11 +42,11 @@ namespace BlackHole.Unity
             _nodes = nodes;
 
             _orchestrator.BattleCompleted += OnBattleCompleted;
-            _screens.PauseClicked += OnPauseClicked;
-            _screens.EndClicked += OnEndClicked;
-            _screens.NodeClicked += OnNodeClicked;
-            _screens.StartBattleClicked += OnStartClicked;
-            _screens.ContinueClicked += OnContinueClicked;
+            _screens.PauseClicked += HandleBattlePauseClicked;
+            _screens.EndClicked += HandleBattleEndClicked;
+            _screens.NodeClicked += HandleUpgradeNodeClicked;
+            _screens.StartBattleClicked += HandleUpgradeStartBattleClicked;
+            _screens.ContinueClicked += HandleSettlementContinueClicked;
         }
 
         public void Tick()
@@ -67,20 +67,20 @@ namespace BlackHole.Unity
             {
                 _pendingSettlement = null;
                 if (!_screens.IsBattleOpen)
-                    _screens.OpenBattleScreen();
+                    _screens.GoToBattle();
             }
             else if (_pendingSettlement != null)
             {
                 if (!_screens.IsSettlementOpen)
                 {
                     BattleRawData raw = _pendingSettlement;
-                    _screens.OpenSettlementScreen(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
+                    _screens.GoToSettlement(raw.EndReason, raw.PlayedSeconds, raw.TotalKills,
                         raw.Kills, raw.EarnedGold, _player.Gold);
                 }
             }
             else if (_battle.IsIdle && !_screens.IsUpgradeOpen)
             {
-                _screens.OpenUpgradeScreen(_nodes, _tree.Graph.Links);
+                _screens.GoToUpgrade(_nodes, _tree.Graph.Links);
                 ShowUpgrade();
             }
         }
@@ -115,12 +115,12 @@ namespace BlackHole.Unity
         }
 
         private void OnBattleCompleted(BattleRawData raw) => _pendingSettlement = raw;
-        private void OnPauseClicked() => _battle.TogglePause();
-        private void OnEndClicked() => _orchestrator.RequestEnd(SessionEndReason.TimeExpired);
-        private void OnStartClicked() => _orchestrator.RequestStart();
-        private void OnContinueClicked() => _pendingSettlement = null;
+        private void HandleBattlePauseClicked() => _battle.TogglePause();
+        private void HandleBattleEndClicked() => _orchestrator.RequestEnd(SessionEndReason.TimeExpired);
+        private void HandleUpgradeStartBattleClicked() => _orchestrator.RequestStart();
+        private void HandleSettlementContinueClicked() => _pendingSettlement = null;
 
-        private void OnNodeClicked(string id)
+        private void HandleUpgradeNodeClicked(string id)
         {
             NodePurchase.TryPurchase(_player, _tree, id);
             ShowUpgrade();
@@ -129,11 +129,11 @@ namespace BlackHole.Unity
         public void Dispose()
         {
             _orchestrator.BattleCompleted -= OnBattleCompleted;
-            _screens.PauseClicked -= OnPauseClicked;
-            _screens.EndClicked -= OnEndClicked;
-            _screens.NodeClicked -= OnNodeClicked;
-            _screens.StartBattleClicked -= OnStartClicked;
-            _screens.ContinueClicked -= OnContinueClicked;
+            _screens.PauseClicked -= HandleBattlePauseClicked;
+            _screens.EndClicked -= HandleBattleEndClicked;
+            _screens.NodeClicked -= HandleUpgradeNodeClicked;
+            _screens.StartBattleClicked -= HandleUpgradeStartBattleClicked;
+            _screens.ContinueClicked -= HandleSettlementContinueClicked;
         }
     }
 }

@@ -9,29 +9,35 @@ namespace BlackHole.Unity
         private UpgradeScreen _upgradeScreen;
         public bool IsUpgradeOpen => _upgradeScreen != null;
 
-        public void OpenUpgradeScreen(IReadOnlyList<NodeTreeView.NodeItem> nodes,
+        public void GoToUpgrade(IReadOnlyList<NodeTreeView.NodeItem> nodes,
             IReadOnlyList<(string A, string B)> links)
         {
             _ui.SwitchRoot<UpgradeScreen>(
                 _upgradePresentation,
-                afterPresented: screen =>
+                afterPresented: root =>
                 {
-                    BindView(screen, BindUpgrade);
-                    screen.BuildTree(nodes, links);
+                    BindView(root, ApplyBindings);
+                    root.BuildTree(nodes, links);
                 },
                 afterClosed: Unbind);
         }
 
-        private void BindUpgrade(UpgradeScreen screen)
+        private void ApplyBindings(UpgradeScreen root)
         {
-            _upgradeScreen = screen;
-            AddCleanup(screen, () => _upgradeScreen = null);
-            AddBinding(screen, s => s.NodeClicked += OnNodeClicked, s => s.NodeClicked -= OnNodeClicked);
-            AddBinding(screen, s => s.StartBattleClicked += OnStartClicked, s => s.StartBattleClicked -= OnStartClicked);
+            _upgradeScreen = root;
+            AddCleanup(root, () => _upgradeScreen = null);
+
+            AddBinding(root,
+                r => r.NodeClicked += HandleUpgradeNodeClicked,
+                r => r.NodeClicked -= HandleUpgradeNodeClicked);
+
+            AddBinding(root,
+                r => r.StartBattleClicked += HandleUpgradeStartBattleClicked,
+                r => r.StartBattleClicked -= HandleUpgradeStartBattleClicked);
         }
 
-        private void OnNodeClicked(string id) => NodeClicked?.Invoke(id);
-        private void OnStartClicked() => StartBattleClicked?.Invoke();
+        private void HandleUpgradeNodeClicked(string id) => NodeClicked?.Invoke(id);
+        private void HandleUpgradeStartBattleClicked() => StartBattleClicked?.Invoke();
 
         public void ShowUpgrade(long gold, int owned, int total, Func<string, NodeState> stateOf)
         {

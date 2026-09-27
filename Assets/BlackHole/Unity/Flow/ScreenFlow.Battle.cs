@@ -5,25 +5,34 @@ namespace BlackHole.Unity
         private BattleScreen _battleScreen;
         public bool IsBattleOpen => _battleScreen != null;
 
-        public void OpenBattleScreen()
+        public void GoToBattle()
         {
             _ui.SwitchRoot<BattleScreen>(
                 _battlePresentation,
-                afterPresented: screen => BindView(screen, BindBattle),
+                afterPresented: root =>
+                {
+                    BindView(root, ApplyBindings);
+                    root.ShowIdle();
+                },
                 afterClosed: Unbind);
         }
 
-        private void BindBattle(BattleScreen screen)
+        private void ApplyBindings(BattleScreen root)
         {
-            _battleScreen = screen;
-            AddCleanup(screen, () => _battleScreen = null);
-            AddBinding(screen, s => s.PauseClicked += OnPauseClicked, s => s.PauseClicked -= OnPauseClicked);
-            AddBinding(screen, s => s.EndClicked += OnEndClicked, s => s.EndClicked -= OnEndClicked);
-            screen.ShowIdle();
+            _battleScreen = root;
+            AddCleanup(root, () => _battleScreen = null);
+
+            AddBinding(root,
+                r => r.PauseClicked += HandleBattlePauseClicked,
+                r => r.PauseClicked -= HandleBattlePauseClicked);
+
+            AddBinding(root,
+                r => r.EndClicked += HandleBattleEndClicked,
+                r => r.EndClicked -= HandleBattleEndClicked);
         }
 
-        private void OnPauseClicked() => PauseClicked?.Invoke();
-        private void OnEndClicked() => EndClicked?.Invoke();
+        private void HandleBattlePauseClicked() => PauseClicked?.Invoke();
+        private void HandleBattleEndClicked() => EndClicked?.Invoke();
 
         public void ShowBattle(float remaining, long earnedGold, bool paused) =>
             _battleScreen?.Show(remaining, earnedGold, paused);

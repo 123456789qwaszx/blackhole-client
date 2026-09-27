@@ -8,28 +8,31 @@ namespace BlackHole.Unity
         private SettlementScreen _settlementScreen;
         public bool IsSettlementOpen => _settlementScreen != null;
 
-        public void OpenSettlementScreen(SessionEndReason reason, float seconds, int totalKills,
+        public void GoToSettlement(SessionEndReason reason, float seconds, int totalKills,
             IReadOnlyList<EnemyKillCount> kills, long earnedGold, long totalGold)
         {
             _ui.SwitchRoot<SettlementScreen>(
                 _settlementPresentation,
-                afterPresented: screen =>
+                afterPresented: root =>
                 {
-                    BindView(screen, BindSettlement);
-                    screen.ShowResult(reason, seconds);
-                    screen.ShowKills(totalKills, kills);
-                    screen.ShowGold(earnedGold, totalGold);
+                    BindView(root, ApplyBindings);
+                    root.ShowResult(reason, seconds);
+                    root.ShowKills(totalKills, kills);
+                    root.ShowGold(earnedGold, totalGold);
                 },
                 afterClosed: Unbind);
         }
 
-        private void BindSettlement(SettlementScreen screen)
+        private void ApplyBindings(SettlementScreen root)
         {
-            _settlementScreen = screen;
-            AddCleanup(screen, () => _settlementScreen = null);
-            AddBinding(screen, s => s.ContinueClicked += OnContinueClicked, s => s.ContinueClicked -= OnContinueClicked);
+            _settlementScreen = root;
+            AddCleanup(root, () => _settlementScreen = null);
+
+            AddBinding(root,
+                r => r.ContinueClicked += HandleSettlementContinueClicked,
+                r => r.ContinueClicked -= HandleSettlementContinueClicked);
         }
 
-        private void OnContinueClicked() => ContinueClicked?.Invoke();
+        private void HandleSettlementContinueClicked() => ContinueClicked?.Invoke();
     }
 }
