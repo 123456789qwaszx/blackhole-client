@@ -48,70 +48,66 @@ namespace BlackHole.Unity
         [SerializeField] private UIDisplayRefreshDriver displayRefreshDriver;
 
         private readonly List<UIPresentationSpec> _emptyPresentations = new List<UIPresentationSpec>();
+        private GameContent _content;
+        private NodeTreeData _layout;
+        private NodeTree _nodeTree;
+        private EnemyLooks _enemyLooks;
+        private EnemyView _enemyView;
+        private SkillView _skillView;
+        private DeathEffectView _deathEffectView;
+        private BattleSystem _battle;
+        private BattleOrchestrator _orchestrator;
+        private PlayerState _viewer;
+        private AimInput _aim;
+        private UIManager _ui;
+        private UpgradePresenter _upgradePresenter;
+        private ScreenFlow _screens;
+        private ControlConsole _console;
+        private BattleLifecycleConsole _lifecycleConsole;
+        private EnemyCommandConsole _commandConsole;
+        private UpgradeConsole _upgradeConsole;
+        private SkillConsole _skillConsole;
         private GameHost _host;
 
         #region Unity 수명
 
         private void Awake()
         {
-            if (!TryLoadContent(out GameContent content)
-                || !TryLoadNodeTree(out NodeTreeData layout, out NodeTree nodeTree)
-                || !NodesFitContent(content, nodeTree))
+            if (!TryLoadContent(out _content)
+                || !TryLoadNodeTree(out _layout, out _nodeTree)
+                || !NodesFitContent(_content, _nodeTree))
             {
                 enabled = false;
                 return;
             }
 
-            BootstrapGame(content, layout, nodeTree);
+            BootstrapBattleViews();
+            BootstrapBattle();
+            BootstrapUI();
+            BootstrapScreenFlow();
+            BootstrapDevelopmentConsoles();
+            BootstrapHost();
         }
 
-        private void BootstrapGame(GameContent content, NodeTreeData layout, NodeTree nodeTree)
+        private void BootstrapBattleViews()
         {
-            var enemyLooks = new EnemyLooks(enemyCatalog.Kinds());
-            var enemyView = new EnemyView(transform, enemyLooks);
-            var skillView = new SkillView(transform);
-            var deathEffectView = new DeathEffectView(transform);
-            var battle = new BattleSystem(content, nodeTree, enemyView, skillView, deathEffectView);
-            var orchestrator = new BattleOrchestrator(content, battle, LocalPlayers);
-            // 업그레이드 화면과 콘솔이 보는 진행 상태: 지금 실제 구성인 로컬 Player 1명.
-            PlayerState viewer = orchestrator.Progress[0];
-            // 마우스가 조준하는 참가자: 같은 로컬 Player.
-            var aim = new AimInput(battle, viewer.Id);
-
-            UIManager ui = BootstrapUI();
-
-            var upgradePresenter = new UpgradePresenter(ui, viewer, nodeTree);
-            var screens = new ScreenFlow(
-                ui,
-                OrEmpty(battlePresentation, "Battle"),
-                OrEmpty(upgradePresentation, "Upgrade"),
-                OrEmpty(settlementPresentation, "Settlement"),
-                battle, orchestrator, nodeTree, layout, viewer, upgradePresenter);
-
-            if (displayRefreshDriver != null)
-                displayRefreshDriver.Initialize(ui);
-
-            // 조종 콘솔, 전투 시작·종료 콘솔, 적 명령 콘솔, 업그레이드 콘솔, 스킬 콘솔은 개발용이다. 에디터와 개발 빌드에서만 만든다.
-            ControlConsole console = null;
-            BattleLifecycleConsole lifecycleConsole = null;
-            EnemyCommandConsole commandConsole = null;
-            UpgradeConsole upgradeConsole = null;
-            SkillConsole skillConsole = null;
-            if (Debug.isDebugBuild)
-            {
-                console = new ControlConsole(transform, orchestrator, battle, enemyLooks);
-                lifecycleConsole = new BattleLifecycleConsole(transform, orchestrator, battle, nodeTree, viewer.Id);
-                commandConsole = new EnemyCommandConsole(transform, battle, content.Enemies);
-                upgradeConsole = new UpgradeConsole(transform, viewer, nodeTree, upgradePresenter.PresentCurrent);
-                skillConsole = new SkillConsole(transform, content, battle, viewer.Id);
-            }
-
-            _host = new GameHost(ui, battle, orchestrator, aim, screens,
-                enemyLooks, enemyView, skillView, deathEffectView,
-                console, lifecycleConsole, commandConsole, upgradeConsole, skillConsole);
+            _enemyLooks = new EnemyLooks(enemyCatalog.Kinds());
+            _enemyView = new EnemyView(transform, _enemyLooks);
+            _skillView = new SkillView(transform);
+            _deathEffectView = new DeathEffectView(transform);
         }
 
-        private UIManager BootstrapUI()
+        private void BootstrapBattle()
+        {
+            _battle = new BattleSystem(_content, _nodeTree, _enemyView, _skillView, _deathEffectView);
+            _orchestrator = new BattleOrchestrator(_content, _battle, LocalPlayers);
+            // 업그레이드 화면과 콘솔이 보는 진행 상태: 지금 실제 구성인 로컬 Player 1명.
+            _viewer = _orchestrator.Progress[0];
+            // 마우스가 조준하는 참가자: 같은 로컬 Player.
+            _aim = new AimInput(_battle, _viewer.Id);
+        }
+
+        private void BootstrapUI()
         {
             if (rootLayer == null)
             {
@@ -121,7 +117,7 @@ namespace BlackHole.Unity
                 views = placeholder.Views;
             }
 
-            var ui = new UIManager(
+            _ui = new UIManager(
                 rootLayer,
                 panelLayer,
                 new UIResolver(new UIContext(themeId, localeId)),
@@ -133,10 +129,42 @@ namespace BlackHole.Unity
                     continue;
 
                 view.gameObject.SetActive(false);
-                ui.Register(view);
+                _ui.Register(view);
             }
 
-            return ui;
+            if (displayRefreshDriver != null)
+                displayRefreshDriver.Initialize(_ui);
+        }
+
+        private void BootstrapScreenFlow()
+        {
+            _upgradePresenter = new UpgradePresenter(_ui, _viewer, _nodeTree);
+            _screens = new ScreenFlow(
+                _ui,
+                OrEmpty(battlePresentation, "Battle"),
+                OrEmpty(upgradePresentation, "Upgrade"),
+                OrEmpty(settlementPresentation, "Settlement"),
+                _battle, _orchestrator, _nodeTree, _layout, _viewer, _upgradePresenter);
+        }
+
+        private void BootstrapDevelopmentConsoles()
+        {
+            if (!Debug.isDebugBuild)
+                return;
+
+            // 스킬 콘솔은 GameHost가 전투 Step보다 먼저 갱신한다.
+            _console = new ControlConsole(transform, _orchestrator, _battle, _enemyLooks);
+            _lifecycleConsole = new BattleLifecycleConsole(transform, _orchestrator, _battle, _nodeTree, _viewer.Id);
+            _commandConsole = new EnemyCommandConsole(transform, _battle, _content.Enemies);
+            _upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _upgradePresenter.PresentCurrent);
+            _skillConsole = new SkillConsole(transform, _content, _battle, _viewer.Id);
+        }
+
+        private void BootstrapHost()
+        {
+            _host = new GameHost(_ui, _battle, _orchestrator, _aim, _screens,
+                _enemyLooks, _enemyView, _skillView, _deathEffectView,
+                _console, _lifecycleConsole, _commandConsole, _upgradeConsole, _skillConsole);
         }
 
         private void Start() => _host?.Start();
