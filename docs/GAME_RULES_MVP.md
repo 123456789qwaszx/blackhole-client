@@ -2,10 +2,10 @@
 
 작성일: 2026-09-24  
 범위: **Core Gameplay / Playable MVP**
-갱신: 2026-09-27 — `feature/블랙홀성장` BL-007 (`e8a4e0e` 구현 기준)
+갱신: 2026-09-28 — `dev` `adb10cf` 구현 기준
 
-> 이 문서는 블랙홀 키우기의 플레이가 성립하기 위한 최소 게임 법칙을 정의한다.  
-> 콘텐츠 목록, 업그레이드 설계, 적 종류 설계, 밸런스 수치는 별도 단계에서 다룬다.
+> 이 문서는 블랙홀 키우기의 플레이가 성립하기 위한 최소 게임 법칙을 정의한다. 규칙이 충돌하면 이 문서가 기준이다.  
+> 판 구성·보상의 세부는 [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md), 스킬·사망 효과·노드 트리는 [SKILL_TREE_PLAN](SKILL_TREE_PLAN.md), 복잡도 제한은 [BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES](BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES.md)에서 다룬다. 밸런스 수치는 정하지 않는다.
 
 ---
 
@@ -135,9 +135,12 @@ Aim Point
 
 ## 6. Passive Attack
 
-Player는 기본 Passive Skill 하나를 가진다.
+Player의 공격은 모두 Passive Skill이며 일정 주기로 자동 발동한다. 지금 스킬은 둘이다.
 
-Passive Skill은 일정 주기로 자동 발동한다.
+- **Breaker** — 기본 공격. 아래 규칙을 따른다.
+- **관통 레이저** — 경계 원 위의 무작위 지점에서 Aim Point를 향해 예고한 뒤, 그 직선 위의 Enemy 전부를 관통한다. 예고를 시작할 때 방향이 고정된다. 세부는 SKILL_TREE_PLAN 3.2.
+
+Breaker:
 
 ```text
 Attack Interval 도달
@@ -156,6 +159,7 @@ Attack Range 판정
 - 빈 Tick을 저장하거나 다음 공격으로 이월하지 않는다.
 - MVP의 첫 Attack Tick은 Battle 시작 시점에 발생한다.
 - 화면에 표시되는 공격 범위와 실제 판정 범위는 같은 값을 사용한다.
+- 치명타는 Breaker의 수치다. 모든 스킬의 공통 수치가 아니다.
 
 ---
 
@@ -241,16 +245,21 @@ Enemy Kill
 
 ## 10. Death Effect
 
-MVP에서는 Death 시 추가 효과를 발생시키는 Enemy가 존재할 수 있다.
+Death 시 추가 효과를 발생시키는 Enemy가 있다. 효과는 Enemy 종류에 붙는 특성이다.
 
-현재 기준 효과는 Chain Lightning이다.
+| 효과 | 결과 |
+|---|---|
+| Chain Lightning | 가까운 Enemy로 옮겨 가며 피해. 최대 횟수가 있고 같은 대상을 다시 맞히지 않는다 |
+| Explosion | 죽은 자리 반경 안의 Enemy 전부에게 한 번 피해 |
+| 공격 주기 감소 (처치 버프) | 일정 시간 Breaker의 공격 주기가 줄어든다 |
+| 확정 치명타 (처치 버프) | 일정 시간 Breaker의 공격이 모두 치명타다 |
 
 ```text
 Special Enemy Death
     ↓
-Chain Lightning
-    ↓
-다른 Enemy Damage
+Death Effect (Step 4)
+    ├─ 다른 Enemy Damage
+    └─ 처치 버프 → 다음 Step의 공격부터
 ```
 
 Death Effect로 죽은 Enemy도 일반적인 Death 규칙을 따른다.
@@ -260,6 +269,8 @@ Death Effect로 죽은 Enemy도 일반적인 Death 규칙을 따른다.
 > **Death Effect는 Death Effect를 가진 Enemy에게 피해를 주지 않는다.**
 
 따라서 같은 종류의 Death Effect가 다시 같은 종류의 Death Effect를 계속 발생시키지 않는다.
+
+처치 버프는 피해를 만들지 않는다. 판 안의 모든 참가자의 Breaker가 받고, 다시 받아도 곱으로 쌓이지 않는다.
 
 모든 연쇄 효과에는 반드시 끝나는 조건이 존재해야 한다.
 
@@ -295,7 +306,7 @@ Time + Enemy 증가
 더 큰 Battle
 ```
 
-구체적인 Threshold, 연장 시간, 공급량은 Balance 영역이므로 이 문서에서 정하지 않는다([BLACKHOLE_LEVEL_PLAN](BLACKHOLE_LEVEL_PLAN.md)).
+구체적인 Threshold, 연장 시간, 공급량은 Balance 영역이므로 이 문서에서 정하지 않는다([BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) 4절의 샘플).
 
 ### 이정표(Milestone)
 
@@ -407,28 +418,33 @@ New Battle
 
 MVP에서는 **전투를 정상 종료한 뒤 다시 시작할 수 있으면 된다.**
 
+### 전투 사이 — 노드 구매
+
+- 결산이 끝나면 업그레이드 화면으로 돌아온다. Gold로 노드를 산다.
+- 노드는 전투 중에 살 수 없다. 진행 상태(Gold·산 노드·누적 EXP)는 전투 밖에서만 바뀐다.
+- 산 노드는 다음 Battle을 조립할 때 한 번 반영되고, 그 Battle 동안 바뀌지 않는다.
+- 진행 상태는 방장의 것 하나다. 방장이 노드를 사고, 그 결과(스탯·처치 버프·결산)를 판 안의 모든 참가자가 함께 쓴다. 지금 참가자는 방장 한 명이다.
+- 노드 그래프·합성 규칙은 SKILL_TREE_PLAN 4·5절.
+
 ---
 
 ## 16. MVP에서 다루지 않는 것
 
 다음은 현재 GAME RULES의 범위 밖이다.
 
-- Upgrade Tree
-- Upgrade Effect
 - Gold 가격·보상 밸런스의 상세 설계 (처치·이정표 결산 규칙은 포함)
-- Enemy 종류별 상세 설계
-- Enemy 콘텐츠 목록
 - Balance 수치
-- 블랙홀 EXP 이외의 장기 Progression
+- 블랙홀 EXP·산 노드 이외의 장기 Progression
 - Permanent Save
 - Character 전투
 - HQ HP / Defeat
-- Multiplayer
+- Multiplayer (방장 한 명이 참가자인 경우만 다룬다)
 - Network
-- 두 번째 이후 Passive Skill
-- 두 번째 이후 Death Effect
+- 세 번째 이후 Passive Skill
+- 파괴 뒤 같은 종류 생성 (세 번째 Supply Trigger)
+- 판 기본 시간을 늘리는 노드
 
-핵심 Battle Loop가 검증된 이후 별도 문서에서 정의한다.
+노드 트리·업그레이드와 Enemy 종류는 규칙이 정해져 구현되어 있다(SKILL_TREE_PLAN, BATTLE_COMPOSITION_PLAN). 위 목록은 별도 문서에서 정의한다.
 
 ---
 
