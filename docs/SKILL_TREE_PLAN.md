@@ -1,6 +1,6 @@
 # SKILL · NODE TREE PLAN — 스킬 시스템과 노드 트리
 
-작성일: 2026-09-25 · 최신화: 2026-09-28 (`dev` `adb10cf` 기준)
+작성일: 2026-09-25 · 최신화: 2026-09-28 (`feature/블랙홀성장도` 기준)
 
 기준 문서: [GAME_RULES_MVP](GAME_RULES_MVP.md) · [BATTLE_COMPOSITION_PLAN](BATTLE_COMPOSITION_PLAN.md) · [REFERENCE_ANALYSIS](REFERENCE_ANALYSIS.md) · [BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES](BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES.md)
 
@@ -210,7 +210,7 @@
 | `breaker.speed` | Breaker | 1. 주기 = 기본 주기 ÷ 공격 속도 [임시] | > 0 |
 | `breaker.radius` | Breaker | 콘텐츠의 반지름 | > 0 |
 | `breaker.crit-chance` | Breaker | 콘텐츠의 확률 | ≥ 0, 1에서 멈춤 |
-| `hq.growth-time` | 블랙홀 | 0 | ≥ 0. Level업마다 그 판의 제한 시간에 더한다 |
+| `hq.growth-time` | 블랙홀 | 0 | ≥ 0. 판 Level업마다 그 판의 제한 시간에 더한다 |
 | `enemy.<종류>.*` | 적 | — | [BATTLE_COMPOSITION_PLAN 3.3](BATTLE_COMPOSITION_PLAN.md#33-판-조립--판-구성을-정한다) |
 
 - 레이저를 보정하는 노드는 없어서 레이저 수치 이름은 두지 않았다. 치명타 배율을 바꾸는 노드도 없다.
@@ -218,7 +218,7 @@
 
 ### 5.3 샘플 노드 [임시]
 
-노드 목록(`Data/NodeCatalog.asset`)에 56개가 있다. `enemy.*` 수치를 쓰는 노드 47개(성장 공급 포함)는 [BATTLE_COMPOSITION_PLAN 4절](BATTLE_COMPOSITION_PLAN.md#4-샘플-콘텐츠-임시)에 있다. 나머지 9개:
+노드 목록(`Data/NodeCatalog.asset`)에 52개가 있다. `enemy.*` 수치를 쓰는 노드 43개(성장 공급 포함)는 [BATTLE_COMPOSITION_PLAN 4절](BATTLE_COMPOSITION_PLAN.md#4-샘플-콘텐츠-임시)에 있다. 나머지 9개:
 
 | 노드 | 가격 | 수치 | 값 |
 |---|---|---|---|
@@ -236,7 +236,7 @@
 
 | 보이는 것 | 알리는 것 |
 |---|---|
-| Gold, 산 노드 수 / 전체, 블랙홀 Lv·%·이정표 n / 전체, 노드 트리 | 노드 ID 클릭, Start battle |
+| Gold, 산 노드 수 / 전체, 블랙홀 성장도·다음 판의 목표 Level·이정표 n / 전체, 노드 트리 | 노드 ID 클릭, Start battle |
 
 - **배치는 노드 도구와 같은 좌표다.** 칸 (X, Y)의 노드는 (X × 칸 크기, Y × 칸 크기)에 놓인다. X는 오른쪽, Y는 위쪽이다. 선은 그래프(`NodeGraph.Links`)에서 읽는다.
 - 상태 색: 숨김은 그리지 않는다 [원작] · 드러남(Gold 부족) 회색 · 살 수 있음 노랑 · 산 것 초록. 선은 양 끝이 모두 보일 때만 그리고, 양 끝을 모두 샀으면 밝게 칠한다.
