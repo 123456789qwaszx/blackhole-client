@@ -1,6 +1,6 @@
 # BATTLE COMPOSITION PLAN — 판 구성(생성)과 보상
 
-작성일: 2026-09-26 · 최신화: 2026-09-28 (`feature/블랙홀성장도` GS-006 기준)
+작성일: 2026-09-26 · 최신화: 2026-09-28 (`feature/블랙홀성장도` 기준, 성장도 GS-001~006 반영)
 
 기준 문서: [GAME_RULES_MVP](GAME_RULES_MVP.md) · [SKILL_TREE_PLAN](SKILL_TREE_PLAN.md) · [REFERENCE_ANALYSIS](REFERENCE_ANALYSIS.md) · [BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES](BLACKHOLE_PERFORMANCE_DESIGN_PRINCIPLES.md)
 
@@ -392,10 +392,10 @@
 | GS-003 | Core: 성장도의 기본 변환 비율(소행성 → 행성 성장도 10부터 3%) | 완료 `8a18af8` |
 | GS-004 | Unity: 전투 HUD(판 Level / 목표), 결산 화면(성장도 전 → 후), 블랙홀 그림 크기, 업그레이드 콘솔의 성장도 버튼 | 완료 `eed206d` |
 | GS-005 | 데이터: 황금 소행성 노드 하나 10%, 황금 자릿수·배율 노드 제거 | 완료 `2c1b8ee` |
-| GS-006 | 문서: 3.7·3.8·4절, SKILL_TREE_PLAN·REFERENCE_ANALYSIS·성능 원칙의 해당 부분 | 완료 |
+| GS-006 | 문서: 3.7·3.8·4절, SKILL_TREE_PLAN·REFERENCE_ANALYSIS·성능 원칙의 해당 부분 | 완료 `806f67f`, `9d39b28` |
 
-- 확인: Core 계약 113개 통과(`tests/CoreSmoke`). Unity 어셈블리(Unity·Editor·Tests)는 에디터 밖 빌드로 오류 0개. **Unity 에디터 안 컴파일과 Play 확인은 하지 않았다.**
-- Play에서 확인할 흐름: 성장도 0 판에서 목표 Level 3 → 결산 "Stage 0 -> 1" → 다음 판 색 변화 → 콘솔로 성장도 9 → 목표 Level에 닿는 순간 "Milestone reached"와 30,000 → 성장도 10 판에 행성 3%.
+- 확인: Core 계약 113개 통과(`tests/CoreSmoke`). Unity Play는 사용자가 확인했다("잘됨", 2026-09-28).
+- 확인을 요청한 흐름: 성장도 0 판에서 목표 Level 3 → 결산 "Stage 0 -> 1" → 다음 판 색 변화 → 콘솔로 성장도 9 → 목표 Level에 닿는 순간 "Milestone reached"와 30,000 → 성장도 10 판에 행성 3%.
 - 소행성 파괴 시 생성(세 번째 공급 계기)은 끝나는 규칙을 따로 정해야 해서 이 작업에 넣지 않았다.
 
 ## 9. 출처
