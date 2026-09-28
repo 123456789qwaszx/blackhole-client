@@ -119,8 +119,12 @@ namespace BlackHole.Core
         public EnemyBehaviorDefinition Behavior { get; }
         // 이 종류가 죽을 때의 효과. 없으면 null이다. 효과를 가진 적은 사망 효과의 피해를 받지 않는다.
         public DeathEffectDefinition DeathEffect { get; }
-        // 이 종류의 생성 요청 중 변환 비율만큼이 나오는 다음 종류의 ID(소행성 → 행성 → 별). 없으면 null이다(BLACKHOLE_LEVEL_PLAN 4.3).
+        // 이 종류의 생성 요청 중 변환 비율만큼이 나오는 다음 종류의 ID(소행성 → 행성 → 별). 없으면 null이다(BATTLE_COMPOSITION_PLAN 3.4).
         public string UpgradesTo { get; }
+        // 노드 밖의 기본 변환 비율(%): 성장도가 BaseUpgradeFromStage 이상이면 이만큼이 변환 대상으로 나온다. 변환 노드는 여기에 더한다.
+        // 원작: 성장도 10(이정표)에 닿으면 행성이 기본 3%로 나오기 시작한다 [사용자].
+        public float BaseUpgrade { get; }
+        public int BaseUpgradeFromStage { get; }
         // 특수 종류이면 부모 종류의 ID. 부모로 정해진 생성 중 이 종류의 생성 확률만큼이 이 종류로 나온다. 없으면 null이다.
         public string SpecialOf { get; }
         public bool IsSpecial => SpecialOf != null;
@@ -135,10 +139,21 @@ namespace BlackHole.Core
             EnemyBehaviorDefinition behavior,
             DeathEffectDefinition deathEffect = null,
             string upgradesTo = null,
-            string specialOf = null)
+            string specialOf = null,
+            float baseUpgrade = 0,
+            int baseUpgradeFromStage = HqGrowthDefinition.StartStage)
         {
             if (float.IsNaN(goldenMultiplier) || float.IsInfinity(goldenMultiplier) || goldenMultiplier < 0)
                 throw new ArgumentOutOfRangeException(nameof(goldenMultiplier), "0 이상의 유한한 값이 필요하다.");
+
+            if (float.IsNaN(baseUpgrade) || baseUpgrade < 0 || baseUpgrade > 100)
+                throw new ArgumentOutOfRangeException(nameof(baseUpgrade), "기본 변환 비율은 0부터 100(%)까지다.");
+
+            if (baseUpgrade > 0 && string.IsNullOrEmpty(upgradesTo))
+                throw new ArgumentException("변환 대상이 없어 기본 변환 비율을 둘 수 없다.", nameof(baseUpgrade));
+
+            if (baseUpgradeFromStage < HqGrowthDefinition.StartStage)
+                throw new ArgumentOutOfRangeException(nameof(baseUpgradeFromStage), $"{HqGrowthDefinition.StartStage} 이상이 필요하다.");
 
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("ID가 비어 있다.", nameof(id));
@@ -190,7 +205,12 @@ namespace BlackHole.Core
             DeathEffect = deathEffect;
             UpgradesTo = string.IsNullOrEmpty(upgradesTo) ? null : upgradesTo;
             SpecialOf = string.IsNullOrEmpty(specialOf) ? null : specialOf;
+            BaseUpgrade = baseUpgrade;
+            BaseUpgradeFromStage = baseUpgradeFromStage;
         }
+
+        // 성장도가 stage일 때 노드 밖의 기본 변환 비율(%).
+        public float BaseUpgradeAt(int stage) => stage >= BaseUpgradeFromStage ? BaseUpgrade : 0;
 
         // 성장도가 stage일 때의 색 비율: FromStage ≤ stage인 마지막 줄. stage가 첫 줄보다 작으면 첫 줄이다.
         public IReadOnlyList<float> TierRatiosAt(int stage)

@@ -119,7 +119,8 @@ namespace BlackHole.Core
                     continue;
 
                 EnemyDefinition enemy = Guard(at, into, () =>
-                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, stageColors, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.UpgradesTo, item.SpecialOf));
+                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, stageColors, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.UpgradesTo, item.SpecialOf,
+                        item.BaseUpgrade, item.BaseUpgradeFromStage));
 
                 if (enemy != null)
                     enemies.Add(enemy);

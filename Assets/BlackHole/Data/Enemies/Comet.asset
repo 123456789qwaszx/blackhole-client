@@ -15,6 +15,8 @@ MonoBehaviour:
   id: comet
   moveSpeed: 3
   upgradesTo: {fileID: 0}
+  baseUpgrade: 0
+  baseUpgradeFromStage: 0
   specialOf: {fileID: 11400000, guid: 3875f6a9833f4cf2893d251eb303b445, type: 2}
   tiers:
   - color: {r: 0.6, g: 0.95, b: 1, a: 1}

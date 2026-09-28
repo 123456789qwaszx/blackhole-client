@@ -65,14 +65,15 @@ namespace BlackHole.Core
         public static EnemyComposition Base(EnemyDefinition kind) =>
             new EnemyComposition(0, 0, kind.GoldenMultiplier);
 
-        // 업그레이드 표로 이 종류의 판 구성을 계산한다. 수치 이름은 EnemyUpgradeStats다.
-        // 각 수치의 기본값(질량 단계 0, 황금 비율 0, 황금 배율 = 종류의 기본값, 더할 공급 0, 성장 공급 0, 변환 0%, 특수 확률 0%)에
+        // 업그레이드 표로 이 종류의 판 구성을 계산한다. 수치 이름은 EnemyUpgradeStats다. stage는 이 판의 성장도다.
+        // 각 수치의 기본값(질량 단계 0, 황금 비율 0, 황금 배율 = 종류의 기본값, 더할 공급 0, 성장 공급 0,
+        // 변환 = 그 성장도의 기본 변환 비율(EnemyDefinition.BaseUpgradeAt, 없으면 0%), 특수 확률 0%)에
         // 표의 합성 규칙을 적용한 뒤 적 시스템의 한계를 건다:
         // - 질량 단계와 더할 공급 수·성장 공급 수는 가장 가까운 정수로 읽는다 [임시]. 질량 단계는 그 종류의 질량 단계 표 안이어야 한다.
         // - 황금 비율은 1을 넘지 않는다. 황금이 되지 않는 종류의 황금 비율은 0보다 클 수 없다.
         // - 변환과 특수 확률은 %다. 100에서 멈춘다(100을 넘는 원작 값의 뜻은 [미정]). 변환 대상이 없는 종류의 변환, 특수 종류가 아닌 종류의 확률은 올릴 수 없다.
         // 한계 밖은 예외다 — 노드 저작 오류이며 UpgradeContentCheck가 로드 때 찾는다.
-        public static EnemyComposition From(EnemyDefinition kind, UpgradeTable upgrades)
+        public static EnemyComposition From(EnemyDefinition kind, UpgradeTable upgrades, int stage = HqGrowthDefinition.StartStage)
         {
             if (kind == null)
                 throw new ArgumentNullException(nameof(kind));
@@ -85,7 +86,7 @@ namespace BlackHole.Core
             float goldenMultiplier = upgrades.Apply(EnemyUpgradeStats.GoldenMultiplier(kind.Id), kind.GoldenMultiplier);
             int startSupply = Whole(upgrades.Apply(EnemyUpgradeStats.StartSupply(kind.Id), 0));
             int growthSupply = Whole(upgrades.Apply(EnemyUpgradeStats.GrowthSupply(kind.Id), 0));
-            float upgrade = Percent(upgrades.Apply(EnemyUpgradeStats.Upgrade(kind.Id), 0), kind.Id, "변환 비율");
+            float upgrade = Percent(upgrades.Apply(EnemyUpgradeStats.Upgrade(kind.Id), kind.BaseUpgradeAt(stage)), kind.Id, "변환 비율");
             float chance = Percent(upgrades.Apply(EnemyUpgradeStats.Chance(kind.Id), 0), kind.Id, "생성 확률");
 
             if (massLevel >= kind.MassLevels.Count)

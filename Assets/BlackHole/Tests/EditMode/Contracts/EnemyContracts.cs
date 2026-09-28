@@ -21,6 +21,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Enemy.EachBattleHasItsOwnEnemies", EachBattleHasItsOwnEnemies);
             yield return new Contract("Enemy.ForeignOrClearedEnemyTakesNoDamage", ForeignOrClearedEnemyTakesNoDamage);
             yield return new Contract("Spawn.UpgradeTurnsTheRatioIntoTheNextKind", UpgradeTurnsTheRatioIntoTheNextKind);
+            yield return new Contract("Spawn.StageGivesTheBaseUpgradeRatio", StageGivesTheBaseUpgradeRatio);
             yield return new Contract("Spawn.SpecialKindsNeedTheirChance", SpecialKindsNeedTheirChance);
             yield return new Contract("Spawn.FilteredSpawnsUseNoKindQuota", FilteredSpawnsUseNoKindQuota);
             yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
@@ -513,6 +514,54 @@ namespace BlackHole.Core.Tests
             var state = new PlayerState(TestContent.First);
             NodeTree nowhere = TestContent.Owned(state, Convert("top", 10));
             Expect.Throws<ArgumentException>(() => SessionAssembler.CreateBattle(content, state, 0, nowhere));
+        }
+
+        // 노드 밖의 기본 변환 비율: 성장도가 BaseUpgradeFromStage 이상인 판에서만 그 비율이 변환 대상으로 나오고, 변환 노드는 여기에 더한다(100%에서 멈춘다).
+        // 다음 판을 미리 보는 판 구성도 진행 상태의 성장도를 쓴다. 변환 대상이 없는 종류에는 기본 변환 비율을 둘 수 없다(로드가 거부한다).
+        private static void StageGivesTheBaseUpgradeRatio()
+        {
+            ContentData data = ChainArena(20);
+            data.Enemies[0].BaseUpgrade = 50;
+            data.Enemies[0].BaseUpgradeFromStage = 1;
+            data.Growth = new HqGrowthData();
+            data.Growth.Stages.Add(new GrowthStageData { LevelExp = new List<long> { 5 }, GoalLevel = 1 });
+            data.Growth.Stages.Add(new GrowthStageData { LevelExp = new List<long> { 5 } });
+            GameContent content = TestContent.Load(data);
+            content.TryGetEnemy("rock", out EnemyDefinition rock);
+            content.TryGetEnemy("mid", out EnemyDefinition mid);
+
+            GameSession before = Staged(content, 0);
+            Expect.Near(0, before.World.Stats.CompositionOf(rock).UpgradeRatio);
+            Expect.Equal(20, before.World.CountAlive(rock));
+
+            GameSession from = Staged(content, 1);
+            Expect.Near(0.5f, from.World.Stats.CompositionOf(rock).UpgradeRatio);
+            Expect.Equal(10, from.World.CountAlive(rock));
+            Expect.Equal(10, from.World.CountAlive(mid));
+
+            GameSession noded = Staged(content, 1, Convert("rock", 30));
+            Expect.Near(0.8f, noded.World.Stats.CompositionOf(rock).UpgradeRatio);
+
+            GameSession capped = Staged(content, 1, Convert("rock", 90));
+            Expect.Near(1, capped.World.Stats.CompositionOf(rock).UpgradeRatio);
+            Expect.Equal(20, capped.World.CountAlive(mid));
+
+            var state = new PlayerState(TestContent.First);
+            ProgressCheats.SetGrowthStage(state, content.Growth, 1);
+            Expect.Near(0.5f, SessionAssembler.PreviewCompositions(content, state, null)[rock].UpgradeRatio);
+
+            data.Enemies[2].BaseUpgrade = 10;
+            ContentLoadResult result = ContentLoader.Load(data);
+            TestContent.HasDiagnostic(result, "Enemies[top]", "변환 대상");
+        }
+
+        // 이 성장도·업그레이드로 판을 조립하고 시작한다.
+        private static GameSession Staged(GameContent content, int stage, params Upgrade[] upgrades)
+        {
+            var state = new PlayerState(TestContent.First);
+            NodeTree tree = TestContent.Owned(state, upgrades);
+            ProgressCheats.SetGrowthStage(state, content.Growth, stage);
+            return TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
         }
 
         // 특수 종류: 확률 노드를 사기 전(기본 0)에는 나오지 않고, 확률(%)만큼 부모 대신 나온다.

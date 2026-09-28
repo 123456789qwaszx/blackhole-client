@@ -15,6 +15,8 @@ MonoBehaviour:
   id: electric-asteroid
   moveSpeed: 1.5
   upgradesTo: {fileID: 0}
+  baseUpgrade: 0
+  baseUpgradeFromStage: 0
   specialOf: {fileID: 11400000, guid: 05425233efee43ed8109228e30eff09f, type: 2}
   tiers:
   - color: {r: 0.45, g: 0.75, b: 1, a: 1}

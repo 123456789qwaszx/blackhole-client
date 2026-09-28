@@ -76,8 +76,11 @@ namespace BlackHole.Core
         public EnemyBehaviorData Behavior;
         // 없거나 종류 이름이 비어 있으면 사망 효과가 없다.
         public DeathEffectData DeathEffect;
-        // 변환 대상 종류의 ID(소행성 → 행성 → 별). 비어 있으면 변환하지 않는다. 비율은 노드(enemy.<종류>.upgrade)가 정한다.
+        // 변환 대상 종류의 ID(소행성 → 행성 → 별). 비어 있으면 변환하지 않는다.
+        // 비율은 기본 변환 비율(BaseUpgrade %, 성장도 BaseUpgradeFromStage부터) + 노드(enemy.<종류>.upgrade)다.
         public string UpgradesTo;
+        public float BaseUpgrade;
+        public int BaseUpgradeFromStage;
         // 특수 종류이면 부모 종류의 ID. 비어 있으면 특수 종류가 아니다. 생성 확률은 노드(enemy.<종류>.chance)가 정한다.
         public string SpecialOf;
     }

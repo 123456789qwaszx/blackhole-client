@@ -17,6 +17,7 @@ namespace BlackHole.Core
     // 표는 판이 끝날 때까지 같다(전투 중에는 살 수 없다). 노드 트리가 없으면 빈 표다. 이 판의 값은 모두 여기서 한 번 계산한다:
     // - 참가자의 Breaker 수치(피해·주기·반지름·치명타 확률)는 이 표에서 계산한다(BreakerDefinition.Upgraded).
     // - 적 종류의 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수·성장 공급 수·변환 비율·특수 확률)은 이 표에서 계산한다(EnemyComposition.From).
+    //   변환 비율은 이 판의 성장도의 기본 변환 비율(종류의 BaseUpgrade)에 노드를 더한다.
     // - 블랙홀의 판 Level업마다 늘어나는 시간은 이 표에서 계산한다(HqUpgradeStats.GrowthTimeFrom).
     //   블랙홀은 Level 0에서 시작하고, 진행 상태의 성장도로 이 판의 Level 표·목표 Level을 고른다(GAME_RULES 3.2).
     //   어떤 종류가 나오는가도 여기서 정해진다: 요청한 종류에서 변환·특수 확률만큼 다른 종류로 나온다(BATTLE_COMPOSITION_PLAN 3.4).
@@ -51,7 +52,7 @@ namespace BlackHole.Core
             // 색 비율은 이 판의 성장도로 고른다.
             var stats = new EnemyStatTable(
                 content.Enemies,
-                CompositionsOf(content, table),
+                CompositionsOf(content, table, hq.Stage),
                 hq.Stage);
 
             var world = new World(
@@ -80,7 +81,7 @@ namespace BlackHole.Core
         public static IReadOnlyDictionary<EnemyDefinition, EnemyComposition> PreviewCompositions(
             GameContent content, PlayerState progress, NodeTree nodes)
         {
-            return CompositionsOf(content, UpgradesOf(progress, nodes));
+            return CompositionsOf(content, UpgradesOf(progress, nodes), progress.GrowthStage);
         }
 
         // 방장의 산 노드로 만든 업그레이드 표. 노드 트리가 없으면 빈 표다.
@@ -89,13 +90,13 @@ namespace BlackHole.Core
                 ? new UpgradeTable(Array.Empty<Upgrade>())
                 : NodePurchase.UpgradesFor(progress, nodes);
 
-        // 적 종류마다의 판 구성. 빈 표면 모두 기본값이다.
-        private static Dictionary<EnemyDefinition, EnemyComposition> CompositionsOf(GameContent content, UpgradeTable upgrades)
+        // 적 종류마다의 판 구성. 빈 표면 모두 기본값이다(변환은 그 성장도의 기본 변환 비율).
+        private static Dictionary<EnemyDefinition, EnemyComposition> CompositionsOf(GameContent content, UpgradeTable upgrades, int stage)
         {
             var compositions = new Dictionary<EnemyDefinition, EnemyComposition>();
 
             foreach (EnemyDefinition kind in content.Enemies)
-                compositions.Add(kind, EnemyComposition.From(kind, upgrades));
+                compositions.Add(kind, EnemyComposition.From(kind, upgrades, stage));
 
             return compositions;
         }

@@ -60,9 +60,13 @@ namespace BlackHole.Unity
         [Tooltip("초당 이동 거리. 모든 색 등급이 같다.")]
         [SerializeField] private float moveSpeed = 1;
 
-        [Header("종류 사이 (BLACKHOLE_LEVEL_PLAN 4.3)")]
+        [Header("종류 사이 (BATTLE_COMPOSITION_PLAN 3.4)")]
         [Tooltip("이 종류의 생성 중 변환 비율(노드 enemy.<id>.upgrade, %)만큼 나오는 다음 종류. 비우면 변환하지 않는다. 적 종류 목록에 있어야 한다.")]
         [SerializeField] private EnemyKind upgradesTo;
+        [Tooltip("노드 밖의 기본 변환 비율(%). 성장도가 아래 값 이상이면 이만큼이 변환 대상으로 나오고, 변환 노드가 여기에 더한다. 0부터 100까지, 변환 대상이 있어야 한다.")]
+        [SerializeField] private float baseUpgrade;
+        [Tooltip("기본 변환 비율을 쓰기 시작하는 성장도(0 이상).")]
+        [SerializeField] private int baseUpgradeFromStage;
         [Tooltip("특수 종류이면 부모 종류. 부모로 정해진 생성 중 생성 확률(노드 enemy.<id>.chance, %)만큼 이 종류로 나온다. 비우면 특수 종류가 아니다.")]
         [SerializeField] private EnemyKind specialOf;
 
@@ -112,6 +116,8 @@ namespace BlackHole.Unity
                 Id = id,
                 MoveSpeed = moveSpeed,
                 UpgradesTo = upgradesTo != null ? upgradesTo.Id : null,
+                BaseUpgrade = baseUpgrade,
+                BaseUpgradeFromStage = baseUpgradeFromStage,
                 SpecialOf = specialOf != null ? specialOf.Id : null,
                 GoldenMultiplier = goldenMultiplier,
                 Behavior = new EnemyBehaviorData { Kind = "Orbit", Clockwise = clockwise },
