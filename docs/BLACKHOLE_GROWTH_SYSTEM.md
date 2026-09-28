@@ -77,7 +77,7 @@
 | | 성장도 → 색 비율 | `EnemyStatTable` → `EnemyDefinition.TierRatiosAt` |
 | | 성장도 → 기본 변환 비율 | `EnemyComposition.From` → `EnemyDefinition.BaseUpgradeAt` |
 | | 목표 도달·이정표 | `Hq.ReachedGoal`, `Hq.Milestone` → `World.Step`, `GameSession.Advance`·`SettledGold` |
-| | 화면 | 업그레이드 화면(성장도·목표 Level·이정표 n / 전체), 전투 HUD(`Lv 2 / 3`), 결산 화면(`Stage 2 -> 3`) |
+| | 화면 | 업그레이드 화면(성장도·목표 Level), 전투 HUD(`Lv 2 / 3`), 결산 화면(`Stage 2 -> 3`, 이정표 n / 전체) |
 
 ## 7. 데이터
 

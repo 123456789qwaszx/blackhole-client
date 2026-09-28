@@ -8,7 +8,8 @@ using UnityEngine.EventSystems;
 
 namespace BlackHole.Unity
 {
-    // 결산 화면: 끝난 판의 결과(진행 시간, 블랙홀의 도달 Level, 이정표로 끝났는가, 처치 수, 결산한 Gold)와 결산 뒤의 진행 상태 Gold를 보여 주고, 계속하기를 알린다.
+    // 결산 화면: 끝난 판의 결과(진행 시간, 블랙홀의 도달 Level·성장도 변화, 이정표로 끝났는가, 처치 수, 결산한 Gold)와
+    // 결산 뒤의 진행 상태(Gold, 이정표 진행도, 산 노드 수)를 보여 주고, 계속하기를 알린다.
     // 보여 주기만 한다 — Gold는 이 화면이 열리기 전에 결산(GameSession.Settle)이 이미 더했다. ScreenFlow가 완료 사건에서 표시 값을 넘긴다.
     public sealed class SettlementScreen : UIRoot<SettlementScreen.Refs>
     {
@@ -19,6 +20,7 @@ namespace BlackHole.Unity
             KillsText,
             EarnedGoldText,
             TotalGoldText,
+            ProgressText,
             ContinueBtn_Button,
         }
 
@@ -30,6 +32,7 @@ namespace BlackHole.Unity
         private TMP_Text _kills;
         private TMP_Text _earned;
         private TMP_Text _total;
+        private TMP_Text _progress;
 
         protected override void OnInitialize()
         {
@@ -40,6 +43,7 @@ namespace BlackHole.Unity
             _kills = View.Text(Refs.KillsText);
             _earned = View.Text(Refs.EarnedGoldText);
             _total = View.Text(Refs.TotalGoldText);
+            _progress = View.Text(Refs.ProgressText);
 
             BindEvent(View.Button(Refs.ContinueBtn_Button), HandleContinueClicked);
         }
@@ -91,6 +95,21 @@ namespace BlackHole.Unity
 
             if (_total != null)
                 _total.text = "Total  " + total.ToString("N0", CultureInfo.InvariantCulture) + " Gold";
+        }
+
+        // 결산 뒤의 진행: 이정표 진행도(닿은 수 / 전체)와 산 노드 수(산 수 / 전체).
+        public void ShowProgress(int milestonesReached, int milestoneCount, int ownedNodes, int totalNodes)
+        {
+            if (_progress == null)
+                return;
+
+            string text = ownedNodes.ToString(CultureInfo.InvariantCulture) + " / " + totalNodes.ToString(CultureInfo.InvariantCulture) + " nodes";
+
+            if (milestoneCount > 0)
+                text = "Milestone " + milestonesReached.ToString(CultureInfo.InvariantCulture)
+                    + " / " + milestoneCount.ToString(CultureInfo.InvariantCulture) + "    " + text;
+
+            _progress.text = text;
         }
     }
 }

@@ -18,7 +18,7 @@ namespace BlackHole.Unity
         // 업그레이드 화면에 그릴 노드(칸·가격). 조립 때 저작 데이터의 격자 칸으로 만들어 받는다.
         private readonly IReadOnlyList<NodeTreeView.NodeItem> _nodes;
         private readonly PlayerState _player;
-        // 블랙홀 성장의 Level 표·이정표. 업그레이드 화면이 진행 상태의 Level과 이정표 진행도를 보여 줄 때 쓴다.
+        // 블랙홀 성장(성장도별 Level 표·이정표). 업그레이드 화면의 목표 Level과 결산 화면의 이정표 진행도를 계산할 때 쓴다.
         private readonly HqGrowthDefinition _growth;
         private readonly Dictionary<UIBase, List<Action>> _cleanupByScreen = new Dictionary<UIBase, List<Action>>();
 

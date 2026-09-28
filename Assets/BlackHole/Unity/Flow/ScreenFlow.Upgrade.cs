@@ -31,17 +31,16 @@ namespace BlackHole.Unity
             RequestStart();
         }
 
-        // 진행 상태를 화면 값(Gold, 산 노드 수, 블랙홀 성장도·다음 판의 목표 Level·이정표 진행도, 노드마다의 상태)으로 바꿔 넘긴다.
+        // 진행 상태를 화면 값(Gold, 블랙홀 성장도·다음 판의 목표 Level, 노드마다의 상태)으로 바꿔 넘긴다.
         private void RefreshUpgrade()
         {
             if (!(_ui.CurrentRoot is UpgradeScreen root))
                 return;
 
             root.ShowGold(_player.Gold);
-            root.ShowProgress(_player.OwnedNodes.Count, _tree.Nodes.Count);
 
             int stage = _player.GrowthStage;
-            root.ShowHq(stage, _growth.StageAt(stage).GoalLevel, _growth.MilestonesReachedBy(stage), _growth.Milestones.Count);
+            root.ShowHq(stage, _growth.StageAt(stage).GoalLevel);
 
             var states = new Dictionary<string, NodeState>(_tree.Nodes.Count, StringComparer.Ordinal);
             foreach (NodeDefinition node in _tree.Nodes)
