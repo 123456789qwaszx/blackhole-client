@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core
 {
-    // 한 판의 판 구성 중 적 종류의 몫: 종류마다 이 판의 판 구성(질량 단계·황금 비율·황금 배율)과 색 비율(판을 시작할 때의 블랙홀 Level),
+    // 한 판의 판 구성 중 적 종류의 몫: 종류마다 이 판의 판 구성(질량 단계·황금 비율·황금 배율)과 색 비율(판을 시작할 때의 블랙홀 성장도),
     // (종류, 색 등급, 황금)마다 실행 수치.
     // 판 조립 때 — 전투 Session이 시작되기 전 — 한 번 정해지고, 판이 끝날 때까지 바뀌지 않는다(BATTLE_COMPOSITION_PLAN 4.2).
     // 적의 수치를 바꾸는 것은 전투 밖(업그레이드)뿐이며, 그 결과는 판 구성(EnemyComposition)으로 여기에 들어온다.
@@ -18,8 +18,8 @@ namespace BlackHole.Core
         private readonly Dictionary<EnemyDefinition, EnemyDefinition> _upgradeTargets = new Dictionary<EnemyDefinition, EnemyDefinition>();
         private readonly Dictionary<EnemyDefinition, List<EnemyDefinition>> _specials = new Dictionary<EnemyDefinition, List<EnemyDefinition>>();
 
-        // 이 판의 색 비율을 고른 블랙홀 Level(판을 시작할 때의 Level). 판 중에 Level이 올라도 그대로다.
-        public int Level { get; }
+        // 이 판의 색 비율을 고른 블랙홀 성장도(판을 시작할 때의 것). 성장도는 결산 때만 오르므로 판 동안 그대로다.
+        public int Stage { get; }
         // 이 판의 종류(콘텐츠 순서).
         public IReadOnlyList<EnemyDefinition> Kinds { get; }
 
@@ -27,9 +27,9 @@ namespace BlackHole.Core
         internal EnemyStatTable(
             IReadOnlyList<EnemyDefinition> enemies,
             IReadOnlyDictionary<EnemyDefinition, EnemyComposition> compositions,
-            int level = HqGrowthDefinition.StartLevel)
+            int stage = HqGrowthDefinition.StartStage)
         {
-            Level = level;
+            Stage = stage;
             var kinds = new EnemyDefinition[enemies.Count];
 
             for (int i = 0; i < kinds.Length; i++)
@@ -128,11 +128,11 @@ namespace BlackHole.Core
         // 이 판에서 이 종류의 판 구성(질량 단계·황금 비율·황금 배율·공급·변환·특수 확률).
         public EnemyComposition CompositionOf(EnemyDefinition kind) => RowOf(kind).Composition;
 
-        // 이 판에서 이 종류의 색 비율(색 등급 표 순서). 판을 시작할 때의 블랙홀 Level로 고른 줄이다.
+        // 이 판에서 이 종류의 색 비율(색 등급 표 순서). 판을 시작할 때의 성장도로 고른 줄이다.
         public IReadOnlyList<float> TierRatiosOf(EnemyDefinition kind)
         {
             Require(kind);
-            return kind.TierRatiosAt(Level);
+            return kind.TierRatiosAt(Stage);
         }
 
         // 이 판에서 이 종류·색 등급(황금이면 황금)이 받는 수치.

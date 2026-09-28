@@ -47,7 +47,7 @@ namespace BlackHole.Core
     }
 
     // 질량 단계 하나: 그 종류의 질량 증가를 이만큼 샀을 때 색 등급 표에 곱하는 HP·Gold 계수.
-    // 색 비율은 질량 증가와 무관하다 — 블랙홀 Level이 정한다(LevelColorDefinition, BLACKHOLE_LEVEL_PLAN 4.2).
+    // 색 비율은 질량 증가와 무관하다 — 블랙홀 성장도가 정한다(StageColorDefinition, GAME_RULES 3.2).
     public sealed class MassLevelDefinition
     {
         public float HealthMultiplier { get; }
@@ -60,19 +60,19 @@ namespace BlackHole.Core
         }
     }
 
-    // 블랙홀 Level별 색 비율 한 줄: 이 Level부터 그 종류의 색이 이 비율로 나온다(BLACKHOLE_LEVEL_PLAN 4.2).
-    // 판을 시작할 때의 Level로 한 줄을 고르고, 판 중에 Level이 올라도 그 판은 그대로다.
-    public sealed class LevelColorDefinition
+    // 블랙홀 성장도별 색 비율 한 줄: 이 성장도부터 그 종류의 색이 이 비율로 나온다(GAME_RULES 3.2).
+    // 판을 시작할 때의 성장도로 한 줄을 고른다. 성장도는 결산 때만 오르므로 판 동안 그대로다.
+    public sealed class StageColorDefinition
     {
-        // 이 줄을 쓰기 시작하는 블랙홀 Level(1 이상).
-        public int FromLevel { get; }
+        // 이 줄을 쓰기 시작하는 성장도(0 이상).
+        public int FromStage { get; }
         // 색 등급 표와 같은 순서·길이. 0 이상이고 합이 0보다 크다. 합이 1이 아니어도 된다(비율로 읽는다).
         public IReadOnlyList<float> TierRatios { get; }
 
-        public LevelColorDefinition(int fromLevel, IReadOnlyList<float> tierRatios)
+        public StageColorDefinition(int fromStage, IReadOnlyList<float> tierRatios)
         {
-            if (fromLevel < HqGrowthDefinition.StartLevel)
-                throw new ArgumentOutOfRangeException(nameof(fromLevel), $"{HqGrowthDefinition.StartLevel} 이상이 필요하다.");
+            if (fromStage < HqGrowthDefinition.StartStage)
+                throw new ArgumentOutOfRangeException(nameof(fromStage), $"{HqGrowthDefinition.StartStage} 이상이 필요하다.");
 
             if (tierRatios == null || tierRatios.Count == 0)
                 throw new ArgumentException("색 비율이 하나 이상 필요하다.", nameof(tierRatios));
@@ -94,12 +94,12 @@ namespace BlackHole.Core
             if (sum <= 0)
                 throw new ArgumentException("색 비율의 합이 0보다 커야 한다.", nameof(tierRatios));
 
-            FromLevel = fromLevel;
+            FromStage = fromStage;
             TierRatios = Array.AsReadOnly(copy);
         }
     }
 
-    // 적 종류 하나의 공유 정의: 이동 속도, 색 등급 표, Level별 색 비율, 질량 단계 표, 황금 배율, 행동, 사망 효과, 변환 대상·부모 종류.
+    // 적 종류 하나의 공유 정의: 이동 속도, 색 등급 표, 성장도별 색 비율, 질량 단계 표, 황금 배율, 행동, 사망 효과, 변환 대상·부모 종류.
     // 종류는 계열(소행성·행성·별·달·혜성)이고 색은 종류 안에 둔다(BATTLE_COMPOSITION_PLAN 4.1). 색이 없는 종류는 색 등급이 한 줄이다.
     // 사망 효과는 종류에 붙는 특성이다(전기·폭발·처치 버프). HQ EXP는 색 등급마다 적는다(블랙홀 성장). 외형은 Core가 모른다(Unity 쪽 종류 에셋이 가진다).
     public sealed class EnemyDefinition
@@ -108,8 +108,8 @@ namespace BlackHole.Core
         public float MoveSpeed { get; }
         // 색 등급 표. 번호가 적의 색 등급(Enemy.Tier)이다.
         public IReadOnlyList<EnemyTier> Tiers { get; }
-        // 블랙홀 Level별 색 비율. FromLevel이 커지는 순서다. 하나 이상.
-        public IReadOnlyList<LevelColorDefinition> LevelColors { get; }
+        // 블랙홀 성장도별 색 비율. FromStage가 커지는 순서다. 하나 이상.
+        public IReadOnlyList<StageColorDefinition> StageColors { get; }
         // 질량 단계 표(HP·Gold 계수). MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음).
         public IReadOnlyList<MassLevelDefinition> MassLevels { get; }
         // 황금일 때 그 적의 Gold에 곱하는 기본값. 0이면 이 종류는 황금이 되지 않는다(원작은 소행성만, 기본 50배).
@@ -129,7 +129,7 @@ namespace BlackHole.Core
             string id,
             float moveSpeed,
             IReadOnlyList<EnemyTier> tiers,
-            IReadOnlyList<LevelColorDefinition> levelColors,
+            IReadOnlyList<StageColorDefinition> stageColors,
             IReadOnlyList<MassLevelDefinition> massLevels,
             float goldenMultiplier,
             EnemyBehaviorDefinition behavior,
@@ -161,29 +161,29 @@ namespace BlackHole.Core
                     throw new ArgumentException($"질량 단계 {i}가 null이다.", nameof(massLevels));
             }
 
-            if (levelColors == null || levelColors.Count == 0)
-                throw new ArgumentException("Level별 색 비율이 하나 이상 필요하다.", nameof(levelColors));
+            if (stageColors == null || stageColors.Count == 0)
+                throw new ArgumentException("성장도별 색 비율이 하나 이상 필요하다.", nameof(stageColors));
 
-            for (int i = 0; i < levelColors.Count; i++)
+            for (int i = 0; i < stageColors.Count; i++)
             {
-                if (levelColors[i] == null)
-                    throw new ArgumentException($"Level별 색 비율 {i}가 null이다.", nameof(levelColors));
+                if (stageColors[i] == null)
+                    throw new ArgumentException($"성장도별 색 비율 {i}가 null이다.", nameof(stageColors));
 
-                if (levelColors[i].TierRatios.Count != tiers.Count)
+                if (stageColors[i].TierRatios.Count != tiers.Count)
                     throw new ArgumentException(
-                        $"Level별 색 비율 {i}의 색 비율 수({levelColors[i].TierRatios.Count})가 색 등급 수({tiers.Count})와 다르다.",
-                        nameof(levelColors));
+                        $"성장도별 색 비율 {i}의 색 비율 수({stageColors[i].TierRatios.Count})가 색 등급 수({tiers.Count})와 다르다.",
+                        nameof(stageColors));
 
-                if (i > 0 && levelColors[i].FromLevel <= levelColors[i - 1].FromLevel)
+                if (i > 0 && stageColors[i].FromStage <= stageColors[i - 1].FromStage)
                     throw new ArgumentException(
-                        $"Level별 색 비율 {i}의 시작 Level {levelColors[i].FromLevel}는 앞 줄의 {levelColors[i - 1].FromLevel}보다 커야 한다.",
-                        nameof(levelColors));
+                        $"성장도별 색 비율 {i}의 시작 성장도 {stageColors[i].FromStage}는 앞 줄의 {stageColors[i - 1].FromStage}보다 커야 한다.",
+                        nameof(stageColors));
             }
 
             Id = id;
             MoveSpeed = DefinitionGuard.Positive(moveSpeed, nameof(moveSpeed));
             Tiers = Array.AsReadOnly(Copy(tiers));
-            LevelColors = Array.AsReadOnly(Copy(levelColors));
+            StageColors = Array.AsReadOnly(Copy(stageColors));
             MassLevels = Array.AsReadOnly(Copy(massLevels));
             GoldenMultiplier = goldenMultiplier;
             Behavior = behavior ?? throw new ArgumentNullException(nameof(behavior), "행동 정의가 필요하다.");
@@ -192,14 +192,14 @@ namespace BlackHole.Core
             SpecialOf = string.IsNullOrEmpty(specialOf) ? null : specialOf;
         }
 
-        // 블랙홀 Level이 level일 때의 색 비율: FromLevel ≤ level인 마지막 줄. level이 첫 줄보다 작으면 첫 줄이다.
-        public IReadOnlyList<float> TierRatiosAt(int level)
+        // 성장도가 stage일 때의 색 비율: FromStage ≤ stage인 마지막 줄. stage가 첫 줄보다 작으면 첫 줄이다.
+        public IReadOnlyList<float> TierRatiosAt(int stage)
         {
-            LevelColorDefinition chosen = LevelColors[0];
+            StageColorDefinition chosen = StageColors[0];
 
-            foreach (LevelColorDefinition row in LevelColors)
+            foreach (StageColorDefinition row in StageColors)
             {
-                if (row.FromLevel <= level)
+                if (row.FromStage <= stage)
                     chosen = row;
             }
 

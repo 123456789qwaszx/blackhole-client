@@ -47,6 +47,23 @@ namespace BlackHole.Core
             state.ForgetAllNodes();
         }
 
+        // 성장도를 정한다. 0부터 성장 정의의 마지막 성장도까지로 자른다. 이정표를 시험하려고 이정표 앞 성장도로 갈 때 쓴다.
+        // 지난 이정표의 보상은 주지 않는다. 자른 뒤의 성장도를 돌려준다.
+        public static int SetGrowthStage(PlayerState state, HqGrowthDefinition growth, int stage)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            RefuseDuringBattle(state);
+
+            if (growth == null)
+                throw new ArgumentNullException(nameof(growth));
+
+            int clamped = Math.Max(HqGrowthDefinition.StartStage, Math.Min(growth.MaxStage, stage));
+            state.SetGrowthStage(clamped);
+            return clamped;
+        }
+
         private static void RefuseDuringBattle(PlayerState state)
         {
             if (state.InBattle)

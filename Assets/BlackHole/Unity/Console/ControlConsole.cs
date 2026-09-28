@@ -16,7 +16,7 @@ namespace BlackHole.Unity
     // - 판이 있으면 그 판의 비율과 지금 살아 있는 수(매 프레임).
     // - 판이 없으면 지금 산 노드로 조립할 다음 판의 비율. 살아 있는 수는 '-'다.
     // 종류 줄을 누르면 그 종류의 수치·형태·특성이 아래의 설명창에 나온다. 같은 줄을 다시 누르면 닫힌다.
-    // 설명창은 판 구성(질량 단계, 시작·성장 공급 수, 황금 비율·배율), 색 비율을 고른 블랙홀 Level과 색 등급마다 비율·HP·크기·Gold·EXP(황금이 되는 종류는 황금 Gold도)를 보여 준다.
+    // 설명창은 판 구성(질량 단계, 시작·성장 공급 수, 황금 비율·배율), 색 비율을 고른 블랙홀 성장도와 색 등급마다 비율·HP·크기·Gold·EXP(황금이 되는 종류는 황금 Gold도)를 보여 준다.
     // 판 구성은 산 노드가 정한다 — 노드는 업그레이드 화면에서 산다.
     // 적의 수치는 전투 Session이 시작되기 전에 정해지고 전투 중에는 바뀌지 않는다. 그래서 설명창은
     // 판이 있으면 그 판의 수치를, 없으면 지금 산 노드로 계산한 다음 전투의 수치를 보여 준다.
@@ -225,9 +225,9 @@ namespace BlackHole.Unity
                 _content, _orchestrator.Progress, _nodes)[kind];
             EnemyComposition composition = battle != null ? battle.World.Stats.CompositionOf(kind) : next;
             int level = composition.MassLevel;
-            // 색 비율은 판을 시작할 때의 블랙홀 Level이 정한다. 판이 없으면 진행 상태의 Level(다음 판)이다.
-            int colorLevel = battle != null ? battle.World.Stats.Level : _content.Growth.LevelAt(_orchestrator.Progress.HqExp);
-            IReadOnlyList<float> ratios = battle != null ? battle.World.Stats.TierRatiosOf(kind) : kind.TierRatiosAt(colorLevel);
+            // 색 비율은 판을 시작할 때의 성장도가 정한다. 판이 없으면 진행 상태의 성장도(다음 판)다.
+            int colorStage = battle != null ? battle.World.Stats.Stage : _orchestrator.Progress.GrowthStage;
+            IReadOnlyList<float> ratios = battle != null ? battle.World.Stats.TierRatiosOf(kind) : kind.TierRatiosAt(colorStage);
             float ratioSum = 0;
 
             foreach (float ratio in ratios)
@@ -236,7 +236,7 @@ namespace BlackHole.Unity
             _detailTitle.text = kind.Id;
             _detailForm.sprite = _looks.SpriteOf(kind.Id);
             _detailForm.color = _looks.ColorOf(kind.Id, MostCommon(ratios));
-            _detailFormText.text = (kind.Tiers.Count == 1 ? "1 tier" : $"{kind.Tiers.Count} tiers") + $"  colors at Lv {colorLevel}";
+            _detailFormText.text = (kind.Tiers.Count == 1 ? "1 tier" : $"{kind.Tiers.Count} tiers") + $"  colors at stage {colorStage}";
             string mass = $"Mass level  {level} / {kind.MassLevels.Count - 1}  Start supply +{composition.StartSupplyBonus}  Growth +{composition.GrowthSupply}";
             _detailMassText.text = battle != null
                 ? $"{mass}  (next {next.MassLevel}, +{next.StartSupplyBonus}, +{next.GrowthSupply})"

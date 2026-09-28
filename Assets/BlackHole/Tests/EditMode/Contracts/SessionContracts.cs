@@ -187,18 +187,20 @@ namespace BlackHole.Core.Tests
             Expect.Near(2, raw.PlayedSeconds);
             Expect.Equal(0, raw.TotalKills);
             Expect.Equal(0, raw.Kills.Count);
-            Expect.Equal(1, raw.ReachedLevel);
+            Expect.Equal(0, raw.ReachedLevel);
             Expect.Equal(0L, raw.Exp);
         }
 
-        // 원자료는 블랙홀이 이 판에서 닿은 Level과 모은 EXP를 가진다.
+        // 원자료는 블랙홀이 이 판에서 닿은 Level과 모은 EXP, 이 판의 성장도와 결산 뒤 성장도를 가진다.
         private static void RawDataRecordsReachedLevel()
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 2));
             EnemyData kind = TestContent.Enemy(TestContent.EnemyId, health: 1);
             kind.Tiers[0].Exp = 4;
             data.Enemies.Add(kind);
-            data.Growth = new HqGrowthData { LevelExp = new List<long> { 3, 8 } };
+            data.Growth = new HqGrowthData();
+            data.Growth.Stages.Add(new GrowthStageData { LevelExp = new List<long> { 3, 8 }, GoalLevel = 1 });
+            data.Growth.Stages.Add(new GrowthStageData { LevelExp = new List<long> { 3 } });
             GameSession game = TestContent.Session(data);
 
             game.World.DealDamage(game.World.Enemies[0], new Damage(1, TestContent.First));
@@ -206,8 +208,11 @@ namespace BlackHole.Core.Tests
             game.RequestEnd();
 
             BattleRawData raw = game.CreateRawData();
-            Expect.Equal(2, raw.ReachedLevel);
+            Expect.Equal(1, raw.ReachedLevel);
             Expect.Equal(4L, raw.Exp);
+            Expect.Equal(0, raw.Stage);
+            Expect.Equal(1, raw.NextStage);
+            Expect.True(!raw.ReachedMilestone, "이정표가 없다.");
         }
     }
 }

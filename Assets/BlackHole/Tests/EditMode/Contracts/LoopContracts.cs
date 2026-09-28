@@ -74,7 +74,7 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(KindId, 3));
             EnemyData kind = TestContent.Tiered(KindId, 1, false, TestContent.Tier(1, 0.2f, 5), TestContent.Tier(1, 0.3f, 5));
-            kind.LevelColors.Add(TestContent.LevelColor(1, 1, 0));
+            kind.StageColors.Add(TestContent.StageColor(1, 1, 0));
             kind.MassLevels.Add(TestContent.MassLevel(1, 1));
             kind.MassLevels.Add(TestContent.MassLevel(1, 2));
             data.Enemies.Add(kind);

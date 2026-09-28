@@ -21,7 +21,7 @@ namespace BlackHole.Core
         public int MaxAliveEnemies;
         // 전투 시작 공급. 전투를 시작할 때(0초) 한 번 공급한다.
         public List<SupplyData> StartSupply = new List<SupplyData>();
-        // 블랙홀 성장의 Level 표. 없으면 블랙홀이 Level 1에 머문다.
+        // 블랙홀 성장: 성장도마다의 판 Level 표와 이정표. 없으면 블랙홀이 Level 0·성장도 0에 머문다.
         public HqGrowthData Growth;
     }
 
@@ -67,8 +67,8 @@ namespace BlackHole.Core
         public float MoveSpeed;
         // 색 등급 표. 색이 없는 종류는 한 줄이다.
         public List<EnemyTierData> Tiers = new List<EnemyTierData>();
-        // 블랙홀 Level별 색 비율. FromLevel이 커지는 순서, 하나 이상.
-        public List<LevelColorData> LevelColors = new List<LevelColorData>();
+        // 블랙홀 성장도별 색 비율. FromStage가 커지는 순서, 하나 이상.
+        public List<StageColorData> StageColors = new List<StageColorData>();
         // 질량 단계 표(HP·Gold 계수). MassLevels[i]가 질량 단계 i다(0 = 질량 증가를 사지 않음). 하나 이상.
         public List<MassLevelData> MassLevels = new List<MassLevelData>();
         // 황금일 때 Gold에 곱하는 값. 0이면 황금이 되지 않는다.
@@ -103,11 +103,11 @@ namespace BlackHole.Core
         public float GoldMultiplier;
     }
 
-    // 블랙홀 Level별 색 비율 한 줄: FromLevel부터 색마다 나오는 비율(색 등급 표와 같은 순서·길이).
+    // 블랙홀 성장도별 색 비율 한 줄: FromStage부터 색마다 나오는 비율(색 등급 표와 같은 순서·길이).
     [Serializable]
-    public sealed class LevelColorData
+    public sealed class StageColorData
     {
-        public int FromLevel;
+        public int FromStage;
         public List<float> TierRatios = new List<float>();
     }
 
@@ -147,20 +147,29 @@ namespace BlackHole.Core
         public float MaxDistance;
     }
 
-    // 블랙홀 성장의 Level 표: LevelExp[i]는 Level (i + 2)에 닿는 누적 EXP. 앞 줄보다 커야 한다. 성장 효과는 노드가 정한다.
+    // 블랙홀 성장: Stages[s]가 성장도 s의 판에서 쓰는 Level 표와 목표 Level이다. 성장 효과는 노드가 정한다.
     [Serializable]
     public sealed class HqGrowthData
     {
-        public List<long> LevelExp = new List<long>();
-        // 이정표(Level이 커지는 순서). 판 중 그 Level에 닿으면 판이 끝나고 결산이 번 Gold 대신 보상을 준다.
+        public List<GrowthStageData> Stages = new List<GrowthStageData>();
+        // 이정표(성장도가 커지는 순서). 그 앞 성장도의 판이 목표 Level에 닿으면 판이 끝나고 결산이 번 Gold 대신 보상을 준다.
         public List<HqMilestoneData> Milestones = new List<HqMilestoneData>();
     }
 
-    // 이정표 하나: Level(Level 표 안)과 고정 보상(Gold, 0 이상).
+    // 성장도 하나의 판 Level 표: LevelExp[i]는 이 판에서 Level (i + 1)에 닿는 누적 EXP(앞 줄보다 커야 한다).
+    // GoalLevel: 이 판에서 닿으면 결산 때 성장도가 1 오른다(1 이상, 표 안). 마지막 성장도만 0(목표 없음)일 수 있다.
+    [Serializable]
+    public sealed class GrowthStageData
+    {
+        public List<long> LevelExp = new List<long>();
+        public int GoalLevel;
+    }
+
+    // 이정표 하나: 성장도(성장도 표 안, 1 이상)와 고정 보상(Gold, 0 이상).
     [Serializable]
     public sealed class HqMilestoneData
     {
-        public int Level;
+        public int Stage;
         public long Reward;
     }
 

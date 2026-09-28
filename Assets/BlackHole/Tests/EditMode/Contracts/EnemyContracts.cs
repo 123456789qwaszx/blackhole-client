@@ -25,8 +25,8 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Spawn.FilteredSpawnsUseNoKindQuota", FilteredSpawnsUseNoKindQuota);
             yield return new Contract("Enemy.SpawnsTakeTheBattleStats", SpawnsTakeTheBattleStats);
             yield return new Contract("Composition.MassLevelScalesHealthAndGoldOnly", MassLevelScalesHealthAndGoldOnly);
-            yield return new Contract("Composition.StartLevelChoosesTheColors", StartLevelChoosesTheColors);
-            yield return new Contract("Composition.LevelUpDuringBattleKeepsTheColors", LevelUpDuringBattleKeepsTheColors);
+            yield return new Contract("Composition.StageChoosesTheColors", StageChoosesTheColors);
+            yield return new Contract("Composition.StageRiseAppliesToTheNextBattle", StageRiseAppliesToTheNextBattle);
             yield return new Contract("Enemy.TierRatioHoldsAtEveryCount", TierRatioHoldsAtEveryCount);
             yield return new Contract("Enemy.GoldenIsFixedAtSpawnAndMultipliesGold", GoldenIsFixedAtSpawnAndMultipliesGold);
             yield return new Contract("Enemy.FilteredSpawnsUseNoTierGoldenOrPlacement", FilteredSpawnsUseNoTierGoldenOrPlacement);
@@ -178,7 +178,7 @@ namespace BlackHole.Core.Tests
             EnemyData kindData = TestContent.Tiered(TestContent.EnemyId, 1, false,
                 TestContent.Tier(10, 0.2f, 3),
                 TestContent.Tier(20, 0.3f, 5));
-            kindData.LevelColors.Add(TestContent.LevelColor(1, 1, 0));
+            kindData.StageColors.Add(TestContent.StageColor(1, 1, 0));
             kindData.MassLevels.Add(TestContent.MassLevel(1, 1));
             kindData.MassLevels.Add(TestContent.MassLevel(2, 3));
             data.Enemies.Add(kindData);
@@ -213,19 +213,19 @@ namespace BlackHole.Core.Tests
             Expect.True(!state.InBattle, "실패한 조립이 PlayerState를 묶으면 안 된다.");
         }
 
-        // 색 비율은 판을 시작할 때의 블랙홀 Level이 정한다: FromLevel ≤ Level인 마지막 줄. 첫 줄보다 낮은 Level이면 첫 줄이다.
-        private static void StartLevelChoosesTheColors()
+        // 색 비율은 판을 시작할 때의 성장도가 정한다: FromStage ≤ 성장도인 마지막 줄. 첫 줄보다 낮은 성장도면 첫 줄이다.
+        private static void StageChoosesTheColors()
         {
-            GameContent content = TestContent.Load(LevelColorArena());
+            GameContent content = TestContent.Load(StageColorArena());
             content.TryGetEnemy(TestContent.EnemyId, out EnemyDefinition kind);
 
-            foreach ((long exp, int level, int tier) in new[] { (0L, 1, 0), (5L, 2, 0), (10L, 3, 0), (15L, 4, 1), (99L, 4, 1) })
+            foreach ((int stage, int tier) in new[] { (0, 0), (1, 0), (2, 0), (3, 1), (4, 1) })
             {
                 var state = new PlayerState(TestContent.First);
-                TestContent.GrowHq(content, state, exp);
+                ProgressCheats.SetGrowthStage(state, content.Growth, stage);
                 GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
 
-                Expect.Equal(level, game.World.Stats.Level);
+                Expect.Equal(stage, game.World.Stats.Stage);
                 Expect.Equal(tier == 0 ? 1f : 0f, game.World.Stats.TierRatiosOf(kind)[0]);
 
                 foreach (Enemy enemy in game.World.Enemies)
@@ -233,19 +233,21 @@ namespace BlackHole.Core.Tests
             }
         }
 
-        // 판 중에 Level이 올라도 그 판의 색은 그대로다(성장 공급으로 나온 적도). 바뀐 색은 결산 뒤 다음 판부터다.
-        private static void LevelUpDuringBattleKeepsTheColors()
+        // 판 중에 목표 Level에 닿아도 그 판의 색은 그대로다(성장 공급으로 나온 적도). 성장도가 오른 색은 결산 뒤 다음 판부터다.
+        private static void StageRiseAppliesToTheNextBattle()
         {
-            GameContent content = TestContent.Load(LevelColorArena(health: 1, exp: 15));
+            GameContent content = TestContent.Load(StageColorArena(health: 1, exp: 15));
             var state = new PlayerState(TestContent.First);
             NodeTree tree = TestContent.Owned(state,
                 new Upgrade(EnemyUpgradeStats.GrowthSupply(TestContent.EnemyId), UpgradeOperation.Add, 2));
+            ProgressCheats.SetGrowthStage(state, content.Growth, 2);
 
             GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
             first.World.DealDamage(first.World.Enemies[0], Hit);
             first.Advance(0.1f);
-            Expect.Equal(4, first.World.Hq.Level);
-            Expect.Equal(1, first.World.Stats.Level);
+            Expect.Equal(3, first.World.Hq.Level);
+            Expect.True(first.World.Hq.ReachedGoal, "목표 Level 1을 넘었다.");
+            Expect.Equal(2, first.World.Stats.Stage);
 
             foreach (Enemy enemy in first.World.Enemies)
                 Expect.Equal(0, enemy.Tier);
@@ -254,25 +256,30 @@ namespace BlackHole.Core.Tests
             first.Settle();
 
             GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
-            Expect.Equal(4, next.World.Stats.Level);
+            Expect.Equal(3, next.World.Stats.Stage);
 
             foreach (Enemy enemy in next.World.Enemies)
                 Expect.Equal(1, enemy.Tier);
         }
 
-        // 색 둘인 종류 셋이 나오는 판: Level 2부터 색 0, Level 4부터 색 1. Level 표는 5·10·15(Level 2·3·4).
-        private static ContentData LevelColorArena(float health = 10, long exp = 0)
+        // 색 둘인 종류 셋이 나오는 판: 성장도 1부터 색 0, 성장도 3부터 색 1.
+        // 성장도 0~4, 각 성장도의 판 Level 표는 5·10·15, 목표 Level 1(마지막 성장도 4는 목표 없음).
+        private static ContentData StageColorArena(float health = 10, long exp = 0)
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(TestContent.EnemyId, 3));
             EnemyData kindData = TestContent.Tiered(TestContent.EnemyId, 1, false,
                 TestContent.Tier(health, 0.2f, 1),
                 TestContent.Tier(health, 0.3f, 2));
             kindData.Tiers[0].Exp = exp;
-            kindData.LevelColors.Add(TestContent.LevelColor(2, 1, 0));
-            kindData.LevelColors.Add(TestContent.LevelColor(4, 0, 1));
+            kindData.StageColors.Add(TestContent.StageColor(1, 1, 0));
+            kindData.StageColors.Add(TestContent.StageColor(3, 0, 1));
             kindData.MassLevels.Add(TestContent.MassLevel(1, 1));
             data.Enemies.Add(kindData);
-            data.Growth = new HqGrowthData { LevelExp = new List<long> { 5, 10, 15 } };
+            data.Growth = new HqGrowthData();
+
+            for (int stage = 0; stage <= 4; stage++)
+                data.Growth.Stages.Add(new GrowthStageData { LevelExp = new List<long> { 5, 10, 15 }, GoalLevel = stage < 4 ? 1 : 0 });
+
             return data;
         }
 
@@ -323,7 +330,7 @@ namespace BlackHole.Core.Tests
                 TestContent.Tier(10, 0.2f, 1),
                 TestContent.Tier(10, 0.2f, 2),
                 TestContent.Tier(10, 0.2f, 3));
-            kindData.LevelColors.Add(TestContent.LevelColor(1, 0.2f, 0.3f, 0.5f));
+            kindData.StageColors.Add(TestContent.StageColor(1, 0.2f, 0.3f, 0.5f));
             kindData.MassLevels.Add(TestContent.MassLevel(1, 1));
             kindData.GoldenMultiplier = 50;
             data.Enemies.Add(kindData);
@@ -388,7 +395,7 @@ namespace BlackHole.Core.Tests
             EnemyData kindData = TestContent.Tiered(TestContent.EnemyId, 1, false,
                 TestContent.Tier(10, 0.2f, 3),
                 TestContent.Tier(10, 0.2f, 4));
-            kindData.LevelColors.Add(TestContent.LevelColor(1, 0.5f, 0.5f));
+            kindData.StageColors.Add(TestContent.StageColor(1, 0.5f, 0.5f));
             kindData.MassLevels.Add(TestContent.MassLevel(1, 1));
             kindData.GoldenMultiplier = 50;
             data.Enemies.Add(kindData);
@@ -473,7 +480,7 @@ namespace BlackHole.Core.Tests
         {
             ContentData data = TestContent.Arena(1, 3, TestContent.Supply(TestContent.EnemyId, count));
             EnemyData kind = TestContent.Tiered(TestContent.EnemyId, 1, false, TestContent.Tier(10, 0.2f, 1), TestContent.Tier(10, 0.2f, 1));
-            kind.LevelColors.Add(TestContent.LevelColor(1, first, second));
+            kind.StageColors.Add(TestContent.StageColor(1, first, second));
             kind.MassLevels.Add(TestContent.MassLevel(1, 1));
             data.Enemies.Add(kind);
             return TestContent.Session(data, seed);

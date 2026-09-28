@@ -47,8 +47,8 @@ MonoBehaviour:
     size: 1
     gold: 500
     exp: 500
-  levelColors:
-  - fromLevel: 20
+  stageColors:
+  - fromStage: 20
     tierRatios:
     - 1
     - 0
@@ -56,7 +56,7 @@ MonoBehaviour:
     - 0
     - 0
     - 0
-  - fromLevel: 21
+  - fromStage: 21
     tierRatios:
     - 0.6
     - 0.4
@@ -64,7 +64,7 @@ MonoBehaviour:
     - 0
     - 0
     - 0
-  - fromLevel: 22
+  - fromStage: 22
     tierRatios:
     - 0.3
     - 0.5
@@ -72,7 +72,7 @@ MonoBehaviour:
     - 0
     - 0
     - 0
-  - fromLevel: 23
+  - fromStage: 23
     tierRatios:
     - 0
     - 0.4
@@ -80,7 +80,7 @@ MonoBehaviour:
     - 0.2
     - 0
     - 0
-  - fromLevel: 24
+  - fromStage: 24
     tierRatios:
     - 0
     - 0
@@ -88,7 +88,7 @@ MonoBehaviour:
     - 0.4
     - 0.2
     - 0
-  - fromLevel: 25
+  - fromStage: 25
     tierRatios:
     - 0
     - 0
@@ -96,7 +96,7 @@ MonoBehaviour:
     - 0.5
     - 0.5
     - 0
-  - fromLevel: 26
+  - fromStage: 26
     tierRatios:
     - 0
     - 0
@@ -104,7 +104,7 @@ MonoBehaviour:
     - 0.3
     - 0.4
     - 0.3
-  - fromLevel: 27
+  - fromStage: 27
     tierRatios:
     - 0
     - 0
@@ -112,7 +112,7 @@ MonoBehaviour:
     - 0
     - 0.5
     - 0.5
-  - fromLevel: 28
+  - fromStage: 28
     tierRatios:
     - 0
     - 0

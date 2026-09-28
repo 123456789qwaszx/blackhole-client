@@ -15,7 +15,7 @@ namespace BlackHole.Unity
     // 시작·일시정지·종료 버튼은 조립 때 받은 ScreenFlow의 콘솔 핸들(ScreenFlow.Editor)을 부른다.
     // 그 핸들은 같은 일을 하는 화면 버튼의 핸들로 가므로, 화면 버튼을 누른 것과 같은 길이다.
     // 일시정지 버튼은 판이 없거나 끝났으면 누를 수 없다.
-    // 블랙홀 EXP 버튼(+100·+1K·+10K)은 진행 중인 판의 블랙홀에 EXP를 더한다(BattleCheats). Level·이정표 시험용이며 판 중에만 누를 수 있다.
+    // 블랙홀 EXP 버튼(+100·+1K·+10K)은 진행 중인 판의 블랙홀에 EXP를 더한다(BattleCheats). 판 Level·목표·이정표 시험용이며 판 중에만 누를 수 있다.
     // 버튼 아래에는 진행 중인 판의 업그레이드 표, Gold와 마지막 판의 원자료가 나온다.
     // Gold는 두 줄이다: 진행 상태의 Gold(결산 때만 바뀐다)와, 진행 중인 판이 지금까지 번 Gold(적이 죽는 순간 오른다).
     // 진행 중인 판의 업그레이드 표(방장의 산 노드) 중 산 노드가 바꾼 수치만 나온다:
@@ -26,7 +26,7 @@ namespace BlackHole.Unity
     {
         // 버튼 너비. 창의 너비도 이것으로 정해진다(업그레이드 표와 원자료는 이 너비 안에서 줄을 나눠 쓴다).
         private const float ButtonWidth = 344;
-        // 블랙홀 EXP 버튼(한 줄에 셋): 판을 치르며 Level·이정표를 시험한다. 진행 중이거나 정지한 판에서만 누를 수 있다.
+        // 블랙홀 EXP 버튼(한 줄에 셋): 판을 치르며 판 Level·목표·이정표를 시험한다. 진행 중이거나 정지한 판에서만 누를 수 있다.
         private const float ExpButtonWidth = 110;
         private static readonly (string Label, long Amount)[] ExpSteps = { ("100", 100L), ("1K", 1_000L), ("10K", 10_000L) };
 
@@ -154,7 +154,7 @@ namespace BlackHole.Unity
         }
 
         // 진행 상태(방장의 것)의 Gold 한 줄, 판이 있으면 그 판이 번 Gold 한 줄과 블랙홀 한 줄
-        // (Level, EXP / 다음 임계값, Level업마다 늘어나는 시간). 값이 바뀐 프레임에만 다시 쓴다.
+        // (성장도, Level / 목표 Level, EXP / 다음 임계값, Level업마다 늘어나는 시간). 값이 바뀐 프레임에만 다시 쓴다.
         private void RefreshGold()
         {
             PlayerState progress = _orchestrator.Progress;
@@ -179,7 +179,9 @@ namespace BlackHole.Unity
 
             if (hq != null)
             {
-                _builder.Append("\nHq  Lv ").Append(hq.Level).Append("  EXP ").Append(hq.Exp);
+                _builder.Append("\nHq  Stage ").Append(hq.Stage).Append("  Lv ").Append(hq.Level);
+                _builder.Append(hq.GoalLevel > 0 ? " / goal " + hq.GoalLevel : " (no goal)");
+                _builder.Append("\n  EXP ").Append(hq.Exp);
                 _builder.Append(hq.NextLevelExp.HasValue ? " / " + hq.NextLevelExp.Value : " (max)");
                 _builder.Append("  +").Append(Number(hq.GrowthTime)).Append("s per level");
             }
@@ -229,10 +231,11 @@ namespace BlackHole.Unity
             _builder.Append("\n  Time<pos=6em>").Append(Number(raw.PlayedSeconds)).Append('s');
             _builder.Append("\n  Gold<pos=6em>+").Append(raw.EarnedGold);
 
-            if (raw.Milestones.Count > 0)
-                _builder.Append("\n  Milestone<pos=6em>Lv ").Append(raw.Milestones[raw.Milestones.Count - 1].Level)
+            if (raw.ReachedMilestone)
+                _builder.Append("\n  Milestone<pos=6em>Stage ").Append(raw.Milestone.Stage)
                     .Append("  settled +").Append(raw.SettledGold);
             _builder.Append("\n  Hq<pos=6em>Lv ").Append(raw.ReachedLevel).Append("  EXP ").Append(raw.Exp);
+            _builder.Append("\n  Stage<pos=6em>").Append(raw.Stage).Append(" -> ").Append(raw.NextStage);
             _builder.Append("\n  Kills<pos=6em>").Append(raw.TotalKills);
 
             foreach (EnemyKillCount kill in raw.Kills)

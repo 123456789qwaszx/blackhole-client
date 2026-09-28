@@ -25,7 +25,7 @@ namespace BlackHole.Core.Tests
             ContentData data = TestContent.Data();
             EnemyData rock = TestContent.Tiered(Rock, 1, false, TestContent.Tier(10, 0.2f, 1));
 
-            rock.LevelColors.Add(TestContent.LevelColor(1, 1));
+            rock.StageColors.Add(TestContent.StageColor(1, 1));
 
             for (int i = 0; i < 3; i++)
                 rock.MassLevels.Add(TestContent.MassLevel(1, 1));

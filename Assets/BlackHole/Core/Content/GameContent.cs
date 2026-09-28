@@ -26,7 +26,7 @@ namespace BlackHole.Core
         public int MaxAliveEnemies { get; }
         // 전투 시작 공급. 전투를 시작할 때 한 번 공급한다. 업그레이드가 더하는 공급 수는 판 조립이 더한다.
         public IReadOnlyList<SupplyRequest> StartSupply { get; }
-        // 블랙홀 성장의 Level 표. 없으면 HqGrowthDefinition.None(블랙홀이 Level 1에 머문다).
+        // 블랙홀 성장: 성장도마다의 판 Level 표와 이정표. 없으면 HqGrowthDefinition.None(블랙홀이 Level 0·성장도 0에 머문다).
         public HqGrowthDefinition Growth { get; }
 
         public GameContent(

@@ -27,17 +27,17 @@ namespace BlackHole.Core.Tests
             return data;
         }
 
-        // 색 등급 한 줄, Level별 색 비율 한 줄(그 색만), 질량 단계 한 줄(계수 1)인 종류.
+        // 색 등급 한 줄, 성장도별 색 비율 한 줄(그 색만), 질량 단계 한 줄(계수 1)인 종류.
         public static EnemyData Enemy(
             string id, float health = 10, float speed = 1, float size = 0.3f, bool clockwise = false, long gold = 0)
         {
             EnemyData enemy = Tiered(id, speed, clockwise, Tier(health, size, gold));
-            enemy.LevelColors.Add(LevelColor(1, 1));
+            enemy.StageColors.Add(StageColor(0, 1));
             enemy.MassLevels.Add(MassLevel(1, 1));
             return enemy;
         }
 
-        // 색 등급을 여러 줄 가진 종류. Level별 색 비율과 질량 단계는 부른 쪽이 넣는다.
+        // 색 등급을 여러 줄 가진 종류. 성장도별 색 비율과 질량 단계는 부른 쪽이 넣는다.
         public static EnemyData Tiered(string id, float speed, bool clockwise, params EnemyTierData[] tiers) =>
             new EnemyData
             {
@@ -51,8 +51,8 @@ namespace BlackHole.Core.Tests
         public static MassLevelData MassLevel(float health, float gold) =>
             new MassLevelData { HealthMultiplier = health, GoldMultiplier = gold };
 
-        public static LevelColorData LevelColor(int fromLevel, params float[] tierRatios) =>
-            new LevelColorData { FromLevel = fromLevel, TierRatios = new List<float>(tierRatios) };
+        public static StageColorData StageColor(int fromStage, params float[] tierRatios) =>
+            new StageColorData { FromStage = fromStage, TierRatios = new List<float>(tierRatios) };
 
         // 이 업그레이드들을 가진 시작 노드 하나의 노드 트리. state가 그 노드를 산 것으로 한다(개발용 치트라 전투 밖에서만).
         public static NodeTree Owned(PlayerState state, params Upgrade[] upgrades)
@@ -74,7 +74,7 @@ namespace BlackHole.Core.Tests
             new EnemyDefinition(
                 "stranger", 1,
                 new[] { new EnemyTier(1, 1, 0) },
-                new[] { new LevelColorDefinition(1, new[] { 1f }) },
+                new[] { new StageColorDefinition(1, new[] { 1f }) },
                 new[] { new MassLevelDefinition(1, 1) },
                 0,
                 new OrbitBehaviorDefinition(false));
@@ -93,15 +93,6 @@ namespace BlackHole.Core.Tests
         // 새 진행 상태의 Player 1명으로 전투를 조립하고 시작한다(전투 시작 공급까지).
         public static GameSession Session(ContentData data, int seed = SessionAssembler.DefaultSeed) =>
             Begun(SessionAssembler.CreateBattle(Load(data), new PlayerState(First), seed));
-
-        // 판 하나를 치르며 블랙홀에 EXP를 더하고 결산한다(개발용 전투 치트). 진행 상태의 블랙홀 EXP가 그만큼 는다. Gold는 늘지 않는다.
-        public static void GrowHq(GameContent content, PlayerState state, long exp)
-        {
-            GameSession battle = SessionAssembler.CreateBattle(content, state);
-            BattleCheats.AddHqExp(battle, exp);
-            battle.RequestEnd();
-            battle.Settle();
-        }
 
         public static GameSession Begun(GameSession session)
         {

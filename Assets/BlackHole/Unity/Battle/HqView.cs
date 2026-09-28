@@ -5,7 +5,7 @@ using UnityEngine;
 namespace BlackHole.Unity
 {
     // 블랙홀(HQ)의 화면. 매 프레임 판의 블랙홀을 읽어 원점에 원을 그린다. 게임 상태를 바꾸지 않는다.
-    // 원은 Level마다 커지고, Level업한 순간 바깥으로 한 번 번쩍인다. 그림일 뿐이다 — 출현 띠·공전·Breaker와 무관하다(BLACKHOLE_GROWTH_PLAN D5).
+    // 원은 Level마다 커지고, Level업한 순간 바깥으로 한 번 번쩍인다. 그림일 뿐이다 — 출현 띠·공전·Breaker와 무관하다(GAME_RULES 3.1).
     // 크기는 [임시]다: 가장 작은 출현 거리보다 작게 둔다.
     internal sealed class HqView : IDisposable
     {
@@ -19,7 +19,7 @@ namespace BlackHole.Unity
 
         private readonly LineStrokes _strokes;
         private LineRenderer _ring;
-        private int _shownLevel;
+        private int _shownLevel = -1;
 
         public HqView(Transform parent) => _strokes = new LineStrokes(parent, "Hq View");
 
@@ -38,7 +38,7 @@ namespace BlackHole.Unity
             float radius = RadiusOf(level);
             LineStrokes.SetCircle(_ring, BattleSpace.Origin, radius);
 
-            if (_shownLevel > 0 && level > _shownLevel)
+            if (_shownLevel >= 0 && level > _shownLevel)
                 LineStrokes.SetCircle(_strokes.Flash("Level Up", FlashWidth, FlashColor, FlashSeconds), BattleSpace.Origin, radius * 1.4f);
 
             _shownLevel = level;
@@ -47,16 +47,16 @@ namespace BlackHole.Unity
         // 그리는 선이 없고, 지운 객체도 장면에서 모두 사라졌는가(Reset 뒤 한 프레임).
         public bool IsClear => _strokes.IsClear;
 
-        // 판이 바뀌거나 판을 정리할 때 지운다. 다음 판의 블랙홀은 Level 1에서 다시 그린다.
+        // 판이 바뀌거나 판을 정리할 때 지운다. 다음 판의 블랙홀은 Level 0에서 다시 그린다.
         public void Reset()
         {
             _strokes.Reset();
             _ring = null;
-            _shownLevel = 0;
+            _shownLevel = -1;
         }
 
         public void Dispose() => _strokes.Dispose();
 
-        private static float RadiusOf(int level) => BaseRadius + RadiusPerLevel * (level - HqGrowthDefinition.StartLevel);
+        private static float RadiusOf(int level) => BaseRadius + RadiusPerLevel * (level - GrowthStageDefinition.StartLevel);
     }
 }

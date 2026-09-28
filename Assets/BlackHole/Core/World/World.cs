@@ -237,7 +237,7 @@ namespace BlackHole.Core
         // 3. Damage / Death: 쌓인 파괴 요청의 사망을 확정한다.
         // 4. Death Effect: 이번 Step에 피해로 죽은 효과 보유 적의 효과를 사망 순서대로 처리한다. 효과로 죽은 적도 같은 Step의 사망이다.
         // 5. HQ EXP / Level: 쌓인 EXP로 블랙홀의 Level을 올린다.
-        //    이정표 Level에 닿았으면 여기서 멈춘다 — 6·7을 하지 않고, 판(GameSession)이 끝난다.
+        //    이정표 앞 성장도의 판이 목표 Level에 닿았으면 여기서 멈춘다 — 6·7을 하지 않고, 판(GameSession)이 끝난다.
         // 6. Growth: 오른 Level마다 종류의 성장 공급을 생성 요청으로 넣는다. 시간 연장은 판(GameSession)이 종료 판정 전에 한다.
         // 7. Enemy Supply: 쌓인 생성 요청을 처리한다.
         // Gold와 EXP는 따로 자리가 없다 — 사망이 확정되는 순간 그 적에 이미 정해져 있던 값이 이 판의 합계와 블랙홀에 든다.
@@ -254,7 +254,7 @@ namespace BlackHole.Core
 
             int raised = Hq.RaiseLevels();
 
-            // 이정표에 닿았으면 판이 이 Step에서 끝난다(GameSession). 성장 효과·공급은 하지 않는다(BLACKHOLE_LEVEL_PLAN 4.4).
+            // 이정표에 닿았으면 판이 이 Step에서 끝난다(GameSession). 성장 효과·공급은 하지 않는다(GAME_RULES 11절).
             if (Hq.ReachedMilestone)
                 return raised;
 

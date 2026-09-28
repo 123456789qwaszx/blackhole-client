@@ -10,7 +10,7 @@ namespace BlackHole.Core
     // 수치 규칙은 정의 생성자를, 콘텐츠 전체 규칙은 ContentInvariants를 그대로 호출해 경로를 붙인다.
     //
     // 세 단계로 읽는다. 앞 단계에 오류가 있으면 뒤 단계를 보지 않는다(잘못된 정의가 거짓 참조 오류를 만들지 않게).
-    // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·Level별 색 비율·질량 단계·사망 효과), 출현 배치, 블랙홀 성장의 Level 표.
+    // 1. 개별 정의: 판 설정, 스킬, 적 종류(색 등급·성장도별 색 비율·질량 단계·사망 효과), 출현 배치, 블랙홀 성장(성장도별 Level 표·이정표).
     // 2. 적 종류를 가리키는 것: 적 ID 유일, 종류 사이 연결(변환 대상·부모), 공급, 전체 개체 수 상한.
     // 3. 전체: 전투 시작 공급이 상한 안인가.
     // 업그레이드 노드는 여기서 읽지 않는다(NodeTreeLoader). 노드와 콘텐츠를 함께 보는 검사는 UpgradeContentCheck가 한다.
@@ -112,14 +112,14 @@ namespace BlackHole.Core
                 EnemyBehaviorDefinition behavior = LoadBehavior(item.Behavior, at + ".Behavior", into);
                 DeathEffectDefinition deathEffect = LoadDeathEffect(item.DeathEffect, at + ".DeathEffect", into);
                 List<EnemyTier> tiers = LoadTiers(item.Tiers, at + ".Tiers", into);
-                List<LevelColorDefinition> levelColors = LoadLevelColors(item.LevelColors, at + ".LevelColors", into);
+                List<StageColorDefinition> stageColors = LoadStageColors(item.StageColors, at + ".StageColors", into);
                 List<MassLevelDefinition> massLevels = LoadMassLevels(item.MassLevels, at + ".MassLevels", into);
 
                 if (into.Count > errors)
                     continue;
 
                 EnemyDefinition enemy = Guard(at, into, () =>
-                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, levelColors, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.UpgradesTo, item.SpecialOf));
+                    new EnemyDefinition(item.Id, item.MoveSpeed, tiers, stageColors, massLevels, item.GoldenMultiplier, behavior, deathEffect, item.UpgradesTo, item.SpecialOf));
 
                 if (enemy != null)
                     enemies.Add(enemy);
@@ -128,7 +128,7 @@ namespace BlackHole.Core
             return enemies;
         }
 
-        // 줄마다 수치를 검사한다. 줄 수(하나 이상)와 Level별 색 비율과의 길이 맞춤은 EnemyDefinition이 검사한다.
+        // 줄마다 수치를 검사한다. 줄 수(하나 이상)와 성장도별 색 비율과의 길이 맞춤은 EnemyDefinition이 검사한다.
         private static List<EnemyTier> LoadTiers(List<EnemyTierData> items, string at, List<ContentDiagnostic> into)
         {
             var tiers = new List<EnemyTier>();
@@ -176,14 +176,14 @@ namespace BlackHole.Core
             return levels;
         }
 
-        // 줄마다 시작 Level과 색 비율을 검사한다. 줄 수·순서·색 등급과의 길이 맞춤은 EnemyDefinition이 검사한다.
-        private static List<LevelColorDefinition> LoadLevelColors(List<LevelColorData> items, string at, List<ContentDiagnostic> into)
+        // 줄마다 시작 성장도와 색 비율을 검사한다. 줄 수·순서·색 등급과의 길이 맞춤은 EnemyDefinition이 검사한다.
+        private static List<StageColorDefinition> LoadStageColors(List<StageColorData> items, string at, List<ContentDiagnostic> into)
         {
-            var rows = new List<LevelColorDefinition>();
+            var rows = new List<StageColorDefinition>();
 
             for (int i = 0; items != null && i < items.Count; i++)
             {
-                LevelColorData item = items[i];
+                StageColorData item = items[i];
 
                 if (item == null)
                 {
@@ -191,7 +191,7 @@ namespace BlackHole.Core
                     continue;
                 }
 
-                LevelColorDefinition row = Guard($"{at}[{i}]", into, () => new LevelColorDefinition(item.FromLevel, item.TierRatios));
+                StageColorDefinition row = Guard($"{at}[{i}]", into, () => new StageColorDefinition(item.FromStage, item.TierRatios));
 
                 if (row != null)
                     rows.Add(row);
@@ -248,14 +248,37 @@ namespace BlackHole.Core
             return Guard("EnemyPlacement", into, () => new EnemyPlacementDefinition(item.MinDistance, item.MaxDistance));
         }
 
-        // 없으면 블랙홀이 Level 1에 머문다.
+        // 없으면 블랙홀이 Level 0·성장도 0에 머문다.
         private static HqGrowthDefinition LoadGrowth(HqGrowthData item, List<ContentDiagnostic> into)
         {
             if (item == null)
                 return HqGrowthDefinition.None;
 
+            var stages = new List<GrowthStageDefinition>();
             var milestones = new List<HqMilestone>();
             int errors = into.Count;
+
+            for (int i = 0; item.Stages != null && i < item.Stages.Count; i++)
+            {
+                GrowthStageData stage = item.Stages[i];
+
+                if (stage == null)
+                {
+                    into.Add(new ContentDiagnostic($"Growth.Stages[{i}]", "데이터가 없다."));
+                    continue;
+                }
+
+                // 표의 오류는 LevelExp에, 목표 Level이 표 밖인 것은 GoalLevel에 붙인다.
+                try
+                {
+                    stages.Add(new GrowthStageDefinition(stage.LevelExp ?? new List<long>(), stage.GoalLevel));
+                }
+                catch (ArgumentException error)
+                {
+                    string field = error.ParamName == "goalLevel" ? "GoalLevel" : "LevelExp";
+                    into.Add(new ContentDiagnostic($"Growth.Stages[{i}].{field}", error.Message));
+                }
+            }
 
             for (int i = 0; item.Milestones != null && i < item.Milestones.Count; i++)
             {
@@ -267,7 +290,7 @@ namespace BlackHole.Core
                     continue;
                 }
 
-                HqMilestone milestone = Guard($"Growth.Milestones[{i}]", into, () => new HqMilestone(mark.Level, mark.Reward));
+                HqMilestone milestone = Guard($"Growth.Milestones[{i}]", into, () => new HqMilestone(mark.Stage, mark.Reward));
 
                 if (milestone != null)
                     milestones.Add(milestone);
@@ -276,14 +299,14 @@ namespace BlackHole.Core
             if (into.Count > errors)
                 return null;
 
-            // Level 표의 오류는 LevelExp에, 이정표가 표 밖·순서가 틀린 것은 Milestones에 붙인다.
+            // 목표 없는 성장도가 마지막이 아닌 것은 Stages에, 이정표가 성장도 표 밖·순서가 틀린 것은 Milestones에 붙인다.
             try
             {
-                return new HqGrowthDefinition(item.LevelExp ?? new List<long>(), milestones);
+                return new HqGrowthDefinition(stages, milestones);
             }
             catch (ArgumentException error)
             {
-                into.Add(new ContentDiagnostic(error.ParamName == "milestones" ? "Growth.Milestones" : "Growth.LevelExp", error.Message));
+                into.Add(new ContentDiagnostic(error.ParamName == "milestones" ? "Growth.Milestones" : "Growth.Stages", error.Message));
                 return null;
             }
         }

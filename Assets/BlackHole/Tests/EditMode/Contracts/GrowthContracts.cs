@@ -3,8 +3,8 @@ using System.Collections.Generic;
 
 namespace BlackHole.Core.Tests
 {
-    // 블랙홀 성장: 사망 순간의 EXP, Step 5 자리의 Level, 성장 노드를 산 뒤 Level업마다의 시간 연장·공급(BLACKHOLE_GROWTH_PLAN 4·7절),
-    // 판을 넘어 이어지는 누적 EXP(BLACKHOLE_LEVEL_PLAN 4.1).
+    // 블랙홀 성장: 사망 순간의 EXP, Step 5 자리의 판 Level, 성장 노드를 산 뒤 판 Level업마다의 시간 연장·공급,
+    // 매 판 Level 0 시작, 결산 때만 오르는 성장도, 성장도로 정하는 이정표(GAME_RULES 3.2·11절, BATTLE_COMPOSITION_PLAN 8절).
     internal static class GrowthContracts
     {
         private const string Rock = "rock";
@@ -17,8 +17,12 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Growth.OneGainCanRaiseSeveralLevels", OneGainCanRaiseSeveralLevels);
             yield return new Contract("Growth.LevelUpExtendsThisBattleAndRequestsSupply", LevelUpExtendsThisBattleAndRequestsSupply);
             yield return new Contract("Growth.GrowthOnTheLastStepKeepsTheBattleGoing", GrowthOnTheLastStepKeepsTheBattleGoing);
-            yield return new Contract("Hq.LevelCarriesOverBetweenBattles", LevelCarriesOverBetweenBattles);
+            yield return new Contract("Hq.EachBattleStartsAtLevelZero", EachBattleStartsAtLevelZero);
             yield return new Contract("Hq.CleanupGivesNoExp", CleanupGivesNoExp);
+            yield return new Contract("Stage.RisesByOneAtSettlementWhenTheGoalWasReached", StageRisesByOneAtSettlementWhenTheGoalWasReached);
+            yield return new Contract("Stage.ChoosesTheLevelTableOfTheBattle", StageChoosesTheLevelTableOfTheBattle);
+            yield return new Contract("Stage.StopsAtTheLastStage", StageStopsAtTheLastStage);
+            yield return new Contract("Stage.CheatIsClampedAndRefusedDuringBattle", StageCheatIsClampedAndRefusedDuringBattle);
             yield return new Contract("Milestone.EndsTheBattleAtOnce", MilestoneEndsTheBattleAtOnce);
             yield return new Contract("Milestone.PaysTheFixedRewardInsteadOfEarnedGold", MilestonePaysTheFixedRewardInsteadOfEarnedGold);
             yield return new Contract("Milestone.IsReachedOnce", MilestoneIsReachedOnce);
@@ -35,7 +39,6 @@ namespace BlackHole.Core.Tests
             data.Enemies[0].GoldenMultiplier = 50;
             data.Enemies[0].Tiers[0].Gold = 2;
             GameContent content = TestContent.Load(data);
-            content.TryGetEnemy(Rock, out EnemyDefinition rock);
             GameSession game = Grown(content, new Upgrade(EnemyUpgradeStats.GoldenRatio(Rock), UpgradeOperation.Add, 1));
             World world = game.World;
 
@@ -46,7 +49,7 @@ namespace BlackHole.Core.Tests
 
             Kill(world, golden);
             Expect.Equal(3L, world.Hq.Exp);
-            Expect.Equal(1, world.Hq.Level);
+            Expect.Equal(0, world.Hq.Level);
 
             world.RequestDestroy(world.Enemies[0]);
             game.Advance(0.1f);
@@ -70,7 +73,7 @@ namespace BlackHole.Core.Tests
             Kill(world, world.Enemies[0]);
             game.Advance(0.1f);
 
-            Expect.Equal(2, world.Hq.Level);
+            Expect.Equal(1, world.Hq.Level);
             Expect.Equal(15L, world.Hq.NextLevelExp.Value);
             Expect.Near(0, world.Hq.Progress);
             Expect.Near(limit, game.TimeLimit.Limit);
@@ -89,16 +92,16 @@ namespace BlackHole.Core.Tests
             float limit = game.TimeLimit.Limit;
 
             Kill(world, world.Enemies[0]);
-            Expect.Equal(1, world.Hq.Level);
+            Expect.Equal(0, world.Hq.Level);
 
             game.Advance(0.1f);
-            Expect.Equal(3, world.Hq.Level);
+            Expect.Equal(2, world.Hq.Level);
             Expect.Near(limit + 2 * 3, game.TimeLimit.Limit);
             Expect.Equal(2 + 2, world.Enemies.Count);
             Expect.Equal(0, world.PendingSpawns.Count);
         }
 
-        // 성장 노드를 사면 Level업마다 이 판의 제한 시간이 늘고, 성장 공급이 같은 Step의 공급 처리에서 나온다.
+        // 성장 노드를 사면 판 Level업마다 이 판의 제한 시간이 늘고, 성장 공급이 같은 Step의 공급 처리에서 나온다.
         // 성장 공급도 생성 요청이라 전체 상한에 닿으면 버린다(여기서는 rock 둘 중 하나만 들어가고 hidden은 모두 버려진다).
         private static void LevelUpExtendsThisBattleAndRequestsSupply()
         {
@@ -118,7 +121,7 @@ namespace BlackHole.Core.Tests
             Kill(world, world.Enemies[0]);
             game.Advance(0.1f);
 
-            Expect.Equal(2, world.Hq.Level);
+            Expect.Equal(1, world.Hq.Level);
             Expect.Near(limit + 3, game.TimeLimit.Limit);
             Expect.Equal(3, world.CountAlive(rock));
             Expect.Equal(0, world.CountAlive(hiddenKind));
@@ -144,49 +147,48 @@ namespace BlackHole.Core.Tests
             plain.Advance(0.9f);
             Kill(plain.World, plain.World.Enemies[0]);
             plain.Advance(0.5f);
-            Expect.Equal(2, plain.World.Hq.Level);
+            Expect.Equal(1, plain.World.Hq.Level);
             Expect.Equal(SessionPhase.Ended, plain.Phase);
         }
 
-        // 블랙홀 Level은 판을 넘어 이어진다: 결산이 누적 EXP를 진행 상태에 돌려놓고, 다음 판은 그 EXP·Level에서 시작한다.
-        // 이어받은 Level의 성장 효과는 다시 오지 않는다. 제한 시간은 다시 기본값이다(늘어난 시간은 그 판에만). 새 진행은 Level 1이다.
-        private static void LevelCarriesOverBetweenBattles()
+        // 판 Level은 매 판 0에서 시작한다: 앞 판에서 오른 Level·EXP는 이어지지 않고, 다음 판에서 Level업하면 성장 효과가 다시 온다.
+        // 목표에 닿지 못한 판의 EXP는 버린다(성장도 그대로). 제한 시간은 다시 기본값이다(늘어난 시간은 그 판에만).
+        private static void EachBattleStartsAtLevelZero()
         {
             GameContent content = TestContent.Load(Arena(exp: 5, 5, 15));
             var state = new PlayerState(TestContent.First);
             NodeTree tree = TestContent.Owned(state, GrowthTime(3));
 
-            GameSession fresh = SessionAssembler.CreateBattle(content, new PlayerState(TestContent.Second));
-            Expect.Equal(1, fresh.World.Hq.Level);
-            Expect.Equal(0L, fresh.World.Hq.Exp);
-
             GameSession first = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
+            Expect.Equal(0, first.World.Hq.Level);
+            Expect.Equal(0L, first.World.Hq.Exp);
             Kill(first.World, first.World.Enemies[0]);
             Kill(first.World, first.World.Enemies[0]);
             first.Advance(0.1f);
-            Expect.Equal(2, first.World.Hq.Level);
+            Expect.Equal(1, first.World.Hq.Level);
             Expect.Near(content.TimeLimit.Duration + 3, first.TimeLimit.Limit);
             first.RequestEnd();
-            Expect.Equal(0L, state.HqExp);
             first.Settle();
-            Expect.Equal(10L, state.HqExp);
+            Expect.Equal(0, state.GrowthStage);
 
             GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
-            Expect.Equal(2, next.World.Hq.Level);
-            Expect.Equal(2, next.World.Hq.StartLevel);
-            Expect.Equal(10L, next.World.Hq.Exp);
-            Expect.Near(0.5f, next.World.Hq.Progress);
+            Expect.Equal(0, next.World.Hq.Level);
+            Expect.Equal(0L, next.World.Hq.Exp);
+            Expect.Near(0, next.World.Hq.Progress);
             Expect.Near(content.TimeLimit.Duration, next.TimeLimit.Limit);
 
+            Kill(next.World, next.World.Enemies[0]);
             next.Advance(0.1f);
-            Expect.Near(content.TimeLimit.Duration, next.TimeLimit.Limit);
-            Expect.Equal(3, next.World.Enemies.Count);
+            Expect.Equal(1, next.World.Hq.Level);
+            Expect.Near(content.TimeLimit.Duration + 3, next.TimeLimit.Limit);
         }
 
-        // 전투 정리로 치운 적은 EXP를 주지 않는다. 결산이 돌려놓는 것은 확정된 사망의 EXP뿐이다(시간 종료·요청 종료 모두).
+        // 전투 정리로 치운 적은 EXP를 주지 않는다. 그래서 정리로는 목표 Level에 닿지 못하고 성장도도 오르지 않는다(시간 종료·요청 종료 모두).
         private static void CleanupGivesNoExp()
         {
-            ContentData data = Arena(exp: 5, 100);
+            ContentData data = Arena(exp: 5, 5, 10);
+            data.Growth.Stages[0].GoalLevel = 2;
+            data.Growth.Stages.Add(Stage(0, 5));
             data.Session.TimeLimit = 1;
             GameContent content = TestContent.Load(data);
 
@@ -196,15 +198,228 @@ namespace BlackHole.Core.Tests
             expired.Advance(2);
             Expect.Equal(SessionPhase.Ended, expired.Phase);
             Expect.Equal(2, expired.ClearRemainingEnemies());
+            BattleRawData raw = expired.CreateRawData();
             expired.Settle();
-            Expect.Equal(5L, timedOut.HqExp);
+            Expect.Equal(5L, raw.Exp);
+            Expect.Equal(1, raw.ReachedLevel);
+            Expect.True(!raw.RaisedStage, "목표 Level 2에 닿지 않았다.");
+            Expect.Equal(0, timedOut.GrowthStage);
 
             var requested = new PlayerState(TestContent.First);
             GameSession ended = TestContent.Begun(SessionAssembler.CreateBattle(content, requested));
             ended.RequestEnd();
             ended.ClearRemainingEnemies();
             ended.Settle();
-            Expect.Equal(0L, requested.HqExp);
+            Expect.Equal(0, requested.GrowthStage);
+        }
+
+        // 성장도는 결산 때만 오른다: 이 판이 이번 성장도의 목표 Level에 닿았으면 +1. 판 중에는 그대로이고, 목표를 훨씬 넘어도 한 판에 +1이다.
+        private static void StageRisesByOneAtSettlementWhenTheGoalWasReached()
+        {
+            ContentData data = Arena(exp: 5, 5, 10, 15);
+            data.Growth.Stages[0].GoalLevel = 1;
+            data.Growth.Stages.Add(Stage(1, 100));
+            data.Growth.Stages.Add(Stage(0, 100));
+            GameContent content = TestContent.Load(data);
+            var state = new PlayerState(TestContent.First);
+
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+            Kill(game.World, game.World.Enemies[0]);
+            Kill(game.World, game.World.Enemies[0]);
+            Kill(game.World, game.World.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(3, game.World.Hq.Level);
+            Expect.True(game.World.Hq.ReachedGoal, "목표 Level 1을 넘었다.");
+            Expect.Equal(1, game.World.Hq.NextStage);
+            Expect.Equal(0, game.World.Hq.Stage);
+            Expect.Equal(SessionPhase.Running, game.Phase);
+
+            game.RequestEnd();
+            Expect.Equal(0, state.GrowthStage);
+            BattleRawData raw = game.CreateRawData();
+            game.Settle();
+            game.Settle();
+            Expect.Equal(1, state.GrowthStage);
+            Expect.Equal(0, raw.Stage);
+            Expect.Equal(1, raw.NextStage);
+            Expect.True(raw.RaisedStage, "원자료에 성장도가 오른 것이 남는다.");
+        }
+
+        // 판을 시작할 때의 성장도가 이 판의 Level 표와 목표 Level을 고른다.
+        private static void StageChoosesTheLevelTableOfTheBattle()
+        {
+            ContentData data = Arena(exp: 5, 5);
+            data.Growth.Stages[0].GoalLevel = 1;
+            data.Growth.Stages.Add(Stage(2, 10, 20));
+            data.Growth.Stages.Add(Stage(0, 50));
+            GameContent content = TestContent.Load(data);
+            var state = new PlayerState(TestContent.First);
+            ProgressCheats.SetGrowthStage(state, content.Growth, 1);
+
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+            Expect.Equal(1, game.World.Hq.Stage);
+            Expect.Equal(2, game.World.Hq.GoalLevel);
+            Expect.Equal(10L, game.World.Hq.NextLevelExp.Value);
+
+            Kill(game.World, game.World.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(0, game.World.Hq.Level);
+            Kill(game.World, game.World.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(1, game.World.Hq.Level);
+            Expect.True(!game.World.Hq.ReachedGoal, "목표는 Level 2다.");
+        }
+
+        // 마지막 성장도에서는 목표에 닿아도 성장도가 그대로다. 목표 0(목표 없음)은 마지막 성장도에만 둘 수 있다.
+        private static void StageStopsAtTheLastStage()
+        {
+            ContentData data = Arena(exp: 5, 5);
+            data.Growth.Stages[0].GoalLevel = 1;
+            data.Growth.Stages.Add(Stage(1, 5));
+            GameContent content = TestContent.Load(data);
+            var state = new PlayerState(TestContent.First);
+            ProgressCheats.SetGrowthStage(state, content.Growth, 1);
+            Expect.Equal(1, content.Growth.MaxStage);
+
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+            Kill(game.World, game.World.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.True(game.World.Hq.ReachedGoal, "목표 Level 1에 닿았다.");
+            Expect.Equal(1, game.World.Hq.NextStage);
+            game.RequestEnd();
+            game.Settle();
+            Expect.Equal(1, state.GrowthStage);
+
+            Expect.Throws<ArgumentException>(() => new HqGrowthDefinition(new[]
+            {
+                new GrowthStageDefinition(new long[] { 5 }, GrowthStageDefinition.NoGoal),
+                new GrowthStageDefinition(new long[] { 5 }, 1),
+            }));
+        }
+
+        // 개발용 성장도 치트: 0부터 마지막 성장도까지로 자르고, 전투 중에는 거부한다.
+        private static void StageCheatIsClampedAndRefusedDuringBattle()
+        {
+            ContentData data = Arena(exp: 5, 5);
+            data.Growth.Stages[0].GoalLevel = 1;
+            data.Growth.Stages.Add(Stage(0, 5));
+            GameContent content = TestContent.Load(data);
+            var state = new PlayerState(TestContent.First);
+
+            Expect.Equal(1, ProgressCheats.SetGrowthStage(state, content.Growth, 7));
+            Expect.Equal(1, state.GrowthStage);
+            Expect.Equal(0, ProgressCheats.SetGrowthStage(state, content.Growth, -3));
+            Expect.Equal(0, state.GrowthStage);
+
+            SessionAssembler.CreateBattle(content, state);
+            Expect.Throws<InvalidOperationException>(() => ProgressCheats.SetGrowthStage(state, content.Growth, 1));
+            Expect.Equal(0, state.GrowthStage);
+        }
+
+        // 이정표 바로 앞 성장도의 판에서 목표 Level에 닿은 Step에서 판이 끝난다:
+        // 남은 시간이 있어도, 그 Step의 성장 효과(시간 연장·성장 공급) 없이. 목표 전의 Level업에서는 판이 이어진다.
+        private static void MilestoneEndsTheBattleAtOnce()
+        {
+            GameContent content = TestContent.Load(MilestoneArena());
+            var state = new PlayerState(TestContent.First);
+            NodeTree tree = TestContent.Owned(state, GrowthTime(3), GrowthSupply(Rock, 2));
+            ProgressCheats.SetGrowthStage(state, content.Growth, 1);
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state, 0, tree));
+            World world = game.World;
+            float limit = game.TimeLimit.Limit;
+
+            Kill(world, world.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(1, world.Hq.Level);
+            Expect.Equal(SessionPhase.Running, game.Phase);
+            Expect.True(!world.Hq.ReachedMilestone, "목표는 Level 2다.");
+            Expect.Equal(2 + 2, world.Enemies.Count);
+
+            Kill(world, world.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(2, world.Hq.Level);
+            Expect.Equal(SessionPhase.Ended, game.Phase);
+            Expect.True(game.Remaining > 0, "남은 시간이 있어도 끝난다.");
+            Expect.Near(limit + 3, game.TimeLimit.Limit);
+            Expect.Equal(3, world.Enemies.Count);
+            Expect.Equal(0, world.PendingSpawns.Count);
+            Expect.Equal(2, world.Hq.Milestone.Stage);
+
+            // 다음 성장도가 이정표가 아니면 목표에 닿아도 판이 이어진다(성장도 0 → 1).
+            var early = new PlayerState(TestContent.First);
+            GameSession plain = TestContent.Begun(SessionAssembler.CreateBattle(content, early));
+            Kill(plain.World, plain.World.Enemies[0]);
+            plain.Advance(0.1f);
+            Expect.True(plain.World.Hq.ReachedGoal, "성장도 0의 목표 Level 1에 닿았다.");
+            Expect.Equal(SessionPhase.Running, plain.Phase);
+        }
+
+        // 이정표로 끝난 판의 결산은 번 Gold 대신 이정표의 고정 보상을 더하고, 성장도가 이정표 성장도가 된다.
+        private static void MilestonePaysTheFixedRewardInsteadOfEarnedGold()
+        {
+            GameContent content = TestContent.Load(MilestoneArena());
+            var state = new PlayerState(TestContent.First);
+            ProgressCheats.SetGrowthStage(state, content.Growth, 1);
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+
+            Kill(game.World, game.World.Enemies[0]);
+            Kill(game.World, game.World.Enemies[0]);
+            game.Advance(0.1f);
+            Expect.Equal(SessionPhase.Ended, game.Phase);
+            Expect.Equal(14L, game.World.EarnedGold);
+            Expect.Equal(1000L, game.SettledGold);
+
+            game.ClearRemainingEnemies();
+            BattleRawData raw = game.CreateRawData();
+            game.Settle();
+            game.Settle();
+
+            Expect.Equal(1000L, state.Gold);
+            Expect.Equal(2, state.GrowthStage);
+            Expect.Equal(14L, raw.EarnedGold);
+            Expect.Equal(1000L, raw.SettledGold);
+            Expect.True(raw.ReachedMilestone, "원자료에 이정표가 남는다.");
+            Expect.Equal(1, content.Growth.MilestonesReachedBy(state.GrowthStage));
+        }
+
+        // 이정표마다 한 번이다: 성장도는 줄지 않으므로, 이정표 성장도의 판은 목표에 닿아도 지난 이정표로 끝나거나 보상받지 않는다.
+        private static void MilestoneIsReachedOnce()
+        {
+            GameContent content = TestContent.Load(MilestoneArena());
+            var state = new PlayerState(TestContent.First);
+            ProgressCheats.SetGrowthStage(state, content.Growth, 2);
+
+            GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+            Kill(next.World, next.World.Enemies[0]);
+            next.Advance(0.1f);
+            Expect.True(next.World.Hq.ReachedGoal, "성장도 2의 목표 Level 1에 닿았다.");
+            Expect.Equal(SessionPhase.Running, next.Phase);
+            Expect.True(!next.World.Hq.ReachedMilestone, "이미 지난 이정표다.");
+
+            next.RequestEnd();
+            next.Settle();
+            Expect.Equal(7L, state.Gold);
+            Expect.Equal(3, state.GrowthStage);
+        }
+
+        // 개발용 전투 치트: 판의 블랙홀에 EXP를 더하면 다음 Step에서 평소처럼 Level이 오르고 이정표도 판정된다. 끝난 판은 거부한다.
+        private static void BattleCheatAddsExpForTheNextStep()
+        {
+            GameContent content = TestContent.Load(MilestoneArena());
+            var state = new PlayerState(TestContent.First);
+            ProgressCheats.SetGrowthStage(state, content.Growth, 1);
+            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
+
+            BattleCheats.AddHqExp(game, 10);
+            Expect.Equal(0, game.World.Hq.Level);
+            game.Advance(0.1f);
+            Expect.Equal(2, game.World.Hq.Level);
+            Expect.Equal(SessionPhase.Ended, game.Phase);
+            Expect.Throws<InvalidOperationException>(() => BattleCheats.AddHqExp(game, 1));
+
+            game.Settle();
+            Expect.Equal(2, state.GrowthStage);
+            Expect.Equal(1000L, state.Gold);
         }
 
         // Level 표의 끝에서는 EXP만 쌓이고 성장 효과도 없다. 진행 막대는 가득 찬 것으로 보인다.
@@ -220,7 +435,7 @@ namespace BlackHole.Core.Tests
             Kill(world, world.Enemies[0]);
             game.Advance(0.1f);
 
-            Expect.Equal(2, world.Hq.Level);
+            Expect.Equal(1, world.Hq.Level);
             Expect.True(world.Hq.IsMaxLevel, "표 끝이다.");
             Expect.True(!world.Hq.NextLevelExp.HasValue, "다음 Level이 없다.");
             Expect.Near(1, world.Hq.Progress);
@@ -239,120 +454,36 @@ namespace BlackHole.Core.Tests
             game.RequestEnd();
             game.Advance(0.1f);
 
-            Expect.Equal(1, game.World.Hq.Level);
+            Expect.Equal(0, game.World.Hq.Level);
             Expect.Near(limit, game.TimeLimit.Limit);
         }
 
-        // 이정표 Level에 닿은 Step에서 판이 끝난다: 남은 시간이 있어도, 그 Step의 성장 효과(시간 연장·성장 공급) 없이.
-        // 이정표가 아닌 Level업에서는 판이 이어진다.
-        private static void MilestoneEndsTheBattleAtOnce()
-        {
-            GameContent content = TestContent.Load(MilestoneArena());
-            GameSession game = Grown(content, GrowthTime(3), GrowthSupply(Rock, 2));
-            World world = game.World;
-            float limit = game.TimeLimit.Limit;
-
-            Kill(world, world.Enemies[0]);
-            game.Advance(0.1f);
-            Expect.Equal(2, world.Hq.Level);
-            Expect.Equal(SessionPhase.Running, game.Phase);
-            Expect.True(!world.Hq.ReachedMilestone, "Level 2는 이정표가 아니다.");
-            Expect.Equal(2 + 2, world.Enemies.Count);
-
-            Kill(world, world.Enemies[0]);
-            game.Advance(0.1f);
-            Expect.Equal(3, world.Hq.Level);
-            Expect.Equal(SessionPhase.Ended, game.Phase);
-            Expect.True(game.Remaining > 0, "남은 시간이 있어도 끝난다.");
-            Expect.Near(limit + 3, game.TimeLimit.Limit);
-            Expect.Equal(3, world.Enemies.Count);
-            Expect.Equal(0, world.PendingSpawns.Count);
-            Expect.Equal(1, world.Hq.ReachedMilestones.Count);
-            Expect.Equal(3, world.Hq.ReachedMilestones[0].Level);
-        }
-
-        // 이정표로 끝난 판의 결산은 번 Gold 대신 이정표의 고정 보상을 더한다. 확정된 사망의 EXP는 남는다.
-        private static void MilestonePaysTheFixedRewardInsteadOfEarnedGold()
-        {
-            GameContent content = TestContent.Load(MilestoneArena());
-            var state = new PlayerState(TestContent.First);
-            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
-
-            Kill(game.World, game.World.Enemies[0]);
-            Kill(game.World, game.World.Enemies[0]);
-            game.Advance(0.1f);
-            Expect.Equal(SessionPhase.Ended, game.Phase);
-            Expect.Equal(14L, game.World.EarnedGold);
-            Expect.Equal(1000L, game.SettledGold);
-
-            game.ClearRemainingEnemies();
-            BattleRawData raw = game.CreateRawData();
-            game.Settle();
-            game.Settle();
-
-            Expect.Equal(1000L, state.Gold);
-            Expect.Equal(10L, state.HqExp);
-            Expect.Equal(14L, raw.EarnedGold);
-            Expect.Equal(1000L, raw.SettledGold);
-            Expect.Equal(1, raw.Milestones.Count);
-            Expect.Equal(1, content.Growth.MilestonesReachedBy(raw.ReachedLevel));
-        }
-
-        // 이정표마다 한 번이다: Level은 줄지 않으므로, 다음 판은 이미 지난 이정표로 끝나거나 보상받지 않는다.
-        private static void MilestoneIsReachedOnce()
-        {
-            GameContent content = TestContent.Load(MilestoneArena());
-            var state = new PlayerState(TestContent.First);
-            TestContent.GrowHq(content, state, 10);
-
-            GameSession next = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
-            Expect.Equal(3, next.World.Hq.Level);
-            Kill(next.World, next.World.Enemies[0]);
-            next.Advance(0.1f);
-            Expect.Equal(SessionPhase.Running, next.Phase);
-            Expect.True(!next.World.Hq.ReachedMilestone, "이미 지난 이정표다.");
-
-            next.RequestEnd();
-            next.Settle();
-            Expect.Equal(7L, state.Gold);
-        }
-
-        // 개발용 전투 치트: 판의 블랙홀에 EXP를 더하면 다음 Step에서 평소처럼 Level이 오르고 이정표도 판정된다. 끝난 판은 거부한다.
-        private static void BattleCheatAddsExpForTheNextStep()
-        {
-            GameContent content = TestContent.Load(MilestoneArena());
-            var state = new PlayerState(TestContent.First);
-            GameSession game = TestContent.Begun(SessionAssembler.CreateBattle(content, state));
-
-            BattleCheats.AddHqExp(game, 10);
-            Expect.Equal(1, game.World.Hq.Level);
-            game.Advance(0.1f);
-            Expect.Equal(3, game.World.Hq.Level);
-            Expect.Equal(SessionPhase.Ended, game.Phase);
-            Expect.Throws<InvalidOperationException>(() => BattleCheats.AddHqExp(game, 1));
-
-            game.Settle();
-            Expect.Equal(10L, state.HqExp);
-            Expect.Equal(1000L, state.Gold);
-        }
-
-        // Level 표 5·10·20(Level 2·3·4), Level 3이 이정표(보상 1000). 적은 EXP 5, Gold 7.
+        // 성장도 0·1·2·3. 판 Level 표: 성장도 0은 5(목표 1), 1은 5·10(목표 2), 2·3은 5(목표 1, 3은 마지막).
+        // 이정표는 성장도 2(보상 1000). 적은 EXP 5, Gold 7.
         private static ContentData MilestoneArena()
         {
-            ContentData data = Arena(exp: 5, 5, 10, 20);
+            ContentData data = Arena(exp: 5, 5);
+            data.Growth.Stages[0].GoalLevel = 1;
+            data.Growth.Stages.Add(Stage(2, 5, 10));
+            data.Growth.Stages.Add(Stage(1, 5));
+            data.Growth.Stages.Add(Stage(1, 5));
             data.Enemies[0].Tiers[0].Gold = 7;
-            data.Growth.Milestones.Add(new HqMilestoneData { Level = 3, Reward = 1000 });
+            data.Growth.Milestones.Add(new HqMilestoneData { Stage = 2, Reward = 1000 });
             return data;
         }
 
-        // 소행성 격인 종류(체력 1, 색 하나, 이 EXP) 셋이 나오는 판과 Level 표.
+        // 소행성 격인 종류(체력 1, 색 하나, 이 EXP) 셋이 나오는 판과, 성장도 0 하나(이 Level 표, 목표 없음)인 성장.
         private static ContentData Arena(long exp, params long[] levelExp)
         {
             ContentData data = TestContent.Arena(2, 4, TestContent.Supply(Rock, 3));
             data.Enemies.Add(Kind(Rock, exp));
-            data.Growth = new HqGrowthData { LevelExp = new List<long>(levelExp) };
+            data.Growth = new HqGrowthData();
+            data.Growth.Stages.Add(Stage(GrowthStageDefinition.NoGoal, levelExp));
             return data;
         }
+
+        private static GrowthStageData Stage(int goalLevel, params long[] levelExp) =>
+            new GrowthStageData { LevelExp = new List<long>(levelExp), GoalLevel = goalLevel };
 
         private static EnemyData Kind(string id, long exp)
         {

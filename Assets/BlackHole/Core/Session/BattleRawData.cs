@@ -28,11 +28,16 @@ namespace BlackHole.Core
         public int TotalKills { get; }
         // 이 판에서 번 Gold. 사망 순간마다 그 적의 Gold가 더해진 합계다. 이정표로 끝나지 않았으면 결산이 진행 상태에 더한 값(SettledGold)과 같다.
         public long EarnedGold { get; }
-        // 이 판이 끝났을 때 블랙홀의 Level과 누적 EXP(이 판 앞의 EXP 포함). 결산이 누적 EXP를 진행 상태에 돌려놓는다.
+        // 이 판이 끝났을 때 블랙홀의 Level과 이 판의 EXP. 둘 다 이 판에서만 센 값이며 결산 뒤 버린다.
         public int ReachedLevel { get; }
         public long Exp { get; }
-        // 이 판에서 닿은 이정표(없으면 비어 있다). 있으면 판은 그 Step에서 끝났다.
-        public IReadOnlyList<HqMilestone> Milestones { get; }
+        // 이 판의 성장도와 결산 뒤의 성장도(목표 Level에 닿았으면 +1).
+        public int Stage { get; }
+        public int NextStage { get; }
+        public bool RaisedStage => NextStage > Stage;
+        // 이 판에서 닿은 이정표. 없으면 null이다. 있으면 판은 그 Step에서 끝났다.
+        public HqMilestone Milestone { get; }
+        public bool ReachedMilestone => Milestone != null;
         // 결산이 진행 상태에 더한 Gold: 이정표로 끝났으면 이정표의 보상, 아니면 번 Gold(EarnedGold).
         public long SettledGold { get; }
 
@@ -43,7 +48,9 @@ namespace BlackHole.Core
             long earnedGold,
             int reachedLevel,
             long exp,
-            IReadOnlyList<HqMilestone> milestones,
+            int stage,
+            int nextStage,
+            HqMilestone milestone,
             long settledGold)
         {
             Seed = seed;
@@ -52,7 +59,9 @@ namespace BlackHole.Core
             EarnedGold = earnedGold;
             ReachedLevel = reachedLevel;
             Exp = exp;
-            Milestones = new List<HqMilestone>(milestones).AsReadOnly();
+            Stage = stage;
+            NextStage = nextStage;
+            Milestone = milestone;
             SettledGold = settledGold;
 
             foreach (EnemyKillCount kill in kills)

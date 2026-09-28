@@ -17,9 +17,10 @@ namespace BlackHole.Core
     // 표는 판이 끝날 때까지 같다(전투 중에는 살 수 없다). 노드 트리가 없으면 빈 표다. 이 판의 값은 모두 여기서 한 번 계산한다:
     // - 참가자의 Breaker 수치(피해·주기·반지름·치명타 확률)는 이 표에서 계산한다(BreakerDefinition.Upgraded).
     // - 적 종류의 판 구성(질량 단계·황금 비율·황금 배율·더할 공급 수·성장 공급 수·변환 비율·특수 확률)은 이 표에서 계산한다(EnemyComposition.From).
-    // - 블랙홀의 Level업마다 늘어나는 시간은 이 표에서 계산한다(HqUpgradeStats.GrowthTimeFrom). 블랙홀은 진행 상태의 누적 EXP에서 시작한다(Level은 판을 넘어 이어진다).
-    //   어떤 종류가 나오는가도 여기서 정해진다: 요청한 종류에서 변환·특수 확률만큼 다른 종류로 나온다(BLACKHOLE_LEVEL_PLAN 4.3).
-    // - 적 수치(Gold 포함)와 황금 비율은 판 구성으로, 색 비율은 판을 시작할 때의 블랙홀 Level로 적 수치 표(EnemyStatTable)에 옮겨 적는다.
+    // - 블랙홀의 판 Level업마다 늘어나는 시간은 이 표에서 계산한다(HqUpgradeStats.GrowthTimeFrom).
+    //   블랙홀은 Level 0에서 시작하고, 진행 상태의 성장도로 이 판의 Level 표·목표 Level을 고른다(GAME_RULES 3.2).
+    //   어떤 종류가 나오는가도 여기서 정해진다: 요청한 종류에서 변환·특수 확률만큼 다른 종류로 나온다(BATTLE_COMPOSITION_PLAN 3.4).
+    // - 적 수치(Gold 포함)와 황금 비율은 판 구성으로, 색 비율은 성장도로 적 수치 표(EnemyStatTable)에 옮겨 적는다.
     //
     // seed는 이 전투의 난수(BattleRandom)를 정한다. 같은 콘텐츠·산 노드·seed·진행 시간이면 같은 결과가 나온다.
     public static class SessionAssembler
@@ -43,15 +44,15 @@ namespace BlackHole.Core
                     seed),
             };
 
-            // 이 판의 블랙홀: 방장의 누적 EXP에서 시작한다. Level업마다 늘어나는 시간은 방장의 표로 정한다(성장 노드를 사기 전에는 0).
-            var hq = new Hq(content.Growth, HqUpgradeStats.GrowthTimeFrom(table), progress.HqExp);
+            // 이 판의 블랙홀: Level 0에서 시작하고, 방장의 성장도로 Level 표를 고른다. Level업마다 늘어나는 시간은 방장의 표로 정한다(성장 노드를 사기 전에는 0).
+            var hq = new Hq(content.Growth, HqUpgradeStats.GrowthTimeFrom(table), progress.GrowthStage);
 
             // 적의 수치(Gold 포함)와 색·황금 비율은 여기서 — 전투 Session이 시작되기 전에 — 정해지고 이 판 동안 바뀌지 않는다.
-            // 색 비율은 판을 시작할 때의 블랙홀 Level로 고른다(BLACKHOLE_LEVEL_PLAN 4.2).
+            // 색 비율은 이 판의 성장도로 고른다.
             var stats = new EnemyStatTable(
                 content.Enemies,
                 CompositionsOf(content, table),
-                hq.StartLevel);
+                hq.Stage);
 
             var world = new World(
                 seed,

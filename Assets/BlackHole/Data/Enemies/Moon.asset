@@ -22,8 +22,8 @@ MonoBehaviour:
     size: 0.35
     gold: 2
     exp: 2
-  levelColors:
-  - fromLevel: 1
+  stageColors:
+  - fromStage: 0
     tierRatios:
     - 1
   massLevels:

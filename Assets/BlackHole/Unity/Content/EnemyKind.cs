@@ -12,7 +12,7 @@ namespace BlackHole.Unity
     //
     // 종류는 계열(소행성·행성·별·달·혜성)이고 색은 종류 안에 둔다(BATTLE_COMPOSITION_PLAN 4.1).
     // - 색 등급: 같은 윤곽(스프라이트)에 색마다 색·크기·HP·Gold·EXP가 다르다. 색이 없는 종류는 한 줄이다.
-    // - Level별 색 비율: 블랙홀 Level이 몇부터 색마다 어떤 비율로 나오는가. 판을 시작할 때의 Level로 한 줄이 골라진다(BLACKHOLE_LEVEL_PLAN 4.2).
+    // - 성장도별 색 비율: 블랙홀 성장도가 몇부터 색마다 어떤 비율로 나오는가. 판을 시작할 때의 성장도로 한 줄이 골라진다(GAME_RULES 3.2).
     // - 질량 단계: 질량 증가를 산 수마다 한 줄. HP·Gold 계수. 판 조립 때 한 줄이 골라진다. 색 비율과는 무관하다.
     // - 황금 배율: 황금은 종류가 아니라 생성 때 정해지는 특성이다. 황금이면 Gold에 이 값을 곱한다. 0이면 황금이 되지 않는다.
     // 특수 효과(전기·폭발·처치 버프)는 종류가 아니라 종류에 붙는 특성이다: 사망 효과 칸. 효과를 가진 적은 사망 효과의 피해를 받지 않는다.
@@ -46,10 +46,10 @@ namespace BlackHole.Unity
         }
 
         [Serializable]
-        public struct LevelColor
+        public struct StageColor
         {
-            [Tooltip("이 줄을 쓰기 시작하는 블랙홀 Level(1 이상). 앞 줄보다 커야 한다.")]
-            public int fromLevel;
+            [Tooltip("이 줄을 쓰기 시작하는 블랙홀 성장도(0 이상). 앞 줄보다 커야 한다.")]
+            public int fromStage;
             [Tooltip("색 등급 표와 같은 순서·개수. 0 이상이고 합이 0보다 커야 한다(합이 1이 아니어도 된다).")]
             public List<float> tierRatios;
         }
@@ -69,8 +69,8 @@ namespace BlackHole.Unity
         [Header("색 등급 (번호가 적의 색 등급)")]
         [SerializeField] private List<Tier> tiers = new List<Tier>();
 
-        [Header("Level별 색 비율 (블랙홀 Level이 정한다)")]
-        [SerializeField] private List<LevelColor> levelColors = new List<LevelColor>();
+        [Header("성장도별 색 비율 (판을 시작할 때의 성장도가 고른다)")]
+        [SerializeField] private List<StageColor> stageColors = new List<StageColor>();
 
         [Header("질량 단계 (0 = 질량 증가를 사지 않음, HP·Gold 계수)")]
         [SerializeField] private List<MassLevel> massLevels = new List<MassLevel>();
@@ -129,11 +129,11 @@ namespace BlackHole.Unity
             foreach (Tier tier in tiers)
                 data.Tiers.Add(new EnemyTierData { MaxHealth = tier.maxHealth, Size = tier.size, Gold = tier.gold, Exp = tier.exp });
 
-            foreach (LevelColor row in levelColors)
+            foreach (StageColor row in stageColors)
             {
-                data.LevelColors.Add(new LevelColorData
+                data.StageColors.Add(new StageColorData
                 {
-                    FromLevel = row.fromLevel,
+                    FromStage = row.fromStage,
                     TierRatios = row.tierRatios != null ? new List<float>(row.tierRatios) : new List<float>(),
                 });
             }

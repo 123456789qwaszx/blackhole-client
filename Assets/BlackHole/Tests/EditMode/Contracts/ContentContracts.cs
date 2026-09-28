@@ -17,7 +17,7 @@ namespace BlackHole.Core.Tests
             yield return new Contract("Content.ReportsEnemyReferenceErrorsWithPath", ReportsEnemyReferenceErrorsWithPath);
             yield return new Contract("Content.SupplyNeedsPlacement", SupplyNeedsPlacement);
             yield return new Contract("Content.ReportsGrowthErrorsWithPath", ReportsGrowthErrorsWithPath);
-            yield return new Contract("Content.ReportsLevelErrorsWithPath", ReportsLevelErrorsWithPath);
+            yield return new Contract("Content.ReportsStageColorAndLinkErrorsWithPath", ReportsStageColorAndLinkErrorsWithPath);
         }
 
         // 적 종류와 출현 배치의 오류. 행동 종류 이름은 로더가, 수치는 정의 생성자가 경로와 함께 보고한다.
@@ -30,7 +30,7 @@ namespace BlackHole.Core.Tests
             still.Behavior = null;
             // 색 등급은 둘인데 질량 단계의 색 비율은 하나다.
             EnemyData lopsided = TestContent.Tiered("lopsided", 1, false, TestContent.Tier(10, 0.2f, 1), TestContent.Tier(20, 0.3f, 2));
-            lopsided.LevelColors.Add(TestContent.LevelColor(1, 1));
+            lopsided.StageColors.Add(TestContent.StageColor(1, 1));
             lopsided.MassLevels.Add(TestContent.MassLevel(1, 1));
             data.Enemies.Add(TestContent.Enemy("fragile", health: 0));
             data.Enemies.Add(chaser);
@@ -112,68 +112,84 @@ namespace BlackHole.Core.Tests
             TestContent.HasDiagnostic(result, "MaxAliveEnemies", "6마리");
         }
 
-        // 블랙홀 성장의 Level 표·이정표와 색 등급 EXP의 오류. Level 표는 누적 EXP라 양수이고 앞 줄보다 커야 한다.
-        // 표가 없으면 블랙홀이 Level 1에 머문다.
+        // 블랙홀 성장(성장도별 판 Level 표·목표 Level·이정표)과 색 등급 EXP의 오류.
+        // 판 Level 표는 이 판의 누적 EXP라 양수이고 앞 줄보다 커야 한다. 목표 Level은 표 안이고, 마지막이 아닌 성장도는 1 이상이다.
+        // 성장이 없으면 블랙홀이 Level 0·성장도 0에 머문다.
         private static void ReportsGrowthErrorsWithPath()
         {
             ContentData data = TestContent.Data();
             EnemyData kind = TestContent.Enemy(TestContent.EnemyId);
             kind.Tiers[0].Exp = -1;
             data.Enemies.Add(kind);
-            data.Growth = new HqGrowthData { LevelExp = new List<long> { 5, 5 } };
+            data.Growth = new HqGrowthData();
+            data.Growth.Stages.Add(new GrowthStageData { LevelExp = new List<long> { 5, 5 }, GoalLevel = 1 });
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.Equal(2, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, $"Enemies[{TestContent.EnemyId}].Tiers[0]", "exp");
-            TestContent.HasDiagnostic(result, "Growth.LevelExp", "앞 줄");
+            TestContent.HasDiagnostic(result, "Growth.Stages[0].LevelExp", "앞 줄");
 
-            data.Growth.LevelExp = new List<long> { 0 };
+            data.Growth.Stages[0].LevelExp = new List<long> { 0 };
             kind.Tiers[0].Exp = 0;
             result = ContentLoader.Load(data);
             Expect.Equal(1, result.Diagnostics.Count);
-            TestContent.HasDiagnostic(result, "Growth.LevelExp", "양수");
+            TestContent.HasDiagnostic(result, "Growth.Stages[0].LevelExp", "양수");
 
-            // 이정표: 보상은 0 이상, Level은 Level 표 안(2 ~ MaxLevel)이고 앞 이정표보다 커야 한다.
-            data.Growth = new HqGrowthData { LevelExp = new List<long> { 5, 10 } };
-            data.Growth.Milestones.Add(new HqMilestoneData { Level = 2, Reward = -1 });
+            data.Growth.Stages[0].LevelExp = new List<long> { 5, 10 };
+            data.Growth.Stages[0].GoalLevel = 3;
+            result = ContentLoader.Load(data);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Growth.Stages[0].GoalLevel", "표 안");
+
+            data.Growth.Stages[0].GoalLevel = 0;
+            data.Growth.Stages.Add(new GrowthStageData { LevelExp = new List<long> { 5 }, GoalLevel = 0 });
+            result = ContentLoader.Load(data);
+            Expect.Equal(1, result.Diagnostics.Count);
+            TestContent.HasDiagnostic(result, "Growth.Stages", "마지막이 아닌");
+
+            // 이정표: 보상은 0 이상, 성장도는 성장도 표 안(1 ~ MaxStage)이고 앞 이정표보다 커야 한다.
+            data.Growth.Stages[0].GoalLevel = 2;
+            data.Growth.Milestones.Add(new HqMilestoneData { Stage = 1, Reward = -1 });
             result = ContentLoader.Load(data);
             Expect.Equal(1, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Growth.Milestones[0]", "reward");
 
             data.Growth.Milestones[0].Reward = 10;
-            data.Growth.Milestones.Add(new HqMilestoneData { Level = 2, Reward = 10 });
+            data.Growth.Milestones.Add(new HqMilestoneData { Stage = 1, Reward = 10 });
             result = ContentLoader.Load(data);
             Expect.Equal(1, result.Diagnostics.Count);
             TestContent.HasDiagnostic(result, "Growth.Milestones", "앞 이정표");
 
             data.Growth.Milestones.RemoveAt(1);
-            data.Growth.Milestones[0].Level = 4;
+            data.Growth.Milestones[0].Stage = 2;
             result = ContentLoader.Load(data);
-            TestContent.HasDiagnostic(result, "Growth.Milestones", "Level 표 안");
+            TestContent.HasDiagnostic(result, "Growth.Milestones", "성장도 표 안");
 
             data.Growth = null;
-            Expect.Equal(HqGrowthDefinition.StartLevel, TestContent.Load(data).Growth.MaxLevel);
+            GameContent none = TestContent.Load(data);
+            Expect.Equal(HqGrowthDefinition.StartStage, none.Growth.MaxStage);
+            Expect.Equal(GrowthStageDefinition.StartLevel, none.Growth.StageAt(0).MaxLevel);
         }
 
-        // Level별 색 비율과 종류 사이 연결의 오류: 시작 Level은 1 이상이고 앞 줄보다 커야 하며, 줄이 하나 이상 있어야 한다.
+        // 성장도별 색 비율과 종류 사이 연결의 오류: 시작 성장도는 0 이상이고 앞 줄보다 커야 하며, 줄이 하나 이상 있어야 한다.
         // 색 등급과의 길이 맞춤은 ReportsEnemyErrorsWithPath가 본다.
-        private static void ReportsLevelErrorsWithPath()
+        private static void ReportsStageColorAndLinkErrorsWithPath()
         {
             ContentData data = TestContent.Data();
             EnemyData zero = TestContent.Enemy("zero");
-            zero.LevelColors[0].FromLevel = 0;
+            zero.StageColors[0].FromStage = -1;
             EnemyData backward = TestContent.Enemy("backward");
-            backward.LevelColors[0].FromLevel = 5;
-            backward.LevelColors.Add(TestContent.LevelColor(3, 1));
+            backward.StageColors[0].FromStage = 5;
+            backward.StageColors.Add(TestContent.StageColor(3, 1));
             EnemyData colorless = TestContent.Enemy("colorless");
-            colorless.LevelColors.Clear();
+            colorless.StageColors.Clear();
             data.Enemies.Add(zero);
             data.Enemies.Add(backward);
             data.Enemies.Add(colorless);
 
             ContentLoadResult result = ContentLoader.Load(data);
             Expect.Equal(3, result.Diagnostics.Count);
-            TestContent.HasDiagnostic(result, "Enemies[zero].LevelColors[0]", "fromLevel");
+            TestContent.HasDiagnostic(result, "Enemies[zero].StageColors[0]", "fromStage");
             TestContent.HasDiagnostic(result, "Enemies[backward]", "앞 줄");
             TestContent.HasDiagnostic(result, "Enemies[colorless]", "하나 이상");
 

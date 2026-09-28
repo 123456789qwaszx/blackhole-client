@@ -53,14 +53,14 @@ namespace BlackHole.Unity
                 _progress.text = $"{owned} / {total} nodes";
         }
 
-        // 블랙홀(판 밖 진행): Level, 다음 Level까지의 %, 이정표 진행도(닿은 수 / 전체).
-        public void ShowHq(int level, float progress, int milestonesReached, int milestoneCount)
+        // 블랙홀(판 밖 진행): 성장도, 다음 판에서 성장도를 올리는 목표 Level(0이면 목표 없음), 이정표 진행도(닿은 수 / 전체).
+        public void ShowHq(int stage, int goalLevel, int milestonesReached, int milestoneCount)
         {
             if (_hq == null)
                 return;
 
-            string text = "Black hole  Lv " + level.ToString(CultureInfo.InvariantCulture)
-                + "  " + Mathf.FloorToInt(progress * 100).ToString(CultureInfo.InvariantCulture) + "%";
+            string text = "Black hole  Stage " + stage.ToString(CultureInfo.InvariantCulture)
+                + (goalLevel > 0 ? "  (goal Lv " + goalLevel.ToString(CultureInfo.InvariantCulture) + ")" : "  (last stage)");
 
             if (milestoneCount > 0)
                 text += "   Milestone " + milestonesReached.ToString(CultureInfo.InvariantCulture)
