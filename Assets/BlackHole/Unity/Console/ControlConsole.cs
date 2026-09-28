@@ -49,16 +49,18 @@ namespace BlackHole.Unity
 
         private int? _shownSeed;
         private bool _seedShown;
-        // 종류 줄이 마지막으로 본 판과 산 노드 수. 둘 중 하나가 바뀌면 비율을 다시 읽는다.
+        // 종류 줄이 마지막으로 본 판과 산 노드 수·성장도. 하나라도 바뀌면 비율을 다시 읽는다.
         private bool _kindsShown;
         private GameSession _shownKindsBattle;
         private int _shownKindsOwnedNodes;
+        private int _shownKindsStage = -1;
         // 설명창에 보일 종류. 없으면 설명창을 닫는다.
         private EnemyDefinition _selected;
         private bool _detailDirty;
         private GameSession _shownDetailBattle;
-        // 설명창이 마지막으로 본 산 노드 수. 노드를 사면 다음 전투의 판 구성이 바뀌므로 다시 쓴다.
+        // 설명창이 마지막으로 본 산 노드 수와 성장도. 노드를 사거나 성장도가 바뀌면 다음 전투의 판 구성이 바뀌므로 다시 쓴다.
         private int _shownOwnedNodes = -1;
+        private int _shownStage = -1;
 
         public ControlConsole(Transform parent, BattleOrchestrator orchestrator, BattleSystem battle,
             GameContent content, NodeTree nodes, EnemyLooks looks)
@@ -138,13 +140,15 @@ namespace BlackHole.Unity
         {
             bool live = battle != null;
             int owned = _orchestrator.Progress.OwnedNodes.Count;
+            int stage = _orchestrator.Progress.GrowthStage;
 
-            // 변환 비율·특수 확률은 판 동안 바뀌지 않는다. 판이 바뀌거나 노드를 샀을 때만 다시 읽는다.
-            if (!_kindsShown || battle != _shownKindsBattle || owned != _shownKindsOwnedNodes)
+            // 변환 비율·특수 확률은 판 동안 바뀌지 않는다. 판이 바뀌거나 노드를 샀거나 성장도가 바뀌었을 때만 다시 읽는다.
+            if (!_kindsShown || battle != _shownKindsBattle || owned != _shownKindsOwnedNodes || stage != _shownKindsStage)
             {
                 _kindsShown = true;
                 _shownKindsBattle = battle;
                 _shownKindsOwnedNodes = owned;
+                _shownKindsStage = stage;
                 _kindsText.text = live ? "Kinds  (battle)" : "Kinds  (next battle)";
 
                 IReadOnlyDictionary<EnemyDefinition, EnemyComposition> next = live
@@ -208,13 +212,15 @@ namespace BlackHole.Unity
         private void RefreshDetail(GameSession battle)
         {
             int owned = _orchestrator.Progress.OwnedNodes.Count;
+            int stage = _orchestrator.Progress.GrowthStage;
 
-            if (!_detailDirty && battle == _shownDetailBattle && owned == _shownOwnedNodes)
+            if (!_detailDirty && battle == _shownDetailBattle && owned == _shownOwnedNodes && stage == _shownStage)
                 return;
 
             _detailDirty = false;
             _shownDetailBattle = battle;
             _shownOwnedNodes = owned;
+            _shownStage = stage;
             _detailPanel.SetActive(_selected != null);
 
             if (_selected == null)

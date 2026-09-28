@@ -13,6 +13,7 @@ namespace BlackHole.Unity
     // 업그레이드 콘솔(개발용, 오른쪽 아래). 구매 규칙을 거치지 않고 진행 상태를 바꾼다(ProgressCheats).
     // - Gold 더하기·빼기: 100, 1K(1,000), 10K(1만), 1M(100만), 100M(1억), 10B(100억), 1T(1조). 빼기는 0에서 멈춘다.
     // - Unlock all: 모든 노드를 산 것으로 한다(Gold를 쓰지 않는다). Lock all: 산 노드를 모두 지운다(Gold는 돌려주지 않는다).
+    // - Stage −1 / +1: 블랙홀 성장도를 바꾼다(0부터 마지막 성장도까지). 이정표 앞 성장도로 가서 이정표를 시험할 때 쓴다. 지난 이정표의 보상은 주지 않는다.
     // 버튼으로 진행 상태를 바꾸면 업그레이드 화면 갱신을 알린다.
     // 진행 상태는 전투 밖에서만 바뀌므로, 전투 중에는 모든 버튼이 꺼진다(치트도 전투 중에는 거부한다).
     //
@@ -21,6 +22,7 @@ namespace BlackHole.Unity
     {
         private const float GoldButtonWidth = 104;
         private const float NodeButtonWidth = 360;
+        private const float StageButtonWidth = 360;
 
         private static readonly (string Label, long Amount)[] GoldSteps =
         {
@@ -35,18 +37,21 @@ namespace BlackHole.Unity
 
         private readonly PlayerState _player;
         private readonly NodeTree _tree;
+        private readonly HqGrowthDefinition _growth;
         private readonly Action _onProgressChanged;
         private readonly GameObject _canvas;
         private readonly TMP_Text _goldText;
         private readonly List<Button> _buttons = new List<Button>();
 
         private long _shownGold = -1;
+        private int _shownStage = -1;
         private bool? _shownInBattle;
 
-        public UpgradeConsole(Transform parent, PlayerState player, NodeTree tree, Action onProgressChanged)
+        public UpgradeConsole(Transform parent, PlayerState player, NodeTree tree, HqGrowthDefinition growth, Action onProgressChanged)
         {
             _player = player;
             _tree = tree;
+            _growth = growth;
             _onProgressChanged = onProgressChanged;
 
             RectTransform canvas = CreateCanvas(parent, "Upgrade Console");
@@ -75,6 +80,13 @@ namespace BlackHole.Unity
                 () => ChangeProgress(() => ProgressCheats.UnlockAllNodes(_player, _tree))));
             _buttons.Add(ButtonOf(nodes, "LockAll", "Lock all", NodeButtonWidth,
                 () => ChangeProgress(() => ProgressCheats.LockAllNodes(_player))));
+
+            RectTransform stage = Child(panel, "Stage");
+            HorizontalLayout(stage, 8);
+            _buttons.Add(ButtonOf(stage, "StageDown", "Stage -1", StageButtonWidth,
+                () => ChangeProgress(() => ProgressCheats.SetGrowthStage(_player, _growth, _player.GrowthStage - 1))));
+            _buttons.Add(ButtonOf(stage, "StageUp", "Stage +1", StageButtonWidth,
+                () => ChangeProgress(() => ProgressCheats.SetGrowthStage(_player, _growth, _player.GrowthStage + 1))));
 
             Refresh();
         }
@@ -106,11 +118,13 @@ namespace BlackHole.Unity
                     SetInteractable(button, !_player.InBattle);
             }
 
-            if (_player.Gold == _shownGold)
+            if (_player.Gold == _shownGold && _player.GrowthStage == _shownStage)
                 return;
 
             _shownGold = _player.Gold;
-            _goldText.text = "Gold " + _player.Gold.ToString("N0", CultureInfo.InvariantCulture);
+            _shownStage = _player.GrowthStage;
+            _goldText.text = "Gold " + _player.Gold.ToString("N0", CultureInfo.InvariantCulture)
+                + "   Stage " + _player.GrowthStage.ToString(CultureInfo.InvariantCulture) + " / " + _growth.MaxStage.ToString(CultureInfo.InvariantCulture);
         }
     }
 }

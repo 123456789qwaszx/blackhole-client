@@ -15,7 +15,7 @@ namespace BlackHole.Unity
                 _screens.HandleLifecycleStartBattleClicked,
                 _screens.HandleLifecyclePauseClicked, _screens.HandleLifecycleEndBattleClicked);
             var commandConsole = new EnemyCommandConsole(transform, _battle, _content.Enemies);
-            var upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _screens.HandleUpgradeConsoleProgressChanged);
+            var upgradeConsole = new UpgradeConsole(transform, _viewer, _nodeTree, _content.Growth, _screens.HandleUpgradeConsoleProgressChanged);
             var skillConsole = new SkillConsole(transform, _content, _battle, _viewer.Id);
 
             _host.AttachConsoles(console, lifecycleConsole, commandConsole, upgradeConsole, skillConsole);

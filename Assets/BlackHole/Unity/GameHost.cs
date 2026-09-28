@@ -54,7 +54,7 @@ namespace BlackHole.Unity
                 screen.ShowIdle();
             else
                 screen.Show(session.Remaining, session.World.EarnedGold, session.Phase == SessionPhase.Paused,
-                    session.World.Hq.Level, session.World.Hq.Progress);
+                    session.World.Hq.Level, session.World.Hq.Progress, session.World.Hq.GoalLevel);
         }
 
         public void Dispose()

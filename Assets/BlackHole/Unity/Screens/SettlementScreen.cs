@@ -47,14 +47,22 @@ namespace BlackHole.Unity
         private void HandleContinueClicked(PointerEventData _) => ContinueClicked?.Invoke();
 
         // milestone: 이정표에 닿아 끝난 판인가(남은 시간과 관계없이 끝났다).
-        public void ShowResult(float playedSeconds, int reachedLevel, bool milestone)
+        // stage → nextStage: 이 판의 성장도와 결산 뒤 성장도(목표 Level에 닿았으면 +1).
+        public void ShowResult(float playedSeconds, int reachedLevel, int stage, int nextStage, bool milestone)
         {
             if (_result != null)
                 _result.text = milestone ? "Milestone reached" : "Battle over";
 
-            if (_time != null)
-                _time.text = "Time  " + playedSeconds.ToString("F1", CultureInfo.InvariantCulture) + " s    Black hole  Lv "
-                    + reachedLevel.ToString(CultureInfo.InvariantCulture);
+            if (_time == null)
+                return;
+
+            string text = "Time  " + playedSeconds.ToString("F1", CultureInfo.InvariantCulture) + " s    Black hole  Lv "
+                + reachedLevel.ToString(CultureInfo.InvariantCulture) + "    Stage " + stage.ToString(CultureInfo.InvariantCulture);
+
+            if (nextStage != stage)
+                text += " -> " + nextStage.ToString(CultureInfo.InvariantCulture);
+
+            _time.text = text;
         }
 
         // 처치 수 합계와 종류별 처치 수(처음 처치한 순서).

@@ -5,7 +5,7 @@ namespace BlackHole.Unity
 {
     internal sealed partial class ScreenFlow
     {
-        public void GoToSettlement(float seconds, int reachedLevel, bool milestone, int totalKills,
+        public void GoToSettlement(float seconds, int reachedLevel, int stage, int nextStage, bool milestone, int totalKills,
             IReadOnlyList<EnemyKillCount> kills, long earnedGold, long settledGold, long totalGold)
         {
             _ui.SwitchRoot<SettlementScreen>(
@@ -13,7 +13,7 @@ namespace BlackHole.Unity
                 afterPresented: root =>
                 {
                     BindView(root, ApplyBindings);
-                    root.ShowResult(seconds, reachedLevel, milestone);
+                    root.ShowResult(seconds, reachedLevel, stage, nextStage, milestone);
                     root.ShowKills(totalKills, kills);
                     root.ShowGold(earnedGold, settledGold, milestone, totalGold);
                 },
